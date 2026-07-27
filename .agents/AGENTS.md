@@ -16,8 +16,8 @@ of condition deterioration with an early warning. Target: shipped MVP in the App
 These three are non-negotiable and apply to every task, every agent, every commit.
 
 1. **Do No Harm** — The system is stable. Don't refactor beyond task scope.
-2. **Human-in-the-Loop** — All external mutations (Githab MR, comments) require human
-   approval. See `skills/human_approval/SKILL.md`.
+2. **Human-in-the-Loop** — All external mutations (push, GitHub PR, comments) require
+   human approval. See `skills/human_approval/SKILL.md`.
 3. **Scope Control** — Only change what the task requires. See `skills/scope_control/SKILL.md`.
 
 ### Project-specific hard rules
@@ -25,7 +25,7 @@ These three are non-negotiable and apply to every task, every agent, every commi
 4. **Privacy-first** — Health data does not leave the device without explicit consent.
    ML training and inference are on-device (Core ML + `MLUpdateTask`). No analytics SDK
    that touches HealthKit-derived values.
-5. **No medical claims** — Never write copy, code comments, or MR descriptions that state or
+5. **No medical claims** — Never write copy, code comments, or PR descriptions that state or
    imply diagnosis, treatment, or disease prevention. Approved vocabulary: _tracking_,
    _personal patterns_, _wellbeing companion_. Violations are App Review blockers
    (Guideline 1.4.1 / 5.1.1).
@@ -34,7 +34,7 @@ These three are non-negotiable and apply to every task, every agent, every commi
    Default budget: ≤2% additional daily drain on Apple Watch. Justify any sampling rate.
 7. **Laser-scoped permissions** — Request only the HealthKit types actually consumed by a
    shipped feature. Adding a `HKObjectType` requires a matching entry in the privacy
-   nutrition label and a one-line justification in the MR.
+   nutrition label and a one-line justification in the PR.
 
 ---
 
@@ -42,9 +42,12 @@ These three are non-negotiable and apply to every task, every agent, every commi
 
 ### `.agents/` — agent operating system
 
+What exists today:
+
 ```
 .agents/
 ├── AGENTS.md                     # this file — always read first
+├── settings.json                 # tool permissions — empty, not configured yet
 ├── skills/                       # loadable procedures, one folder per skill
 │   ├── human_approval/
 │   │   └── SKILL.md              # when + how to request human sign-off
@@ -60,26 +63,29 @@ These three are non-negotiable and apply to every task, every agent, every commi
 │   │   └── SKILL.md              # permission flow + nutrition-label sync
 │   ├── appstore_compliance/
 │   │   └── SKILL.md              # health-claim wording, review checklist
-│   └── gitlab_mr/
-│       └── SKILL.md              # branch, commit, MR template (gated by #2)
-├── agents/                       # subagent role definitions
-│   ├── ios-engineer.md           # Swift/SwiftUI implementation
-│   ├── ml-engineer.md            # Core ML pipeline, validation, metrics
-│   ├── reviewer.md               # read-only; scope + convention audit
-│   └── researcher.md             # literature, API docs; no write access
-├── commands/                     # repeatable workflows
-│   ├── mr-prepare.md             # diff review → MR body → approval gate
-│   └── release-check.md          # pre-TestFlight compliance sweep
+│   └── github_pr/
+│       └── SKILL.md              # branch, commit, PR template (gated by #2)
 ├── context/                      # durable project knowledge
-│   ├── architecture.md           # data flow, persistence, sync, background
-│   ├── data-model.md             # SwiftData schema + migration history
-│   ├── ml-spec.md                # feature list, target definition, metrics
-│   ├── glossary.md               # domain terms (kPa, HRV, risk score…)
-│   └── decisions/                # ADRs, immutable once merged
-│       └── ADR-0001-on-device-ml.md
-└── config/
-    └── settings.json             # tool permissions, allowed paths
+│   └── ml-spec.md                # label, feature registry, validation, metrics
+├── agents/                       # subagent role definitions — empty
+└── commands/                     # repeatable workflows — empty
 ```
+
+Planned, not written yet. Do not cite these as if they existed; if a task needs one,
+write it as part of that task:
+
+| path | contents |
+| ---------------------------------------- | ------------------------------------------ |
+| `context/architecture.md` | data flow, persistence, sync, background |
+| `context/data-model.md` | SwiftData schema + migration history |
+| `context/glossary.md` | domain terms (kPa, HRV, risk score…) |
+| `context/decisions/ADR-0001-on-device-ml.md` | ADRs, immutable once merged |
+| `agents/ios-engineer.md` | Swift/SwiftUI implementation |
+| `agents/ml-engineer.md` | Core ML pipeline, validation, metrics |
+| `agents/reviewer.md` | read-only; scope + convention audit |
+| `agents/researcher.md` | literature, API docs; no write access |
+| `commands/pr-prepare.md` | diff review → PR body → approval gate |
+| `commands/release-check.md` | pre-TestFlight compliance sweep |
 
 **Rules for `.agents/`**
 
@@ -115,10 +121,10 @@ Deviating from these requires an ADR in `.agents/context/decisions/`.
 
 - Concurrency: `async/await` and actors. No new Combine pipelines; no completion-handler
   APIs in new code.
-- Sensor and network access sits behind a protocol in its package so tests inject fakes.
+- Sensor and network access sits behind a protocol in `Shared/` so tests inject fakes.
 - No force-unwrap and no `try!` outside test targets.
-- Public API of every package documented with `///`. Internal code is documented only where
-  the _why_ is non-obvious.
+- Public API of every type in `Shared/` documented with `///`. Internal code is documented
+  only where the _why_ is non-obvious.
 - Feature flags for anything that changes the forecast output, so it can be disabled without
   a release.
 
@@ -137,10 +143,10 @@ Deviating from these requires an ADR in `.agents/context/decisions/`.
 
 ### Testing
 
-- New logic in `Packages/` ships with unit tests. No exceptions for "small" changes.
+- New logic in `Shared/` ships with unit tests. No exceptions for "small" changes.
 - New or changed SwiftUI view → snapshot test, both size classes and both platforms
   where applicable.
-- ML pipeline changes → the metric-regression test must run and the result goes in the MR
+- ML pipeline changes → the metric-regression test must run and the result goes in the PR
   description.
 - Nothing merges with a failing or newly skipped test.
 
@@ -149,8 +155,8 @@ Deviating from these requires an ADR in `.agents/context/decisions/`.
 - Branches: `type/BARO-123-short-slug` (`feat`, `fix`, `chore`, `refactor`, `spike`).
 - Commits: Conventional Commits, imperative mood, one logical change per commit.
   `feat(forecasting): add pressure delta over 6h window`
-- **Any Jira transition, MR creation, or comment posting is a gated action** — draft it,
-  show it, wait for human approval. See rule #2.
+- **Any push, PR creation, or comment posting is a gated action** — draft it, show it,
+  wait for human approval. See rule #2 and `skills/github_pr/SKILL.md`.
 
 ### Escalate instead of guessing
 

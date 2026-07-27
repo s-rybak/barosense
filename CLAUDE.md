@@ -17,9 +17,9 @@ discussion.
 Read these before writing any code. They override convenience.
 
 1. **No medical claims.** Never write copy, comments, or API names that assert diagnosis,
-   treatment, or disease prevention. Allowed vocabulary: *tracking*, *personal patterns*,
-   *wellbeing companion*, *your history suggests*. Forbidden: *diagnose*, *predicts your
-   migraine*, *prevents*, *treats*, *medical*. This is an App Review rejection risk
+   treatment, or disease prevention. Allowed vocabulary: _tracking_, _personal patterns_,
+   _wellbeing companion_, _your history suggests_. Forbidden: _diagnose_, _predicts your
+   migraine_, _prevents_, _treats_, _medical_. This is an App Review rejection risk
    (Guideline 1.4.1 / 5.1.1), not a style preference.
 2. **Health data never leaves the device** without explicit, separate user consent.
    Default: no network egress of health or check-in data at all. WeatherKit requests are
@@ -29,7 +29,7 @@ Read these before writing any code. They override convenience.
 4. **Battery budget on watchOS is the binding constraint.** Every sampling interval,
    background refresh, and complication reload must come with a stated cost rationale.
    Do not add a timer or observer without justifying its frequency.
-5. **Cold start must work.** The model must produce useful output with 7–14 days of
+5. **Cold start must work.** The model must produce useful output with 3–7 days of
    history. Any design that needs months of data before it is useful is wrong. Prefer a
    population prior blended toward the personal model as `n` grows.
 6. **Complication readability.** A watch face complication must be parseable in ~0.5 s.
@@ -37,18 +37,18 @@ Read these before writing any code. They override convenience.
 
 ## Stack (defaults — flag before deviating)
 
-| Concern | Choice |
-|---|---|
-| Language / UI | Swift, SwiftUI |
-| Minimum OS | iOS 17.0 / watchOS 10.0 |
-| Barometer | `CoreMotion.CMAltimeter` |
-| Health signals | HealthKit (`HKHealthStore`, observer queries) |
-| Weather | WeatherKit |
-| ML | Core ML on-device; local training via `MLUpdateTask` |
-| Persistence | SwiftData (CoreData only if fine-grained control is needed), CloudKit sync |
-| Widgets | WidgetKit + `TimelineProvider`, ~1 h refresh cadence |
-| Tests | XCTest; separate unit tests for the ML pipeline |
-| Project file | XcodeGen (`project.yml`) |
+| Concern        | Choice                                                                     |
+| -------------- | -------------------------------------------------------------------------- |
+| Language / UI  | Swift, SwiftUI                                                             |
+| Minimum OS     | iOS 17.0 / watchOS 10.0                                                    |
+| Barometer      | `CoreMotion.CMAltimeter`                                                   |
+| Health signals | HealthKit (`HKHealthStore`, observer queries)                              |
+| Weather        | WeatherKit                                                                 |
+| ML             | Core ML on-device; local training via `MLUpdateTask`                       |
+| Persistence    | SwiftData (CoreData only if fine-grained control is needed), CloudKit sync |
+| Widgets        | WidgetKit + `TimelineProvider`, ~1 h refresh cadence                       |
+| Tests          | XCTest; separate unit tests for the ML pipeline                            |
+| Project file   | XcodeGen (`project.yml`)                                                   |
 
 ## Build
 
@@ -93,7 +93,7 @@ plain unit test with synthetic input — no `HKHealthStore` or `CMAltimeter` at 
 - `CMAltimeter.startRelativeAltitudeUpdates` delivers `CMAltitudeData.pressure` in
   **kPa** (`NSNumber`). Multiply by 10 for hPa/mbar, the unit meteorology uses. Check
   `CMAltimeter.isRelativeAltitudeAvailable()` and `authorizationStatus()` first.
-- Raw barometer output is *station* pressure — it moves when the user changes altitude
+- Raw barometer output is _station_ pressure — it moves when the user changes altitude
   (stairs, elevator, driving). Altitude-driven change is not weather. Any pressure feature
   fed to the model must be de-trended for altitude or gated on a stationarity check;
   otherwise the model learns "user took the elevator" as a signal.
@@ -104,7 +104,7 @@ plain unit test with synthetic input — no `HKHealthStore` or `CMAltimeter` at 
   guessing.
 - The physiologically discussed signal in the literature is usually **rate of change**
   (hPa per 3/6/24 h) rather than absolute pressure. Feature design should reflect that.
-- WeatherKit provides forward-looking pressure, which is what makes an *advance* warning
+- WeatherKit provides forward-looking pressure, which is what makes an _advance_ warning
   possible at all. On-watch sensor data is the ground truth for "now"; WeatherKit is the
   ground truth for "next 24–48 h".
 
@@ -132,9 +132,3 @@ plain unit test with synthetic input — no `HKHealthStore` or `CMAltimeter` at 
   quotas, App Review specifics), say so explicitly instead of inventing it. Fabricated API
   surface is worse than an admitted gap.
 - Answers in Ukrainian; code, identifiers, comments, and commit messages in English.
-
-## Not yet built
-
-Widget/complication extension target, HealthKit integration, WeatherKit integration,
-SwiftData schema, and the ML pipeline are all still to be scaffolded. `project.yml`
-currently defines the iOS app, the watchOS app, and a shared unit-test target only.
