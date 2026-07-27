@@ -60,3 +60,11 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# XcodeGen — the project file is generated from project.yml, never committed.
+# Regenerate with: xcodegen generate
+*.xcodeproj
+*.xcworkspace
+
+# macOS
+.DS_Store
