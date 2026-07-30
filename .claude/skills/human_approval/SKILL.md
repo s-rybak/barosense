@@ -37,7 +37,7 @@ can see.
   See `../appstore_compliance/SKILL.md`.
 - Deleting or rewriting history: `git reset --hard`, `git rebase`, `git commit --amend`,
   force push, deleting a branch.
-- Anything in `.agents/context/decisions/` — ADRs are append-only.
+- Anything in `.claude/context/decisions/` — ADRs are append-only.
 
 When a task requires two gated actions (e.g. push **and** open a PR), request them
 together in one block, not one at a time.

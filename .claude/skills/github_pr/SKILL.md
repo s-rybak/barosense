@@ -117,7 +117,7 @@ unchecked box means the PR is not ready.
 ## Commands
 
 ```bash
-gh pr create --draft --title "feat(forecasting): add 6h pressure delta" --body-file .agents/.pr-body.md
+gh pr create --draft --title "feat(forecasting): add 6h pressure delta" --body-file .claude/.pr-body.md
 ```
 
 Draft first, always. Marking ready for review is a separate approval.

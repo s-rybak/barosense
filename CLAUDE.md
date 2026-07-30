@@ -88,6 +88,20 @@ Rule: anything that can live in `Shared/` should. Platform targets hold views an
 platform-specific plumbing only. The ML pipeline in particular must be runnable from a
 plain unit test with synthetic input — no `HKHealthStore` or `CMAltimeter` at test time.
 
+## Agent assets
+
+`AGENTS.md` at the repo root is the tool-agnostic entry point; the operational assets
+live in `.claude/` and are auto-discovered by Claude Code:
+
+- `.claude/skills/` — procedure skills (scope control, human-approval gates, Swift
+  conventions, watchOS battery budget, ML pipeline, HealthKit permissions, App Store
+  compliance, GitHub PR flow). Load the ones the task actually touches.
+- `.claude/agents/` — subagents: `ios-engineer`, `ml-engineer` (writes only `Shared/`
+  and `Tests/`), `reviewer` (read-only), `researcher` (read-only + web).
+- `.claude/commands/` — slash commands: `/pr-prepare`, `/release-check`, `/ml-eval`.
+- `.claude/context/ml-spec.md` — feature registry and ML ground truth; update it in
+  the same change as any feature edit.
+
 ## Domain notes worth remembering
 
 - `CMAltimeter.startRelativeAltitudeUpdates` delivers `CMAltitudeData.pressure` in

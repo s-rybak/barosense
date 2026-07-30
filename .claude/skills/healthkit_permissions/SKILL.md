@@ -19,7 +19,7 @@ Do them in this order. Stop at the first one you cannot satisfy.
 1. **Consumer first.** Point to the code in `Shared/` that reads this type and the
    feature it feeds. No consumer → no request. A type added "for later" is a rejection
    risk today.
-2. **Feature row.** Add the type to `.agents/context/ml-spec.md` with unit, sampling
+2. **Feature row.** Add the type to `.claude/context/ml-spec.md` with unit, sampling
    frequency, and missing-value strategy (`../ml_pipeline/SKILL.md`).
 3. **Entitlement.** `com.apple.developer.healthkit.access` in the target's
    `.entitlements`, via `project.yml` — never by hand-editing the generated project.

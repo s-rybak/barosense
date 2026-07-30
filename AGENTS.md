@@ -17,8 +17,8 @@ These three are non-negotiable and apply to every task, every agent, every commi
 
 1. **Do No Harm** — The system is stable. Don't refactor beyond task scope.
 2. **Human-in-the-Loop** — All external mutations (push, GitHub PR, comments) require
-   human approval. See `skills/human_approval/SKILL.md`.
-3. **Scope Control** — Only change what the task requires. See `skills/scope_control/SKILL.md`.
+   human approval. See `.claude/skills/human_approval/SKILL.md`.
+3. **Scope Control** — Only change what the task requires. See `.claude/skills/scope_control/SKILL.md`.
 
 ### Project-specific hard rules
 
@@ -40,35 +40,39 @@ These three are non-negotiable and apply to every task, every agent, every commi
 
 ## 2. Folder Structure
 
-### `.agents/` — agent operating system
+### `.claude/` — agent operating system
+
+This file lives at the repo root (`AGENTS.md`) as the tool-agnostic entry point.
+Everything operational lives in `.claude/`, where Claude Code auto-discovers skills,
+subagents, and slash commands; other tools read this file first, then load from
+`.claude/` by path.
 
 What exists today:
 
 ```
-.agents/
-├── AGENTS.md                     # this file — always read first
+AGENTS.md                         # this file — always read first
+.claude/
 ├── settings.json                 # tool permissions — empty, not configured yet
 ├── skills/                       # loadable procedures, one folder per skill
-│   ├── human_approval/
-│   │   └── SKILL.md              # when + how to request human sign-off
-│   ├── scope_control/
-│   │   └── SKILL.md              # diff-size limits, out-of-scope escalation
-│   ├── swift_conventions/
-│   │   └── SKILL.md              # Swift/SwiftUI style, module boundaries
-│   ├── watchos_budget/
-│   │   └── SKILL.md              # background refresh quotas, battery math
-│   ├── ml_pipeline/
-│   │   └── SKILL.md              # feature engineering, time-series validation
-│   ├── healthkit_permissions/
-│   │   └── SKILL.md              # permission flow + nutrition-label sync
-│   ├── appstore_compliance/
-│   │   └── SKILL.md              # health-claim wording, review checklist
-│   └── github_pr/
-│       └── SKILL.md              # branch, commit, PR template (gated by #2)
+│   ├── human_approval/           # when + how to request human sign-off
+│   ├── scope_control/            # diff-size limits, out-of-scope escalation
+│   ├── swift_conventions/        # Swift/SwiftUI style, module boundaries
+│   ├── watchos_budget/           # background refresh quotas, battery math
+│   ├── ml_pipeline/              # feature engineering, time-series validation
+│   ├── healthkit_permissions/    # permission flow + nutrition-label sync
+│   ├── appstore_compliance/      # health-claim wording, review checklist
+│   └── github_pr/                # branch, commit, PR template (gated by #2)
 ├── context/                      # durable project knowledge
 │   └── ml-spec.md                # label, feature registry, validation, metrics
-├── agents/                       # subagent role definitions — empty
-└── commands/                     # repeatable workflows — empty
+├── agents/                       # subagent role definitions
+│   ├── ios-engineer.md           # Swift/SwiftUI implementation
+│   ├── ml-engineer.md            # ML pipeline; writes only Shared/ + Tests/
+│   ├── reviewer.md               # read-only scope/convention/compliance audit
+│   └── researcher.md             # external facts with sources; read-only
+└── commands/                     # repeatable workflows (slash commands)
+    ├── pr-prepare.md             # gates → PR body draft → approval stop
+    ├── release-check.md          # pre-TestFlight compliance sweep, go/no-go
+    └── ml-eval.md                # metric regression vs. baselines, PR table
 ```
 
 Planned, not written yet. Do not cite these as if they existed; if a task needs one,
@@ -76,20 +80,14 @@ write it as part of that task:
 
 | path | contents |
 | ---------------------------------------- | ------------------------------------------ |
-| `context/architecture.md` | data flow, persistence, sync, background |
-| `context/data-model.md` | SwiftData schema + migration history |
-| `context/glossary.md` | domain terms (kPa, HRV, risk score…) |
-| `context/decisions/ADR-0001-on-device-ml.md` | ADRs, immutable once merged |
-| `agents/ios-engineer.md` | Swift/SwiftUI implementation |
-| `agents/ml-engineer.md` | Core ML pipeline, validation, metrics |
-| `agents/reviewer.md` | read-only; scope + convention audit |
-| `agents/researcher.md` | literature, API docs; no write access |
-| `commands/pr-prepare.md` | diff review → PR body → approval gate |
-| `commands/release-check.md` | pre-TestFlight compliance sweep |
+| `.claude/context/architecture.md` | data flow, persistence, sync, background |
+| `.claude/context/data-model.md` | SwiftData schema + migration history |
+| `.claude/context/glossary.md` | domain terms (kPa, HRV, risk score…) |
+| `.claude/context/decisions/ADR-0001-on-device-ml.md` | ADRs, immutable once merged |
 
-**Rules for `.agents/`**
+**Rules for `.claude/`**
 
-- `skills/` — one directory per skill, always `SKILL.md` inside. A skill describes _how_ to
+- `.claude/skills/` — one directory per skill, always `SKILL.md` inside. A skill describes _how_ to
   do something; it never contains project facts. Facts live in `context/`.
 - `context/` — the only place agents may treat as ground truth without re-reading source.
   Anything here that contradicts the code is a bug: fix `context/`, don't fix the code to
@@ -102,7 +100,7 @@ write it as part of that task:
 
 ### Stack defaults
 
-Deviating from these requires an ADR in `.agents/context/decisions/`.
+Deviating from these requires an ADR in `.claude/context/decisions/`.
 
 | Concern       | Default                                                                |
 | ------------- | ---------------------------------------------------------------------- |
@@ -156,7 +154,7 @@ Deviating from these requires an ADR in `.agents/context/decisions/`.
 - Commits: Conventional Commits, imperative mood, one logical change per commit.
   `feat(forecasting): add pressure delta over 6h window`
 - **Any push, PR creation, or comment posting is a gated action** — draft it, show it,
-  wait for human approval. See rule #2 and `skills/github_pr/SKILL.md`.
+  wait for human approval. See rule #2 and `.claude/skills/github_pr/SKILL.md`.
 
 ### Escalate instead of guessing
 

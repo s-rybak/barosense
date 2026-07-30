@@ -44,7 +44,7 @@ Two traps that will silently poison the model:
    to emit a feature when coverage is below its stated minimum — do not emit a
    confidently-wrong value.
 
-Every feature gets a row in `.agents/context/ml-spec.md`:
+Every feature gets a row in `.claude/context/ml-spec.md`:
 
 | field | meaning |
 | ----- | ------------------------------------------------------------ |
