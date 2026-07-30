@@ -14,7 +14,7 @@ Default per task:
 
 | Metric               | Soft limit | Hard limit             |
 | -------------------- | ---------- | ---------------------- |
-| Changed lines (±)    | 300        | 500 → split the task   |
+| Changed lines (±)    | 500        | 1000 → split the task   |
 | Files touched        | 10         | 15 → split the task    |
 | New third-party deps | 0          | 0 (gated, always)      |
 | Public API removed   | 0          | 0 without an ADR       |

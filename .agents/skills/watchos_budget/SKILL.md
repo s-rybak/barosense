@@ -8,7 +8,7 @@ description: Battery-cost accounting for watchOS — how to justify a sampling i
 Core convention #6. Battery is the binding constraint on the watch, not CPU and not
 memory. Every recurring wake-up is a debit that must be argued for.
 
-**Budget: ≤ 2% additional daily drain on Apple Watch.** A change with no stated cost is
+**Budget: ≤ 8% additional daily drain on Apple Watch.** A change with no stated cost is
 not reviewable and should be rejected in review.
 
 ## Before adding anything recurring
