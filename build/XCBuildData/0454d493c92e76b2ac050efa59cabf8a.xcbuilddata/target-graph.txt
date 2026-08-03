@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'Barosense' in project 'Barosense'
+➜ Explicit dependency on target 'BarosenseWatch' in project 'Barosense'
+Target 'BarosenseWatch' in project 'Barosense' (no dependencies)

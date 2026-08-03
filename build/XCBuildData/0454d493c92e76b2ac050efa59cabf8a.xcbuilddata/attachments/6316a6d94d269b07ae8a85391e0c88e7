@@ -1,0 +1,29 @@
+{
+  "" : {
+    "diagnostics" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatch-primary.dia",
+    "emit-module-dependencies" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatch-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatch-primary-emit-module.dia",
+    "pch" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatch-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatch-primary.swiftdeps"
+  },
+  "/Users/serhiirybak/Documents/Study/Final project/Barosense/BarosenseWatch/BarosenseWatchApp.swift" : {
+    "const-values" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.swiftconstvalues",
+    "dependencies" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.d",
+    "diagnostics" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.dia",
+    "index-unit-output-path" : "/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.o",
+    "llvm-bc" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.bc",
+    "object" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.o",
+    "swift-dependencies" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp.swiftdeps",
+    "swiftmodule" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/BarosenseWatchApp~partial.swiftmodule"
+  },
+  "/Users/serhiirybak/Documents/Study/Final project/Barosense/Shared/Models/Pressure.swift" : {
+    "const-values" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.swiftconstvalues",
+    "dependencies" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.d",
+    "diagnostics" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.dia",
+    "index-unit-output-path" : "/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.o",
+    "llvm-bc" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.bc",
+    "object" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.o",
+    "swift-dependencies" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure.swiftdeps",
+    "swiftmodule" : "/Users/serhiirybak/Documents/Study/Final project/Barosense/build/Barosense.build/Debug-watchos/BarosenseWatch.build/Objects-normal/arm64_32/Pressure~partial.swiftmodule"
+  }
+}

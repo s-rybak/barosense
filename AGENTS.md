@@ -105,7 +105,7 @@ Deviating from these requires an ADR in `.claude/context/decisions/`.
 | Concern       | Default                                                                |
 | ------------- | ---------------------------------------------------------------------- |
 | Language / UI | Swift, SwiftUI                                                         |
-| Minimum OS    | iOS 17 / watchOS 10                                                    |
+| Minimum OS    | iOS 26 / watchOS 26                                                    |
 | Barometer     | `CoreMotion.CMAltimeter` (`relativeAltitudeUpdates`, pressure in kPa)  |
 | Health        | HealthKit — `HKHealthStore`, observer queries for background updates   |
 | Weather       | WeatherKit                                                             |

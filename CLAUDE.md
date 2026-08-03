@@ -40,7 +40,7 @@ Read these before writing any code. They override convenience.
 | Concern        | Choice                                                                     |
 | -------------- | -------------------------------------------------------------------------- |
 | Language / UI  | Swift, SwiftUI                                                             |
-| Minimum OS     | iOS 17.0 / watchOS 10.0                                                    |
+| Minimum OS     | iOS 26.0 / watchOS 26.0                                                    |
 | Barometer      | `CoreMotion.CMAltimeter`                                                   |
 | Health signals | HealthKit (`HKHealthStore`, observer queries)                              |
 | Weather        | WeatherKit                                                                 |
