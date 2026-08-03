@@ -20,13 +20,17 @@ concurrency:
 permissions:
   contents: read
 
+# Third-party actions are pinned to a commit SHA, never to a tag. A tag is a mutable
+# pointer the action's owner can move at any time — pinning it means an upstream
+# compromise or an unannounced breaking change lands in this repo's CI without a diff.
+# The `# vX.Y.Z` comment is the human-readable version; Dependabot updates both.
 jobs:
   guards:
     name: Repo guards
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Full history: check-ml-spec-drift.sh diffs against the PR base.
           fetch-depth: 0
@@ -41,11 +45,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Pinned to the version developers run locally — an unpinned tag turns a SwiftLint
-    # release into a surprise red build on an unrelated PR.
+    # release into a surprise red build on an unrelated PR. By digest, not just by tag:
+    # a Docker tag is as mutable as a git tag, so `:0.65.0` alone can be re-pushed.
     container:
-      image: ghcr.io/realm/swiftlint:0.65.0
+      image: ghcr.io/realm/swiftlint@sha256:a482729f4b58741875af1566f23397f3f6db300372756fc31606d0a4527fab9e # 0.65.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # --strict: warnings block too, matching the pre-commit hook. The custom rules in
       # .swiftlint.yml (Shared/ stays UI-free, no MainActor hop, no new Combine) are the

@@ -16,7 +16,12 @@ manifest=project.yml
 ml_spec=.claude/context/ml-spec.md
 status=0
 
-swift_files=$(git ls-files -- 'Barosense/*.swift' 'BarosenseWatch/*.swift' 'Shared/*.swift' || true)
+# Directory pathspecs recurse into every subdirectory at any depth. Written this way
+# rather than as 'Shared/*.swift': that glob also recurses (a git pathspec '*' matches
+# '/', unlike a .gitignore glob), but it reads as if it did not.
+source_dirs=(Barosense BarosenseWatch Shared)
+
+swift_files=$(git ls-files -- "${source_dirs[@]}" | grep -E '\.swift$' || true)
 [ -z "$swift_files" ] && { echo "no Swift files to scan"; exit 0; }
 
 grep_swift() { printf '%s\n' "$swift_files" | tr '\n' '\0' | xargs -0 grep -EnH "$1" 2>/dev/null || true; }

@@ -23,7 +23,12 @@ networking='(URLSession|URLRequest|NSURLConnection|NWConnection|NWPathMonitor|CF
 # CloudKit sync of health-derived data needs an ADR (Apple's HealthKit terms restrict it).
 gated='(import CloudKit|CKContainer|CKDatabase|NSUbiquitous|import Firebase[A-Za-z]*|import Sentry|import Amplitude|import Mixpanel|Analytics\.log)'
 
-swift_files=$(git ls-files -- 'Barosense/*.swift' 'BarosenseWatch/*.swift' 'Shared/*.swift' || true)
+# Directory pathspecs recurse into every subdirectory at any depth. Written this way
+# rather than as 'Shared/*.swift': that glob also recurses (a git pathspec '*' matches
+# '/', unlike a .gitignore glob), but it reads as if it did not.
+source_dirs=(Barosense BarosenseWatch Shared)
+
+swift_files=$(git ls-files -- "${source_dirs[@]}" | grep -E '\.swift$' || true)
 [ -z "$swift_files" ] && { echo "no Swift files to scan"; exit 0; }
 
 scan() { # $1 = regex

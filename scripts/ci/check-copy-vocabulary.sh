@@ -18,9 +18,19 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 product_paths=(Barosense BarosenseWatch Shared Tests project.yml)
 
-# -w is applied per match, so `medical` also catches `medical-grade`, and the
-# `[a-z]*` suffixes catch inflections (diagnose/diagnosis/diagnostic, treats/treatment).
-forbidden='(diagnos[a-z]*|predict[a-z]*|prevent[a-z]*|treat[a-z]*|therap[a-z]*|medical[a-z]*|clinical[a-z]*|cure[a-z]*|symptom[a-z]*|patient[a-z]*|disease[a-z]*|migraine[a-z]*|headache[a-z]*|remed[a-z]*)'
+# Stems, not whole words: matching is substring-based, so `diagnos` covers
+# diagnose / diagnosis / diagnostic and `treat` covers treats / treatment.
+stems=(diagnos predict prevent treat therap medical clinical cure symptom patient
+       disease migraine headache remed)
+
+# Same stems with a capital initial, for the camelCase pass below. Built here rather
+# than written out twice — one list to edit, no chance of the two drifting.
+lower=$(IFS='|'; printf '%s' "${stems[*]}")
+caps=''
+for stem in "${stems[@]}"; do
+    initial=$(printf '%s' "${stem:0:1}" | tr '[:lower:]' '[:upper:]')
+    caps="${caps:+$caps|}${initial}${stem:1}"
+done
 
 # Two things must not trip the guard:
 #  - the mandatory "not medical advice" disclaimer — the compliance checklist *requires*
@@ -37,9 +47,22 @@ if [ -z "$files" ]; then
     exit 0
 fi
 
-hits=$(printf '%s\n' "$files" \
-    | tr '\n' '\0' \
-    | xargs -0 grep -EinwH "$forbidden" 2>/dev/null \
+grep_files() { printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 grep "$@" 2>/dev/null || true; }
+
+# Two passes, because Swift identifiers put words in two different places.
+#
+# 1. Word start — "Migraine risk", `migraineRiskState`, `SHOW_MIGRAINE`. Underscore
+#    counts as a boundary, so SCREAMING_SNAKE and _leadingUnderscore are covered.
+# 2. camelCase / PascalCase hump — `showMigraineWarning`, `isPatientFacing`, which a
+#    word-boundary match misses entirely: the term is glued to the previous word.
+#    Case-SENSITIVE on purpose. It must be the capitalised form, otherwise the `cure`
+#    stem would fire on `secure` / `SecureField` and the guard would be ignorable noise.
+word_start=$(grep_files -EinH "(^|[^A-Za-z0-9])($lower)")
+camel_hump=$(grep_files -EnH "[a-z0-9_]($caps)")
+
+hits=$(printf '%s\n%s\n' "$word_start" "$camel_hump" \
+    | grep -v '^$' \
+    | sort -t: -k1,1 -k2,2n -u \
     | grep -Evi "$exempt" \
     | grep -v 'barosense:copy-allow' || true)
 
