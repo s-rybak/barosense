@@ -1,0 +1,64 @@
+name: tests
+
+# Tier 1 of the pipeline: the part that needs Xcode — XcodeGen, the iOS + watchOS
+# compile, and the XCTest suite on a simulator. Kept out of checks.yml because it needs
+# a macOS runner. This repo is public, so GitHub-hosted macOS minutes are free; the two
+# workflows therefore run in parallel rather than making the slow one wait on the fast
+# one. On a private repo (10x billing) it would be worth gating this on the guards.
+#
+# No path filter on purpose: a job skipped by `paths-ignore` never reports a status, so
+# a required check would block every doc-only PR forever. Cheaper to run it every time.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Actions pinned to a commit SHA, never a tag — same rule as checks.yml.
+jobs:
+  test:
+    name: Build & test
+    # macos-latest, not a specific image label: an unknown label leaves the job queued
+    # forever with no error, whereas a too-old Xcode on macos-latest fails inside
+    # run-tests.sh in under a minute with the list of Xcodes actually installed.
+    # If that happens, pin the label here to the image that ships Xcode 26+.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install XcodeGen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: brew install xcodegen
+
+      # Cheap, and it is the first thing you want in the log when the next runner-image
+      # update moves the toolchain out from under the build.
+      - name: Show toolchain
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Build and test
+        run: scripts/ci/run-tests.sh
+
+      # Failure only. The bundle holds the xcodebuild log and XCTest failures from a
+      # simulator run over synthetic fixtures — no health data, no check-ins, nothing
+      # user-derived can reach it.
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: xcresult
+          path: .build/TestResults.xcresult
+          retention-days: 7
+          if-no-files-found: ignore
