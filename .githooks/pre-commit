@@ -16,4 +16,4 @@ if ! command -v swiftlint >/dev/null 2>&1; then
 fi
 
 # --strict: warnings also block the commit. --force-exclude honours .swiftlint.yml excludes.
-echo "$staged" | tr '\n' '\0' | xargs -0 swiftlint lint --strict --quiet --force-exclude
+echo "$staged" | tr '\n' '\0' | xargs -0 swiftlint lint --strict --force-exclude
