@@ -1,19 +1,74 @@
 #!/bin/sh
-# Pre-commit gate: SwiftLint on staged Swift files.
+# Pre-commit gate: SwiftLint on staged Swift files, then a simulator build.
 # Activate once per clone: git config core.hooksPath .githooks
+# Escape hatches: SKIP_BUILD=1 git commit …  |  git commit --no-verify
 set -u
 
 # GUI git clients (Xcode, Fork, …) start with a minimal PATH.
 PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift')
-[ -z "$staged" ] && exit 0
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+cd "$repo_root" || exit 1
 
-if ! command -v swiftlint >/dev/null 2>&1; then
-    echo "pre-commit: swiftlint not found — install the portable binary into ~/.local/bin" >&2
-    echo "  https://github.com/realm/SwiftLint/releases (portable_swiftlint.zip)" >&2
+staged_swift=$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift')
+staged_proj=$(git diff --cached --name-only --diff-filter=ACMR -- project.yml '*.entitlements')
+
+# --------------------------------------------------------------- SwiftLint --
+if [ -n "$staged_swift" ]; then
+    if ! command -v swiftlint >/dev/null 2>&1; then
+        echo "pre-commit: swiftlint not found — install the portable binary into ~/.local/bin" >&2
+        echo "  https://github.com/realm/SwiftLint/releases (portable_swiftlint.zip)" >&2
+        exit 1
+    fi
+
+    # --strict: warnings also block the commit. --force-exclude honours .swiftlint.yml excludes.
+    echo "$staged_swift" | tr '\n' '\0' | xargs -0 swiftlint lint --strict --force-exclude || exit 1
+fi
+
+# -------------------------------------------------------------- xcodebuild --
+# Nothing compilable staged → skip the expensive step.
+[ -z "$staged_swift" ] && [ -z "$staged_proj" ] && exit 0
+
+if [ "${SKIP_BUILD:-0}" != "0" ]; then
+    echo "pre-commit: SKIP_BUILD set — build skipped." >&2
+    exit 0
+fi
+
+if ! command -v xcodebuild >/dev/null 2>&1; then
+    echo "pre-commit: xcodebuild not found — install Xcode, then" >&2
+    echo "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
     exit 1
 fi
 
-# --strict: warnings also block the commit. --force-exclude honours .swiftlint.yml excludes.
-echo "$staged" | tr '\n' '\0' | xargs -0 swiftlint lint --strict --force-exclude
+# The .xcodeproj is generated, not committed. Regenerate when missing or stale.
+if [ ! -f Barosense.xcodeproj/project.pbxproj ] \
+    || [ project.yml -nt Barosense.xcodeproj/project.pbxproj ]; then
+    if ! command -v xcodegen >/dev/null 2>&1; then
+        echo "pre-commit: xcodegen not found — brew install xcodegen" >&2
+        exit 1
+    fi
+    echo "pre-commit: regenerating Barosense.xcodeproj…"
+    xcodegen generate --quiet || exit 1
+fi
+
+# NOTE: this compiles the working tree, not the staged snapshot. Unstaged edits
+# are included — the pragmatic trade-off; a stash-based build costs a second full
+# build and risks losing work if the hook is interrupted.
+#
+# generic/platform=iOS Simulator: no particular simulator device has to exist.
+# The Barosense scheme builds BarosenseWatch too, so watchOS compiles as well.
+# A dedicated derived data dir keeps the hook off Xcode's cache (no lock
+# contention); it lives in gitignored .build/, so runs stay incremental.
+log=$(mktemp -t barosense-precommit-build)
+echo "pre-commit: building scheme Barosense (iOS + watchOS simulator)…"
+if ! xcodebuild -project Barosense.xcodeproj -scheme Barosense \
+    -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath .build/pre-commit-dd \
+    -quiet build >"$log" 2>&1; then
+    echo "pre-commit: build failed." >&2
+    tail -n 60 "$log" >&2
+    echo "pre-commit: full log at $log" >&2
+    echo "  re-run: xcodebuild -project Barosense.xcodeproj -scheme Barosense -destination 'generic/platform=iOS Simulator' build" >&2
+    exit 1
+fi
+rm -f "$log"
