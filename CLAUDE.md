@@ -146,3 +146,7 @@ live in `.claude/` and are auto-discovered by Claude Code:
   quotas, App Review specifics), say so explicitly instead of inventing it. Fabricated API
   surface is worse than an admitted gap.
 - Answers in Ukrainian; code, identifiers, comments, and commit messages in English.
+- **Never run `git commit`, `git add`, or `git push` yourself** — not even when asked.
+  Leave the change in the working copy, say what is in it, and hand over the command.
+  Committing is the human's signature that the diff has been read.
+  See `.claude/skills/human_approval/SKILL.md`.

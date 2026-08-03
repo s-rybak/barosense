@@ -1,0 +1,15 @@
+version: 2
+
+# Counterpart to the SHA pinning in workflows/checks.yml. A pinned SHA is only safe if
+# something moves it deliberately — otherwise the pin quietly rots and CI runs a year-old
+# action with unpatched dependencies. Dependabot opens a PR with both the SHA and the
+# `# vX.Y.Z` comment updated, which is a diff a human reads before it lands.
+#
+# Monthly, not weekly: this repo has two actions and one container. Weekly noise on a
+# solo project trains you to merge without looking, which defeats the point.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
