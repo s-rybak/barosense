@@ -1,0 +1,19 @@
+#!/bin/sh
+# Pre-commit gate: SwiftLint on staged Swift files.
+# Activate once per clone: git config core.hooksPath .githooks
+set -u
+
+# GUI git clients (Xcode, Fork, …) start with a minimal PATH.
+PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift')
+[ -z "$staged" ] && exit 0
+
+if ! command -v swiftlint >/dev/null 2>&1; then
+    echo "pre-commit: swiftlint not found — install the portable binary into ~/.local/bin" >&2
+    echo "  https://github.com/realm/SwiftLint/releases (portable_swiftlint.zip)" >&2
+    exit 1
+fi
+
+# --strict: warnings also block the commit. --force-exclude honours .swiftlint.yml excludes.
+echo "$staged" | tr '\n' '\0' | xargs -0 swiftlint lint --strict --quiet --force-exclude

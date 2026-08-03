@@ -1,0 +1,7 @@
+# Test targets may use force-unwraps and force-casts (swift_conventions: the ban applies
+# "outside test targets"). Everything else inherits from the root config.
+disabled_rules:
+  - force_unwrapping
+  - force_try
+  - force_cast
+  - implicitly_unwrapped_optional
