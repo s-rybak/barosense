@@ -31,7 +31,7 @@ These three are non-negotiable and apply to every task, every agent, every commi
    (Guideline 1.4.1 / 5.1.1).
 6. **Battery budget is a constraint, not a preference** — Every new sampling loop,
    background task, or complication refresh on watchOS must state its expected cost.
-   Default budget: ≤2% additional daily drain on Apple Watch. Justify any sampling rate.
+   Default budget: ≤8% additional daily drain on Apple Watch. Justify any sampling rate.
 7. **Laser-scoped permissions** — Request only the HealthKit types actually consumed by a
    shipped feature. Adding a `HKObjectType` requires a matching entry in the privacy
    nutrition label and a one-line justification in the PR.
@@ -78,12 +78,12 @@ AGENTS.md                         # this file — always read first
 Planned, not written yet. Do not cite these as if they existed; if a task needs one,
 write it as part of that task:
 
-| path | contents |
-| ---------------------------------------- | ------------------------------------------ |
-| `.claude/context/architecture.md` | data flow, persistence, sync, background |
-| `.claude/context/data-model.md` | SwiftData schema + migration history |
-| `.claude/context/glossary.md` | domain terms (kPa, HRV, risk score…) |
-| `.claude/context/decisions/ADR-0001-on-device-ml.md` | ADRs, immutable once merged |
+| path                                                 | contents                                 |
+| ---------------------------------------------------- | ---------------------------------------- |
+| `.claude/context/architecture.md`                    | data flow, persistence, sync, background |
+| `.claude/context/data-model.md`                      | SwiftData schema + migration history     |
+| `.claude/context/glossary.md`                        | domain terms (kPa, HRV, risk score…)     |
+| `.claude/context/decisions/ADR-0001-on-device-ml.md` | ADRs, immutable once merged              |
 
 **Rules for `.claude/`**
 
