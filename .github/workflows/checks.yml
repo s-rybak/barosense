@@ -1,0 +1,54 @@
+name: checks
+
+# Tier 0 of the pipeline: everything that can be verified without Xcode.
+# Runs on ubuntu-latest (1x billing) in well under a minute. The Xcode build, the
+# test run and the ML metric gates need a macOS runner (10x billing) and live in a
+# separate workflow.
+#
+# These are the same rules as .githooks/pre-commit, but they cannot be bypassed with
+# --no-verify. Make them required status checks on main for that to mean anything.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  guards:
+    name: Repo guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: check-ml-spec-drift.sh diffs against the PR base.
+          fetch-depth: 0
+
+      - name: Run guards
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: scripts/ci/run-all.sh
+
+  swiftlint:
+    name: SwiftLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Pinned to the version developers run locally — an unpinned tag turns a SwiftLint
+    # release into a surprise red build on an unrelated PR.
+    container:
+      image: ghcr.io/realm/swiftlint:0.65.0
+    steps:
+      - uses: actions/checkout@v4
+
+      # --strict: warnings block too, matching the pre-commit hook. The custom rules in
+      # .swiftlint.yml (Shared/ stays UI-free, no MainActor hop, no new Combine) are the
+      # ones worth having in CI — nothing else enforces them.
+      - name: Lint
+        run: swiftlint lint --strict --reporter github-actions-logging
