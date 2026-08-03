@@ -75,8 +75,31 @@ fi
 
 # --- background delivery cost --------------------------------------------------------
 # .immediate frequency needs an explicit battery justification (watchos_budget skill).
-immediate=$(grep_swift 'enableBackgroundDelivery' | grep -E '\.immediate' \
-    | grep -v 'barosense:battery-allow' || true)
+#
+# The frequency argument is regularly on a different line from the call, so the unit of
+# inspection is the call site plus the next 3 lines, not a single line. A same-line grep
+# lets a wrapped call through the guard silently — the expensive direction to be wrong in.
+# The allow-comment counts anywhere in that window, since it usually sits on the argument.
+#
+# A fixed window rather than paren balancing: it covers every realistic formatting of this
+# call, and the failure mode is a false positive, which the escape hatch already answers.
+immediate=$(printf '%s\n' "$swift_files" | tr '\n' '\0' | xargs -0 awk '
+    function flush() {
+        if (window ~ /\.immediate/ && window !~ /barosense:battery-allow/) print site
+        window = ""; site = ""; n = 0
+    }
+    FNR == 1 && n > 0 { flush() }          # a window never spans two files
+    n > 0 {
+        window = window "\n" $0
+        if (--n == 0) flush()
+    }
+    /enableBackgroundDelivery/ && n == 0 {
+        site = FILENAME ":" FNR ": " $0
+        window = $0
+        n = 3
+    }
+    END { if (n > 0) flush() }
+' 2>/dev/null || true)
 if [ -n "$immediate" ]; then
     echo "FAIL: enableBackgroundDelivery(.immediate) without a battery justification" >&2
     printf '%s\n' "$immediate" >&2
