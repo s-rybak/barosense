@@ -26,6 +26,5 @@ struct RootView: View {
 }
 
 #Preview {
-    var directPush: String = "directPush"
     RootView()
 }
