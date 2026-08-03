@@ -26,6 +26,5 @@ struct RootView: View {
 }
 
 #Preview {
-    var test: String = "test"
     RootView()
 }
