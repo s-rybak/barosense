@@ -13,7 +13,7 @@ the code change.
 | ------------------------- | -------------------------------------------------------- |
 | Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set) |
 | Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
-| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` protocols + in-memory doubles in `Shared/Persistence/`. **No durable store yet** — nothing survives a launch |
+| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData stores exist for `UserProfileStore` and `WellbeingTagStore` only (`Shared/Persistence/SwiftData/`, CloudKit off). **Check-ins and pressure samples still do not survive a launch** |
 | Feature pipeline | not written |
 | Model | not trained; no data collected |
 | HealthKit read set | **empty** — `com.apple.developer.healthkit.access: []` in `project.yml` |

@@ -10,7 +10,13 @@ final class WellbeingTagTests: XCTestCase {
         // at, so a rename here orphans history — it has to fail a test, not a review.
         let slugs = WellbeingTag.seeds.map(\.id)
 
-        XCTAssertEqual(slugs, [.seeded("headache"), .seeded("fatigue"), .seeded("joints")]) // barosense:copy-allow
+        XCTAssertEqual(slugs, [.seeded("headache"), // barosense:copy-allow frozen slug
+                               .seeded("migraine"), // barosense:copy-allow frozen slug
+                               .seeded("fatigue"),
+                               .seeded("joints"),
+                               .seeded("sleep"),
+                               .seeded("mood"),
+                               .seeded("dizziness")])
     }
 
     func testSeedIdentifiersAreUnique() {

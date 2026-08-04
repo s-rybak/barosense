@@ -4,7 +4,7 @@ import SwiftUI
 struct BarosenseApp: App {
     var body: some Scene {
         WindowGroup {
-            RootView()
+            AppRootView()
         }
     }
 }
