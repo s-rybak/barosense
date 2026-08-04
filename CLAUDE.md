@@ -64,11 +64,15 @@ Build and test:
 
 ```sh
 xcodebuild -project Barosense.xcodeproj -scheme Barosense \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build
+  -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 xcodebuild -project Barosense.xcodeproj -scheme Barosense \
-  -destination 'platform=iOS Simulator,name=iPhone 16' test
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
+
+`name=` has to match a simulator that is actually installed, otherwise `xcodebuild`
+fails before it compiles anything. Check with `xcrun simctl list devices available`
+and substitute — the device model only matters when a change is layout-sensitive.
 
 Adding a file inside an existing `sources` path needs no `project.yml` edit — XcodeGen
 globs directories. Adding a new **target** or top-level directory does.

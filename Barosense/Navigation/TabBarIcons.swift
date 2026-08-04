@@ -9,8 +9,12 @@ struct TabIcon: View {
 
     let tab: AppTab
     let tint: Color
+    /// Rendered size. The tab bar raises this with Dynamic Type; anything other than
+    /// `baseSize` is a uniform scale of the 22 pt drawing, so proportions and stroke
+    /// weights hold and the shapes stay vector-crisp.
+    var size: CGFloat = TabIcon.baseSize
 
-    static let size: CGFloat = 22
+    static let baseSize: CGFloat = 22
 
     var body: some View {
         Group {
@@ -23,7 +27,9 @@ struct TabIcon: View {
             }
         }
         .foregroundStyle(tint)
-        .frame(width: Self.size, height: Self.size)
+        .frame(width: Self.baseSize, height: Self.baseSize)
+        .scaleEffect(size / Self.baseSize)
+        .frame(width: size, height: size)
     }
 }
 
@@ -81,7 +87,7 @@ private struct InsightsGlyph: View {
                     .frame(width: 4, height: height)
             }
         }
-        .frame(height: TabIcon.size, alignment: .bottom)
+        .frame(height: TabIcon.baseSize, alignment: .bottom)
     }
 }
 

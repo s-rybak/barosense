@@ -54,7 +54,7 @@ xcodegen generate
 ```
 
 ```bash
-xcodebuild -project Barosense.xcodeproj -scheme Barosense -destination 'platform=iOS Simulator,name=iPhone 16' test
+xcodebuild -project Barosense.xcodeproj -scheme Barosense -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 ```bash
