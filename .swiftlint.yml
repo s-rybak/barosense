@@ -26,12 +26,12 @@ force_cast:
 implicitly_unwrapped_optional:
   severity: error
 
-# "File length: split above ~300 lines."
+# "File length: split above ~900 lines."
 file_length:
   warning: 900
   error: 2000
 
-# "View bodies: extract a subview above ~60 lines" — approximated for all functions.
+# "View bodies: extract a subview above ~200 lines" — approximated for all functions.
 function_body_length:
   warning: 200
   error: 400
