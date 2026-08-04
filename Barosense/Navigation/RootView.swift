@@ -16,9 +16,7 @@ struct RootView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             BarosenseTabBar(selection: $selection)
         }
-        // The Figma library defines a single warm light theme; there is no dark variant
-        // to switch to yet, so the app does not follow the system appearance.
-        .preferredColorScheme(.light)
+        // Follow the system appearance; introduce a dark palette when the design system defines one.
     }
 }
 
