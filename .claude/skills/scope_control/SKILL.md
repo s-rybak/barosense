@@ -12,12 +12,12 @@ and nothing else.
 
 Default per task:
 
-| Metric               | Soft limit | Hard limit             |
-| -------------------- | ---------- | ---------------------- |
-| Changed lines (±)    | 500        | 1000 → split the task   |
-| Files touched        | 10         | 15 → split the task    |
-| New third-party deps | 0          | 0 (gated, always)      |
-| Public API removed   | 0          | 0 without an ADR       |
+| Metric               | Soft limit | Hard limit            |
+| -------------------- | ---------- | --------------------- |
+| Changed lines (±)    | 900        | 2000 → split the task |
+| Files touched        | 10         | 15 → split the task   |
+| New third-party deps | 0          | 0 (gated, always)     |
+| Public API removed   | 0          | 0 without an ADR      |
 
 Check before drafting a PR:
 

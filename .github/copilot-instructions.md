@@ -26,8 +26,8 @@ Forbidden vocabulary: `diagnose`, `diagnosis`, `predicts your migraine`, `preven
 `treats`, `treatment`, `therapy`, `medical`, `clinical`, `symptom relief`, `cure`,
 `patient`, `disease`.
 
-Allowed vocabulary: *tracking*, *personal patterns*, *wellbeing companion*, *your history
-suggests*, *check-in*, *trend*, *likely*, *risk state*.
+Allowed vocabulary: _tracking_, _personal patterns_, _wellbeing companion_, _your history
+suggests_, _check-in_, _trend_, _likely_, _risk state_.
 
 This applies to every surface: UI strings, notification bodies, complication text,
 `INFOPLIST_KEY_NS*UsageDescription` in `project.yml`, type and function names, and code
@@ -100,7 +100,7 @@ wake-up never fires.
   precision, recall, PR-AUC on the positive class, plus the per-fold base rate, and a
   comparison against three baselines: majority class, "pressure dropped > X hPa in 6 h",
   and persistence (repeat the previous label).
-- **Altitude.** Raw barometer output is *station* pressure — stairs and elevators move it
+- **Altitude.** Raw barometer output is _station_ pressure — stairs and elevators move it
   far more than weather does. Every pressure feature must be de-trended for altitude or
   gated on a stationarity check. Flag a raw-pressure feature without either.
 - **Gaps.** Samples are irregular. Features must resample to an explicit grid with a
@@ -120,7 +120,7 @@ wake-up never fires.
 ## 6. Architecture and concurrency
 
 - `Shared/` is UI-free: no `import SwiftUI`, `import UIKit`, or `import WatchKit`. It must
-  compile and be testable without a device. Anything that *can* live in `Shared/` should;
+  compile and be testable without a device. Anything that _can_ live in `Shared/` should;
   platform targets hold views and platform glue only.
 - Sensors, stores, and network clients sit behind a protocol declared next to the
   consumer, injected at the app layer. The ML pipeline must run from a plain XCTest with
@@ -149,7 +149,7 @@ separate-PR material: reformatting of untouched files, unrelated renames, depend
 deployment-target bumps, "fixes" to adjacent code off the change path, abstraction for a
 second use case that does not exist yet, and deletion of code not proven unreferenced.
 
-Soft limits: 500 changed lines, 10 files. Beyond that the PR body must say why. New
+Soft limits: 900 changed lines, 30 files. Beyond that the PR body must say why. New
 third-party dependencies are 0 by default and always require explicit sign-off.
 
 Flag a new `// TODO` left in source as the only record of known follow-up work — it

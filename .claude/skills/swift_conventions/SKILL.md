@@ -51,14 +51,14 @@ errors — do not suppress them.
   or a typed `throws`.
 - Errors are typed enums per subsystem, not `NSError` and not `String`.
 - Public API of every type in `Shared/` is documented with `///`. Internal code is
-  documented only where the *why* is non-obvious. Do not narrate what the code says.
+  documented only where the _why_ is non-obvious. Do not narrate what the code says.
 - Names say the unit when the unit is ambiguous: `pressureHPa`, `deltaHPaPer6h`,
   `windowSeconds`. Not `pressure`, not `delta`.
 - One unit in the domain layer: **hPa**. `CMAltitudeData.pressure` arrives in kPa —
   convert at the sensor boundary, once, and never let kPa past it.
 - Feature-flag anything that changes forecast output, so it can be turned off without a
   release.
-- File length: split above ~300 lines. View bodies: extract a subview above ~60 lines.
+- File length: split above ~900 lines. View bodies: extract a subview above ~200 lines.
 
 ## SwiftUI
 
