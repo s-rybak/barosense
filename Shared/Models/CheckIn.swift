@@ -23,19 +23,6 @@ extension WellbeingScore: Comparable {
     }
 }
 
-/// Optional self-reported tags attached to a check-in.
-///
-/// Recorded from v1 but deliberately outside the v1 label — see `WellbeingLabel`. They
-/// exist so "does the pressure signal differ by tag" becomes answerable once there is
-/// enough history, not because anything reads them today.
-///
-/// Raw values are persisted and must not be renamed.
-enum WellbeingTag: String, CaseIterable, Codable, Sendable {
-    case headache
-    case fatigue
-    case joints
-}
-
 /// One self-reported wellbeing check-in — the unit of user input, and the row the model
 /// is trained on.
 ///
@@ -54,7 +41,14 @@ struct CheckIn: Identifiable, Hashable, Codable, Sendable {
 
     let score: WellbeingScore
 
-    let tags: Set<WellbeingTag>
+    /// Tags the user attached, held by identity rather than by value: the vocabulary is
+    /// user-owned and mutable, so renaming a tag must not rewrite the check-ins carrying
+    /// it, and its text must not be copied into every row.
+    ///
+    /// Recorded from v1 but deliberately outside the v1 label — see `WellbeingLabel`.
+    /// They exist so "does the pressure signal differ by tag" becomes answerable once
+    /// there is enough history, not because anything reads them today.
+    let tagIDs: Set<WellbeingTag.ID>
 
     /// Free-text reflection. Never becomes a feature and never joins an outbound payload:
     /// it is unbounded user text and the only part of a check-in that can contain
@@ -64,12 +58,12 @@ struct CheckIn: Identifiable, Hashable, Codable, Sendable {
     init(id: UUID = UUID(),
          timestamp: Date,
          score: WellbeingScore,
-         tags: Set<WellbeingTag> = [],
+         tagIDs: Set<WellbeingTag.ID> = [],
          note: String? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.score = score
-        self.tags = tags
+        self.tagIDs = tagIDs
         self.note = note
     }
 }

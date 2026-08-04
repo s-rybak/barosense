@@ -15,15 +15,10 @@ final class CheckInTests: XCTestCase {
         XCTAssertEqual(WellbeingScore.veryGood.rawValue, 5)
     }
 
-    func testTagRawValuesAreStable() {
-        XCTAssertEqual(Set(WellbeingTag.allCases.map(\.rawValue)),
-                       ["headache", "fatigue", "joints"])
-    }
-
     func testCheckInSurvivesACodableRoundTrip() throws {
         let original = CheckIn(timestamp: referenceDate,
                                score: .poor,
-                               tags: [.headache, .fatigue],
+                               tagIDs: [.seeded("fatigue"), .user(UUID())],
                                note: "Woke up early")
 
         let decoded = try JSONDecoder().decode(CheckIn.self,
@@ -39,7 +34,7 @@ final class CheckInTests: XCTestCase {
                                                from: JSONEncoder().encode(original))
 
         XCTAssertEqual(decoded, original)
-        XCTAssertTrue(decoded.tags.isEmpty)
+        XCTAssertTrue(decoded.tagIDs.isEmpty)
         XCTAssertNil(decoded.note)
     }
 
@@ -76,7 +71,7 @@ final class CheckInTests: XCTestCase {
     }
 
     func testTagsDoNotAffectTheLabel() {
-        let tagged = CheckIn(timestamp: referenceDate, score: .fair, tags: [.headache])
+        let tagged = CheckIn(timestamp: referenceDate, score: .fair, tagIDs: [.seeded("fatigue")])
         let untagged = CheckIn(timestamp: referenceDate, score: .fair)
 
         XCTAssertFalse(tagged.isPoorWellbeing)

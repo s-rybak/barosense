@@ -11,9 +11,9 @@ the code change.
 
 | | |
 | ------------------------- | -------------------------------------------------------- |
-| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` |
+| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set) |
 | Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
-| Persistence | `CheckInStore` / `PressureSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. **No durable store yet** — nothing survives a launch |
+| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` protocols + in-memory doubles in `Shared/Persistence/`. **No durable store yet** — nothing survives a launch |
 | Feature pipeline | not written |
 | Model | not trained; no data collected |
 | HealthKit read set | **empty** — `com.apple.developer.healthkit.access: []` in `project.yml` |
@@ -36,8 +36,20 @@ poorWellbeing(checkIn) = checkIn.score <= 2        // 1–5 scale, 1 = worst
 - Defined **once**, as `WellbeingLabel.poorWellbeingThreshold` in
   `Shared/Models/WellbeingLabel.swift`, with the rationale in a `///` comment. Never
   inlined at a call site.
-- Tags (`headache`, `fatigue`, `joints`) are recorded but do **not** enter the v1 label.
-  Extending the label to `score <= 3 && !tags.isEmpty` is an open question (§9).
+- Tags are recorded but do **not** enter the v1 label. Extending the label to
+  `score <= 3 && !tagIDs.isEmpty` is an open question (§9).
+- The tag vocabulary is **open and per user**: `WellbeingTag.seeds` is only where a fresh
+  install starts, and the user adds, renames and retires tags from there. A check-in
+  stores `Set<WellbeingTag.ID>`, not tag text, so a rename does not rewrite history.
+  Consequences for anything that consumes tags:
+  - Per-tag features are **personal-model only**. A user-created id means nothing on
+    another device, so tag features can never enter the population prior (§6). Only
+    `.seeded` ids are comparable across users, and even those may have been renamed to
+    mean something else.
+  - Tag *text* is user input and is treated like `CheckIn.note`: never a feature, never in
+    an outbound payload.
+  - The vocabulary is unbounded, so one-hot encoding over all tags is not an option.
+    Anything tag-derived has to be a fixed-width summary (count, "any", per-seeded-id).
 - Changing the threshold invalidates every stored metric. Re-run the baselines in the
   same PR and put both sets of numbers in the body.
 
@@ -260,7 +272,9 @@ Each needs a decision before v1 ships; anything architectural gets an ADR in
 1. **Population prior source.** No dataset exists. Options: ship the pressure rule as the
    day-1 model and start personal fitting immediately; or a small hand-specified prior from
    literature effect sizes, clearly labelled as a guess.
-2. **Label extension** to `score <= 3 && !tags.isEmpty`. Needs real check-in distribution.
+2. **Label extension** to `score <= 3 && !tagIDs.isEmpty`. Needs real check-in
+   distribution. Note the vocabulary is user-owned, so "has any tag" is the only form of
+   this that means the same thing for every user.
 3. **Altitude reference** — absolute-altitude updates vs. CoreLocation vs. rejection only.
    Battery cost decides it.
 4. **Advance-warning horizon** — the 6–30 h window in §1 is assumed, not validated.
