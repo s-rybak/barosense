@@ -83,7 +83,7 @@ xcodegen generate
 Build and test:
 
 ```bash
-xcodebuild -project Barosense.xcodeproj -scheme Barosense -destination 'platform=iOS Simulator,name=iPhone 16' test
+xcodebuild -project Barosense.xcodeproj -scheme Barosense -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 Never hand-edit the `.xcodeproj`, and never commit it.
