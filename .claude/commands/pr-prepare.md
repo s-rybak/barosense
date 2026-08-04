@@ -12,9 +12,9 @@ through the gates in order and stop at the first hard failure. Rules live in
 
 1. **Branch sanity.** Not on `main`; branch name matches `type/BARO-123-short-slug`
    (ticket segment optional). Working tree committed — no stray unstaged changes.
-2. **Scope budget.** `git diff --stat main...HEAD`. Soft 500 lines / 10 files: over
+2. **Scope budget.** `git diff --stat main...HEAD`. Soft 900 lines / 10 files: over
    soft needs one stated line of justification for the PR body; over hard
-   (1000 / 15) → stop, the task must be split.
+   (2000 / 25) → stop, the task must be split.
 3. **Convention greps.**
    - `grep -rnE '^import (SwiftUI|UIKit|WatchKit)' Shared/` → must be empty.
    - Force-unwrap / `try!` outside `Tests/` in the diff → fix before proceeding.

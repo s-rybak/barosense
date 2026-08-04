@@ -11,7 +11,9 @@ the code change.
 
 | | |
 | ------------------------- | -------------------------------------------------------- |
-| Implemented today | `Shared/Models/Pressure.swift` only — the hPa domain type |
+| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` |
+| Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
+| Persistence | `CheckInStore` / `PressureSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. **No durable store yet** — nothing survives a launch |
 | Feature pipeline | not written |
 | Model | not trained; no data collected |
 | HealthKit read set | **empty** — `com.apple.developer.healthkit.access: []` in `project.yml` |
@@ -31,8 +33,9 @@ from the first real dataset and update this file.
 poorWellbeing(checkIn) = checkIn.score <= 2        // 1–5 scale, 1 = worst
 ```
 
-- Defined **once** in `Shared/`, as a named constant with the rationale in a `///`
-  comment. Never inlined at a call site.
+- Defined **once**, as `WellbeingLabel.poorWellbeingThreshold` in
+  `Shared/Models/WellbeingLabel.swift`, with the rationale in a `///` comment. Never
+  inlined at a call site.
 - Tags (`headache`, `fatigue`, `joints`) are recorded but do **not** enter the v1 label.
   Extending the label to `score <= 3 && !tags.isEmpty` is an open question (§9).
 - Changing the threshold invalidates every stored metric. Re-run the baselines in the

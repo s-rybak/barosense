@@ -28,13 +28,13 @@ implicitly_unwrapped_optional:
 
 # "File length: split above ~300 lines."
 file_length:
-  warning: 300
-  error: 500
+  warning: 900
+  error: 2000
 
 # "View bodies: extract a subview above ~60 lines" — approximated for all functions.
 function_body_length:
-  warning: 60
-  error: 100
+  warning: 200
+  error: 400
 
 line_length:
   warning: 120

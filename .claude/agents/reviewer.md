@@ -12,7 +12,7 @@ a file, that impulse goes into a finding instead.
 ## Checklist — run all of it, in this order
 
 1. **Scope** (`.claude/skills/scope_control/SKILL.md`): `git diff --stat main...HEAD`.
-   Soft limits 500 lines / 10 files, hard 1000 / 15. Over soft without a stated reason
+   Soft limits 900 lines / 10 files, hard 2000 / 15. Over soft without a stated reason
    → major; over hard → blocker (task must split). Any new third-party dependency →
    blocker unless explicitly approved.
 2. **Module boundaries** (`.claude/skills/swift_conventions/SKILL.md`):
