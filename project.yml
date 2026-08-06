@@ -41,8 +41,8 @@ targets:
           Barosense reads barometric pressure to track weather changes alongside your
           check-ins.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
-          Barosense reads sleep and heart data to look for personal patterns between
-          weather and how you feel. It stays on your device.
+          Barosense reads your sleep, resting heart rate and blood oxygen to look for
+          personal patterns between weather and how you feel. It stays on your device.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-
           Barosense saves your wellbeing check-ins to the Health app so they stay in one
           place.
@@ -76,8 +76,8 @@ targets:
           Barosense reads barometric pressure from the Watch barometer to track weather
           changes alongside your check-ins.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
-          Barosense reads sleep and heart data to look for personal patterns between
-          weather and how you feel. It stays on your device.
+          Barosense reads your sleep, resting heart rate and blood oxygen to look for
+          personal patterns between weather and how you feel. It stays on your device.
     entitlements:
       path: BarosenseWatch/BarosenseWatch.entitlements
       properties:
