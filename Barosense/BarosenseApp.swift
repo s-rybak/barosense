@@ -3,8 +3,8 @@ import SwiftUI
 @main
 struct BarosenseApp: App {
 
-    /// Composition root. Every protocol in `Shared/` gets its real implementation here and
-    /// nowhere else, so the domain layer stays constructible from a test with doubles.
+    /// Composition root for HealthKit ingest. Profile / tag stores live in `AppServices`;
+    /// the domain layer stays constructible from a test with doubles either way.
     private let ingest: HealthIngestController
 
     init() {
@@ -31,7 +31,7 @@ struct BarosenseApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(ingest: ingest)
+            AppRootView(ingest: ingest)
         }
     }
 }

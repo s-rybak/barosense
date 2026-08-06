@@ -11,9 +11,9 @@ the code change.
 
 | | |
 | ------------------------- | -------------------------------------------------------- |
-| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set), `HealthSample` (+ `HealthMetricValue`, unit fixed by case) |
+| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set), `UserProfile`, `HealthSample` (+ `HealthMetricValue`, unit fixed by case) |
 | Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
-| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `HealthSampleStore` protocols + in-memory doubles. **`HealthSampleStore` has a durable SwiftData implementation** (`SwiftDataHealthSampleStore`); check-in / pressure / tags are still in-memory only |
+| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` via `BarosenseModelContainer` (CloudKit off); **`HealthSampleStore` via separate `SwiftDataHealthSampleStore`**. **Check-ins and pressure samples still do not survive a launch** |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
 | Model | not trained; health raw samples + features at `t` are now accumulateable on disk |
 | HealthKit read set | **3 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis`, via `Shared/Health/HealthKitDataReader.swift`. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
