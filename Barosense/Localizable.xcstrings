@@ -330,25 +330,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "Enter an age between %1$@ and %2$@"
-          }
-        }
-      }
-    },
-    "Enter an age between %lld and %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
             "state" : "translated",
-            "value" : "Enter an age between %lld and %lld"
+            "value" : "Enter an age between %1$@ and %2$@"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Вкажи вік від %lld до %lld"
+            "value" : "Вкажи вік від %1$@ до %2$@"
           }
         }
       }
@@ -767,25 +756,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "Step %1$@ of %2$@"
-          }
-        }
-      }
-    },
-    "Step %lld of %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
             "state" : "translated",
-            "value" : "Step %lld of %lld"
+            "value" : "Step %1$@ of %2$@"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Крок %lld з %lld"
+            "value" : "Крок %1$@ з %2$@"
           }
         }
       }
