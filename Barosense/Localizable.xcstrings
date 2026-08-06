@@ -512,19 +512,19 @@
         }
       }
     },
-    "Migraine" : {
+    "Severe headache" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Migraine"
+            "value" : "Severe headache"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Мігрень"
+            "value" : "Сильний головний біль"
           }
         }
       }

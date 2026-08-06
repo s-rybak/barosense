@@ -73,7 +73,7 @@ extension WellbeingTag {
     private static func seededLabel(forSlug slug: String) -> LocalizedStringKey? {
         switch slug {
         case "headache": "Headache" // barosense:copy-allow default wellbeing tag
-        case "migraine": "Migraine" // barosense:copy-allow default wellbeing tag
+        case "migraine": "Severe headache" // barosense:copy-allow frozen storage slug
         case "fatigue": "Fatigue"
         case "joints": "Joint pain"
         case "sleep": "Disrupted sleep"

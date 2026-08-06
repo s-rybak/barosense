@@ -23,6 +23,13 @@ final class WellbeingTagTests: XCTestCase {
         XCTAssertEqual(Set(WellbeingTag.seeds.map(\.id)).count, WellbeingTag.seeds.count)
     }
 
+    func testLegacySeedIdentityUsesApprovedDisplayName() throws {
+        let legacyID = WellbeingTag.ID.seeded("migraine") // barosense:copy-allow frozen storage slug
+        let tag = try XCTUnwrap(WellbeingTag.seeds.first { $0.id == legacyID })
+
+        XCTAssertEqual(tag.name, "Severe headache")
+    }
+
     func testSeedsShipActive() {
         // A seed arriving archived would be invisible with no way for the user to find it.
         XCTAssertTrue(WellbeingTag.seeds.allSatisfy { !$0.isArchived })

@@ -21,7 +21,7 @@ extension WellbeingTag {
     /// Order is the order onboarding renders them in.
     static let seeds: [WellbeingTag] = [
         WellbeingTag(id: .seeded("headache"), name: "Headache"), // barosense:copy-allow default
-        WellbeingTag(id: .seeded("migraine"), name: "Migraine"), // barosense:copy-allow default
+        WellbeingTag(id: .seeded("migraine"), name: "Severe headache"), // barosense:copy-allow frozen storage slug
         WellbeingTag(id: .seeded("fatigue"), name: "Fatigue"),
         WellbeingTag(id: .seeded("joints"), name: "Joints"),
         WellbeingTag(id: .seeded("sleep"), name: "Sleep"),
