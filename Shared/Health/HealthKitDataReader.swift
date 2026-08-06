@@ -81,12 +81,12 @@ struct HealthKitDataReader: HealthDataReader {
     /// Unsorted and uncapped, with the ordering applied in Swift on the way out.
     ///
     /// A `limit` would need HealthKit to sort first, and the sorted overload wants a
-    /// `Sendable` key path — an inference this target does not get in Swift 5 language
-    /// mode. Taking the whole window instead is the cheaper trade: a cap applied to an
-    /// unspecified order could drop the newest reading, which is the one the screen is
-    /// about to show. The window bounds the cost on its own — a week holds roughly 7
-    /// resting heart rates, a few hundred blood-oxygen readings and a few hundred staged
-    /// sleep intervals, so well under a thousand objects per refresh.
+    /// `Sendable` key path that is awkward to express for these descriptors. Taking the
+    /// whole window instead is the cheaper trade: a cap applied to an unspecified order
+    /// could drop the newest reading, which is the one the screen is about to show. The
+    /// window bounds the cost on its own — a week holds roughly 7 resting heart rates, a
+    /// few hundred blood-oxygen readings and a few hundred staged sleep intervals, so
+    /// well under a thousand objects per refresh.
     private func quantitySamples(_ type: HKQuantityType,
                                  predicate: NSPredicate,
                                  in range: Range<Date>,

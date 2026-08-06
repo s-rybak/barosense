@@ -67,10 +67,14 @@ actor HealthKitChangeObserver: HealthChangeObserving {
 
             let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
                 // Always call completion — three missed acknowledgements and HealthKit
-                // stops delivering to this app entirely.
+                // stops delivering to this app entirely. The handler is not Sendable in
+                // the SDK surface; HealthKit documents a single call from any queue once
+                // processing finishes, so the hop into Task is audited here.
+                nonisolated(unsafe) let acknowledge = completion
+                let shouldNotify = error == nil
                 Task {
-                    defer { completion() }
-                    guard error == nil else { return }
+                    defer { acknowledge() }
+                    guard shouldNotify else { return }
                     await onChange()
                 }
             }
