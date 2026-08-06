@@ -67,13 +67,11 @@ actor HealthKitChangeObserver: HealthChangeObserving {
 
             let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
                 // Always call completion — three missed acknowledgements and HealthKit
-                // stops delivering to this app entirely. The handler is not Sendable in
-                // the SDK surface; HealthKit documents a single call from any queue once
-                // processing finishes, so the hop into Task is audited here.
-                nonisolated(unsafe) let acknowledge = completion
+                // stops delivering to this app entirely.
+                let acknowledge = ObserverAcknowledge(completion)
                 let shouldNotify = error == nil
                 Task {
-                    defer { acknowledge() }
+                    defer { acknowledge.call() }
                     guard shouldNotify else { return }
                     await onChange()
                 }
@@ -82,5 +80,22 @@ actor HealthKitChangeObserver: HealthChangeObserving {
             healthStore.execute(query)
             queries.append(query)
         }
+    }
+}
+
+/// Bridges HealthKit's non-Sendable observer completion into a `Task`.
+///
+/// `HKObserverQuery` requires exactly one call, from any queue, after processing. The
+/// SDK type is not `Sendable`, so this unchecked box records that single-call contract
+/// explicitly instead of relying on isolation modifiers that do not apply to locals.
+private struct ObserverAcknowledge: @unchecked Sendable {
+    private let completion: () -> Void
+
+    init(_ completion: @escaping () -> Void) {
+        self.completion = completion
+    }
+
+    func call() {
+        completion()
     }
 }
