@@ -76,7 +76,7 @@ struct UserProfile: Hashable, Codable, Sendable {
     /// When the user asked to connect Apple Health, if they did.
     ///
     /// Records the user's *intent*, not an authorisation result. iOS does not reveal
-    /// whether a read type was granted, so nothing may treat this as "access granted"
+    /// whether a read type was granted, so nothing may interpret this as "access granted"
     /// (`.claude/skills/healthkit_permissions/SKILL.md`).
     var healthAccessRequestedAt: Date?
 
