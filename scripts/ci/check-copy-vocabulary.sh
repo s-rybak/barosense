@@ -21,7 +21,7 @@ product_paths=(Barosense BarosenseWatch Shared Tests project.yml)
 # Stems, not whole words: matching is substring-based, so `diagnos` covers
 # diagnose / diagnosis / diagnostic and `treat` covers treats / treatment.
 stems=(diagnos predict prevent treat therap medical clinical cure symptom patient
-       disease migraine headache remed)
+       disease migraine remed)
 
 # Same stems with a capital initial, for the camelCase pass below. Built here rather
 # than written out twice — one list to edit, no chance of the two drifting.

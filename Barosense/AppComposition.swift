@@ -64,6 +64,8 @@ final class AppServices {
 /// Chooses between onboarding and the app proper.
 struct AppRootView: View {
 
+    let ingest: HealthIngestController
+
     @State private var services = AppServices()
 
     var body: some View {
@@ -85,7 +87,7 @@ struct AppRootView: View {
                 }
 
             case .ready:
-                RootView()
+                RootView(ingest: ingest)
             }
         }
         .task { await services.start() }

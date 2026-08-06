@@ -11,12 +11,24 @@ the code change.
 
 | | |
 | ------------------------- | -------------------------------------------------------- |
-| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set) |
+| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set), `UserProfile`, `HealthSample` (+ `HealthMetricValue`, unit fixed by case) |
 | Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
-| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData stores exist for `UserProfileStore` and `WellbeingTagStore` only (`Shared/Persistence/SwiftData/`, CloudKit off). **Check-ins and pressure samples still do not survive a launch** |
-| Feature pipeline | not written |
-| Model | not trained; no data collected |
-| HealthKit read set | **empty** — `com.apple.developer.healthkit.access: []` in `project.yml` |
+| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` via `BarosenseModelContainer` (CloudKit off); **`HealthSampleStore` via separate `SwiftDataHealthSampleStore`**. **Check-ins and pressure samples still do not survive a launch** |
+| Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
+| Model | not trained; health raw samples + features at `t` are now accumulateable on disk |
+| HealthKit read set | **3 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis`, via `Shared/Health/HealthKitDataReader.swift`. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
+| Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per authorised type + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
+
+### Health background delivery — battery note (provisional)
+
+iPhone only. Unmeasured on device; flip `HealthBackgroundDelivery.isEnabled` if drain is bad.
+
+1. Wake: HealthKit, ≤1/h per type (`.hourly`); 3 types, coalesced when near-simultaneous.
+2. Work duration: unmeasured; bound = one 48 h sample query + SwiftData upsert.
+3. Powered while awake: HealthKit query only (no barometer, network, display).
+4. Doubling to 2 h: still covers SpO₂'s 24 h feature window; hourly kept for missed-wake margin. Not `.immediate`.
+5. If wake never fires: foreground 7 d pull is the backstop; pipeline tolerates gaps.
+6. Daily drain %: unknown until Instruments on device.
 
 Every row below marked `planned` is a design decision, not shipped behaviour. Every
 HealthKit row is additionally gated by `../skills/healthkit_permissions/SKILL.md`: no type
@@ -112,12 +124,31 @@ Outbound WeatherKit requests carry location and time only. Never a health-derive
 
 | name | source type | unit | sampling / min coverage | on missing | status |
 | ---- | ----------- | ---- | ----------------------- | ---------- | ------ |
-| `sleepDurationHours` | `.sleepAnalysis` | h | one session/night; needs a session ending ≤24 h before `t` | nil | planned |
-| `sleepAwakeningCount` | `.sleepAnalysis` | count | as above; requires `awake` segments to be recorded | nil | planned |
-| `hoursSinceWake` | derived from `.sleepAnalysis` | h | as above | nil | planned |
-| `restingHeartRateBPM` | `.restingHeartRate` | bpm | ~1/day, published late | previous completed day, else nil | planned |
-| `hrvSDNNMs` | `.heartRateVariabilitySDNN` | ms | sparse and irregular, a few/day at best | nil | planned |
-| `oxygenSaturationFraction` | `.oxygenSaturation` | fraction 0–1 | model- and region-dependent; frequently absent | nil | planned |
+| `sleepDurationHours` | `.sleepAnalysis` | h | one session/night; needs a session ending ≤24 h before `t` | nil | **shipped** — `HealthFeatureExtractor` |
+| `sleepAwakeningCount` | `.sleepAnalysis` | count | as above; requires `awake` segments to be recorded | nil | planned — blocked, see below |
+| `hoursSinceWake` | derived from `.sleepAnalysis` | h | as above | nil | **shipped** — end of the same session as `sleepDurationHours` |
+| `restingHeartRateBPM` | `.restingHeartRate` | bpm | ~1/day, published late | previous completed day, else nil | **shipped** — previous calendar day by sample `start` |
+| `hrvSDNNMs` | `.heartRateVariabilitySDNN` | ms | sparse and irregular, a few/day at best | nil | planned — **not authorised**, no consumer |
+| `oxygenSaturationFraction` | `.oxygenSaturation` | fraction 0–1 | model- and region-dependent; frequently absent; feature lookback 24 h | nil | **shipped** — latest with `end <= t` inside 24 h |
+
+Raw samples are written by `HealthSampleRecorder` into `HealthSampleStore` as `HealthSample`
+rows, one per HealthKit object, keyed by HealthKit's own identifier so a repeated read
+replaces rather than duplicates. The durable implementation is
+`SwiftDataHealthSampleStore` — history accumulates across launches. Features at `t` are a
+separate pure step (`HealthFeatureExtractor`); the Now-screen snapshot does not feed the
+model.
+
+What is logged from `.sleepAnalysis` is the *asleep* stages only — `asleepUnspecified`,
+`asleepCore`, `asleepDeep`, `asleepREM`. `inBed` is excluded because it is not sleep, and
+`awake` is excluded because nothing consumes it; that is what blocks `sleepAwakeningCount`.
+A sleep *session* for features is a maximal run of overlapping or abutting asleep
+intervals; the most recent session ending ≤24 h before `t` supplies both
+`sleepDurationHours` and `hoursSinceWake`.
+
+The display window definitions live in `HealthMetricsWindow` (`Shared/Health/`) and are
+*provisional*: 48 h staleness for resting heart rate, 24 h for blood oxygen, trailing 24 h
+for sleep, 7 d of lookback per refresh. They govern the Now screen only — a feature
+computed at `t` re-windows from the store and must not inherit them.
 
 Two rules that apply to this whole family:
 
