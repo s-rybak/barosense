@@ -8,7 +8,7 @@ import Foundation
 /// protocol is the only thing that actually enforces it.
 protocol HealthDataReader: Sendable {
 
-    /// Asks the user for read access to exactly the types in `HealthDataReader.readSet`.
+    /// Asks the user for read access to the concrete reader's configured HealthKit types.
     ///
     /// Returning normally means the sheet was handled, **not** that anything was granted:
     /// iOS deliberately does not reveal read-authorisation state, so a denial is

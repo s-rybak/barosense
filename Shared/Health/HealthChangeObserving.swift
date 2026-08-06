@@ -3,10 +3,10 @@ import Foundation
 /// Kill-switch for HealthKit background delivery.
 ///
 /// Cost is **unmeasured on device** (see `.claude/context/ml-spec.md` → Health ingest).
-/// Flip to `false` without a release if Instruments shows unacceptable drain; foreground
-/// scene-active ingest remains as the backstop either way.
+/// Set to `false` before shipping if Instruments shows unacceptable drain; foreground
+/// scene-active ingest remains as the backstop.
 enum HealthBackgroundDelivery {
-    static var isEnabled = true
+    static let isEnabled = true
 }
 
 /// Long-lived observer over the Health store.
@@ -55,5 +55,12 @@ actor HealthIngestSignalCoalescer {
             guard !Task.isCancelled else { return }
             await perform()
         }
+    }
+
+    /// Waits for the currently scheduled batch so tests can synchronise with the work
+    /// itself instead of guessing how much wall-clock delay is sufficient.
+    func waitForPendingWork() async {
+        let task = pending
+        await task?.value
     }
 }

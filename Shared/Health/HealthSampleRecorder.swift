@@ -56,10 +56,12 @@ struct HealthSampleRecorder: Sendable {
 
         var collected: [HealthSample] = []
         var failures: [any Error] = []
+        var successfulKindCount = 0
 
         for kind in HealthMetricKind.allCases {
             do {
                 collected += try await reader.samples(of: kind, in: range)
+                successfulKindCount += 1
             } catch {
                 failures.append(error)
             }
@@ -67,7 +69,7 @@ struct HealthSampleRecorder: Sendable {
 
         // Every kind failed — that is the device saying no, not a thin data day. Let it
         // surface so the screen can say something other than "no readings".
-        if collected.isEmpty, let failure = failures.first {
+        if successfulKindCount == 0, let failure = failures.first {
             throw failure
         }
 

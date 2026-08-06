@@ -12,8 +12,7 @@ final class HealthIngestSignalCoalescerTests: XCTestCase {
         await coalescer.signal()
         await coalescer.signal()
         await coalescer.signal()
-
-        try? await Task.sleep(nanoseconds: 150_000_000)
+        await coalescer.waitForPendingWork()
 
         let value = await counter.value
         XCTAssertEqual(value, 1)
@@ -26,9 +25,9 @@ final class HealthIngestSignalCoalescerTests: XCTestCase {
         }
 
         await coalescer.signal()
-        try? await Task.sleep(nanoseconds: 80_000_000)
+        await coalescer.waitForPendingWork()
         await coalescer.signal()
-        try? await Task.sleep(nanoseconds: 80_000_000)
+        await coalescer.waitForPendingWork()
 
         let value = await counter.value
         XCTAssertEqual(value, 2)

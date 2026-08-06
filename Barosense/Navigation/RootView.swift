@@ -24,7 +24,7 @@ struct RootView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             BarosenseTabBar(selection: $selection)
         }
-        .onChange(of: scenePhase, initial: true) { _, phase in
+        .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 ingest.sceneDidBecomeActive()
             }

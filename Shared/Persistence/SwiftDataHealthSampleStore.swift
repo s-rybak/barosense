@@ -81,25 +81,38 @@ actor SwiftDataHealthSampleStore: HealthSampleStore {
 
     /// Process-local store for tests. Same code path as production, nothing on disk.
     static func makeInMemory() throws -> SwiftDataHealthSampleStore {
+        SwiftDataHealthSampleStore(modelContainer: try makeInMemoryContainer())
+    }
+
+    /// Shared in-memory container for tests that exercise more than one store actor.
+    static func makeInMemoryContainer() throws -> ModelContainer {
         let schema = Schema([PersistedHealthSample.self])
         let configuration = ModelConfiguration("HealthSamples.InMemory",
                                                schema: schema,
                                                isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        return SwiftDataHealthSampleStore(modelContainer: container)
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
 
     func save(_ samples: [HealthSample]) throws {
         guard !samples.isEmpty else { return }
 
+        // A refresh can overlap the previous window, so collapse duplicate identifiers
+        // within this batch before touching SwiftData. The last value is the freshest.
+        var samplesByID: [UUID: HealthSample] = [:]
         for sample in samples {
-            let id = sample.id
-            var descriptor = FetchDescriptor<PersistedHealthSample>(
-                predicate: #Predicate { $0.id == id }
-            )
-            descriptor.fetchLimit = 1
+            samplesByID[sample.id] = sample
+        }
 
-            if let existing = try modelContext.fetch(descriptor).first {
+        let sampleIDs = Array(samplesByID.keys)
+        let descriptor = FetchDescriptor<PersistedHealthSample>(
+            predicate: #Predicate { sampleIDs.contains($0.id) }
+        )
+        let existingRows = try modelContext.fetch(descriptor)
+        let existingByID = Dictionary(uniqueKeysWithValues: existingRows.map { ($0.id, $0) })
+
+        for sample in samplesByID.values {
+            let id = sample.id
+            if let existing = existingByID[id] {
                 existing.apply(sample)
             } else {
                 modelContext.insert(PersistedHealthSample(from: sample))

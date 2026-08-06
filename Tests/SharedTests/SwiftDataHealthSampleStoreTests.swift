@@ -49,6 +49,18 @@ final class SwiftDataHealthSampleStoreTests: XCTestCase {
         XCTAssertEqual(read.first?.value, .restingHeartRateBPM(62))
     }
 
+    func testDuplicateIdentifiersWithinOneBatchKeepTheLastValue() async throws {
+        let store = try makeStore()
+        let id = UUID()
+
+        try await store.save([heartRate(hours: 1, bpm: 60, id: id),
+                              heartRate(hours: 1, bpm: 63, id: id)])
+
+        let read = try await store.samples(of: .restingHeartRate, in: historyWindow)
+        XCTAssertEqual(read.count, 1)
+        XCTAssertEqual(read.first?.value, .restingHeartRateBPM(63))
+    }
+
     func testAsleepRoundTripsWithoutAQuantity() async throws {
         let store = try makeStore()
         let night = HealthSample(id: UUID(),
@@ -85,11 +97,13 @@ final class SwiftDataHealthSampleStoreTests: XCTestCase {
     func testHistorySurvivesAcrossStoreInstancesOnTheSameContainer() async throws {
         // Two actors over one in-memory container still share the store — this is the
         // stand-in for "relaunch reads what the previous launch wrote".
-        let first = try SwiftDataHealthSampleStore.makeInMemory()
+        let container = try SwiftDataHealthSampleStore.makeInMemoryContainer()
+        let first = SwiftDataHealthSampleStore(modelContainer: container)
         let sample = heartRate(hours: 1, bpm: 64)
         try await first.save([sample])
 
-        let reread = try await first.samples(of: .restingHeartRate, in: historyWindow)
+        let second = SwiftDataHealthSampleStore(modelContainer: container)
+        let reread = try await second.samples(of: .restingHeartRate, in: historyWindow)
         XCTAssertEqual(reread.map(\.id), [sample.id])
         XCTAssertEqual(reread.first?.value, .restingHeartRateBPM(64))
     }

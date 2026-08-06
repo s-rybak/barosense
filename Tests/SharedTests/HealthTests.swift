@@ -382,6 +382,15 @@ final class HealthSampleRecorderTests: XCTestCase {
         }
     }
 
+    func testOneFailedMetricWithOtherEmptyReadsIsNotAnError() async throws {
+        let reader = StubHealthDataReader([:], failing: [.oxygenSaturation])
+        let recorder = HealthSampleRecorder(reader: reader, log: InMemoryHealthSampleStore())
+
+        let snapshot = try await recorder.refresh(asOf: now)
+
+        XCTAssertEqual(snapshot, .empty)
+    }
+
     func testAnEmptyHealthStoreIsNotAnError() async throws {
         let recorder = HealthSampleRecorder(reader: StubHealthDataReader([:]),
                                             log: InMemoryHealthSampleStore())
