@@ -47,10 +47,9 @@ final class PersistedPressureSample {
 /// and the same rows serve the chart and the model. One history, not two nearly-identical
 /// ones.
 ///
-/// **Nothing prunes it.** `deleteSamples(before:)` exists and is tested, but no scheduled
-/// pass calls it: at one row per 15 min the table gains ~2 900 rows a month, which is a
-/// few hundred kB with its indexes, and the forecast wants the longest history it can get.
-/// Retention becomes a decision when there is a reason to drop rows, not before.
+    /// Retention is enforced by `PressureSampleRecorder` on the write path (at most once per day),
+    /// not by a dedicated timer/background task. `deleteSamples(before:)` exists for that
+    /// housekeeping.
 ///
 /// `@ModelActor` owns the `ModelContext` on its executor so SwiftData stays off the main
 /// actor. Callers still only see `PressureSampleStore`.
