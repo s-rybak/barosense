@@ -5,6 +5,8 @@ struct RootView: View {
 
     let ingest: HealthIngestController
     let pressure: PressureCollectionController
+    let checkInStore: any CheckInStore
+    let tagStore: any WellbeingTagStore
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .now
@@ -17,8 +19,17 @@ struct RootView: View {
             // add its case here and route to it.
             switch selection {
             case .now:
-                NowScreen(recorder: ingest.recorder, pressure: pressure)
-            case .history, .log, .insights, .settings:
+                NowScreen(recorder: ingest.recorder,
+                          pressure: pressure,
+                          checkIns: checkInStore)
+            case .log:
+                // Back to Now once the check-in is written, so the user lands on the chart
+                // their new dot is already on. The switch above rebuilds `NowScreen`, and
+                // its `.task` re-reads both logs — nothing has to be told to refresh.
+                LogScreen(checkInStore: checkInStore, tagStore: tagStore) {
+                    selection = .now
+                }
+            case .history, .insights, .settings:
                 PlaceholderScreen(tab: selection)
             }
         }
@@ -47,5 +58,7 @@ struct RootView: View {
              pressure: PressureCollectionController(
                 recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
                                                  log: InMemoryPressureSampleStore()),
-                display: NoOpPressureDisplayLink()))
+                display: NoOpPressureDisplayLink()),
+             checkInStore: InMemoryCheckInStore(),
+             tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds))
 }

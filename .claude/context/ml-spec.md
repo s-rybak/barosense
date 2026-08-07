@@ -13,7 +13,8 @@ the code change.
 | ------------------------- | -------------------------------------------------------- |
 | Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set), `UserProfile`, `HealthSample` (+ `HealthMetricValue`, unit fixed by case) |
 | Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
-| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` via `BarosenseModelContainer` (CloudKit off); `HealthSampleStore` via `SwiftDataHealthSampleStore`; **`PressureSampleStore` via `SwiftDataPressureSampleStore`** (own container, indexed on `timestamp`, runs on both targets). **Check-ins still do not survive a launch** |
+| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` + **`CheckInStore` via `SwiftDataCheckInStore`** all on `BarosenseModelContainer` (CloudKit off; check-ins share that container because they reference the tag vocabulary, and are indexed on `timestamp`); `HealthSampleStore` via `SwiftDataHealthSampleStore`; **`PressureSampleStore` via `SwiftDataPressureSampleStore`** (own container, indexed on `timestamp`, runs on both targets). Every store is durable — nothing resets on launch |
+| Check-in capture | **shipped, iPhone only** — the Log tab (`Barosense/Screens/Log/`). One row per check-in: a point on the 1–5 scale (required), any number of tags, an optional note. Written straight to `SwiftDataCheckInStore`; no edit or delete UI yet, and the watch still cannot log one |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
 | Model | not trained; health and barometer raw samples are now accumulateable on disk |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
@@ -167,6 +168,13 @@ The chart's bucket means (`PressureBuckets`, `PressureChartRange.bucketSeconds`)
 low-pass filter, and a low-pass filter applied ahead of `pressureDeltaHPaPer3h` rounds a
 real fall down toward "steady". The features build their own hourly grid from raw rows,
 with the interpolation and coverage policy stated above.
+
+`CheckInMarker` (`Shared/Pressure/CheckInMarker.swift`) is **display only** for the same
+reason. It places a check-in onto the *drawn* line — bucket means included — so the chart can
+mark when the user logged it, interpolating linearly and clamping to the ends inside a 2 h
+tolerance. That is a chart join, not an alignment: a feature computed at `t` reads raw rows
+under §2.1's own gap and coverage rules, which are stricter. Nothing in `Shared/Features/` may
+read this type.
 
 `PressureTrend` (`Shared/Pressure/PressureSeries.swift`) is **display only** and has no row
 here on purpose. It buckets the trailing-3 h delta into rising / falling / steady for the

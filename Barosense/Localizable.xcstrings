@@ -120,6 +120,23 @@
         }
       }
     },
+    "Anything worth remembering (optional)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anything worth remembering (optional)"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Що варто запам’ятати (необов’язково)"
+          }
+        }
+      }
+    },
     "Automatic tracking of sleep, heart rate and activity — no typing" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -188,6 +205,23 @@
         }
       }
     },
+    "Better" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Better"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Краще"
+          }
+        }
+      }
+    },
     "Choose at least one — you can add and rename these later." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -218,6 +252,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Обери все, що підходить"
+          }
+        }
+      }
+    },
+    "Coloured dots are your check-ins" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coloured dots are your check-ins"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кольорові крапки — ваші записи"
           }
         }
       }
@@ -376,6 +427,23 @@
         }
       }
     },
+    "Good" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добре"
+          }
+        }
+      }
+    },
     "Headache" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -389,6 +457,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Головний біль"
+          }
+        }
+      }
+    },
+    "How do you feel right now?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How do you feel right now?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Як ви почуваєтесь зараз?"
           }
         }
       }
@@ -563,6 +648,23 @@
         }
       }
     },
+    "Note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нотатка"
+          }
+        }
+      }
+    },
     "Off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -576,6 +678,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Вимкнено"
+          }
+        }
+      }
+    },
+    "Okay" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Okay"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нормально"
           }
         }
       }
@@ -631,6 +750,23 @@
         }
       }
     },
+    "Poor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poor"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Погано"
+          }
+        }
+      }
+    },
     "Pressure forecast with push notifications" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -661,6 +797,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Перезапусти застосунок. Якщо це повторюється, звільни трохи місця на пристрої."
+          }
+        }
+      }
+    },
+    "Save check-in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save check-in"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зберегти запис"
           }
         }
       }
@@ -768,6 +921,23 @@
         }
       }
     },
+    "Tap a point to choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a point to choose"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Торкніться позначки, щоб обрати"
+          }
+        }
+      }
+    },
     "The model learns from your data alone. For a sharper forecast it needs 90 days of tracking at 3 check-ins a day." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -819,6 +989,40 @@
         }
       }
     },
+    "Very good" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very good"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дуже добре"
+          }
+        }
+      }
+    },
+    "Very poor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very poor"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дуже погано"
+          }
+        }
+      }
+    },
     "What best describes how you feel?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -836,6 +1040,23 @@
         }
       }
     },
+    "What stands out?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What stands out?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Що саме відчувається?"
+          }
+        }
+      }
+    },
     "Woman" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -849,6 +1070,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Жінка"
+          }
+        }
+      }
+    },
+    "Worse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Worse"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Гірше"
           }
         }
       }
@@ -883,6 +1121,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Не вдалося зберегти твої відповіді. Переконайся, що на пристрої є вільне місце, і спробуй ще раз."
+          }
+        }
+      }
+    },
+    "Your check-in could not be saved. Check that the device has free space and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your check-in could not be saved. Check that the device has free space and try again."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося зберегти запис. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
           }
         }
       }

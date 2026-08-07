@@ -103,6 +103,53 @@ enum Palette {
     /// distinct values a shade apart, and using one for the other leaves the selector's
     /// white pill barely visible against its own track.
     static let segmentedTrack = Color(hex: 0xF0EEE8)
+
+    // MARK: - Wellbeing scale (Figma `7:330`)
+
+    /// The colour of one point on the 1–5 check-in scale — the dot the user taps on the Log
+    /// screen, and the same colour that dot takes on the pressure chart. One mapping, so the
+    /// two surfaces cannot drift into meaning different things by the same colour.
+    ///
+    /// Lives here rather than beside `WellbeingScore`, because `Shared/` is UI-free: the
+    /// domain owns the score, the design system owns what it looks like.
+    ///
+    /// **Colour is never the only channel.** The Log screen prints the chosen point's name
+    /// under the row and orders the dots worst→best, and both surfaces carry a VoiceOver
+    /// label — five hues alone are not distinguishable to every user, and a check-in scale
+    /// that only a trichromat can read is not a scale.
+    static func wellbeing(_ score: WellbeingScore) -> Color {
+        switch score {
+        case .veryPoor: wellbeingVeryPoor
+        case .poor: wellbeingPoor
+        case .fair: wellbeingFair
+        case .good: wellbeingGood
+        case .veryGood: wellbeingVeryGood
+        }
+    }
+
+    /// `color/red/56` (Red Damask). The same Figma token as `health`, aliased rather than
+    /// re-declared — one token, one hex — and named for its role here because a scale point
+    /// and the Apple Health tile move for different reasons.
+    static let wellbeingVeryPoor = health
+
+    /// `color/red/61` (Burnt Sienna). Aliases `markerWarm`, for the reason above.
+    static let wellbeingPoor = markerWarm
+
+    /// The neutral middle of the scale.
+    ///
+    /// **Not a Figma token.** The design library reachable from this repo has no amber, and
+    /// the Log frame's own swatches could not be read — see the file header on
+    /// `Screens/Log/LogScreen.swift`. Chosen to sit on the warm side of the palette and to
+    /// separate legibly from its two neighbours. Replace with the real token when it is
+    /// available; nothing else has to change, because this is the only place it is written.
+    static let wellbeingFair = Color(hex: 0xE3A93F)
+
+    /// One step below `wellbeingVeryGood`. **Not a Figma token** — same caveat as
+    /// `wellbeingFair`.
+    static let wellbeingGood = Color(hex: 0x84B85A)
+
+    /// `color/spring-green/45` (Chateau Green). Aliases `positive`.
+    static let wellbeingVeryGood = positive
 }
 
 extension Color {

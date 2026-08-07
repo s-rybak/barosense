@@ -183,4 +183,147 @@ final class SwiftDataStoreTests: XCTestCase {
         XCTAssertEqual(stored.count, 1)
         XCTAssertEqual(stored.first?.name, "Commute")
     }
+
+    // MARK: - Check-ins
+
+    private func makeCheckInStore() throws -> any CheckInStore {
+        SwiftDataCheckInStore(modelContainer: try makeContainer())
+    }
+
+    private func window(aroundHours hours: Double) -> Range<Date> {
+        referenceDate.addingTimeInterval(-hours * 3600)..<referenceDate.addingTimeInterval(hours * 3600)
+    }
+
+    func testCheckInRoundTripsThroughTheDurableStore() async throws {
+        let store = try makeCheckInStore()
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              score: .poor,
+                              tagIDs: [.seeded("fatigue"), .user(UUID())],
+                              note: "Woke up early")
+
+        try await store.save(checkIn)
+
+        let read = try await store.checkIns(in: window(aroundHours: 1))
+        XCTAssertEqual(read, [checkIn])
+    }
+
+    func testCheckInWithoutTagsOrNoteRoundTrips() async throws {
+        let store = try makeCheckInStore()
+        let checkIn = CheckIn(timestamp: referenceDate, score: .veryGood)
+
+        try await store.save(checkIn)
+
+        let read = try await store.checkIns(in: window(aroundHours: 1))
+        XCTAssertEqual(read, [checkIn])
+        XCTAssertTrue(read.first?.tagIDs.isEmpty ?? false)
+        XCTAssertNil(read.first?.note)
+    }
+
+    func testSavingTheSameIdentifierTwiceReplacesRatherThanDuplicates() async throws {
+        // The property the watch→phone transfer will depend on: a payload delivered twice
+        // must not become two training rows.
+        let store = try makeCheckInStore()
+        let id = UUID()
+
+        try await store.save(CheckIn(id: id, timestamp: referenceDate, score: .poor))
+        try await store.save(CheckIn(id: id, timestamp: referenceDate, score: .good,
+                                     note: "Better after lunch"))
+
+        let read = try await store.checkIns(in: window(aroundHours: 1))
+        XCTAssertEqual(read.count, 1)
+        XCTAssertEqual(read.first?.score, .good)
+        XCTAssertEqual(read.first?.note, "Better after lunch")
+    }
+
+    func testCheckInsComeBackAscendingAndHalfOpen() async throws {
+        let store = try makeCheckInStore()
+        let hour: TimeInterval = 3600
+
+        for offset in [2 * hour, 0, hour] {
+            try await store.save(CheckIn(timestamp: referenceDate.addingTimeInterval(offset),
+                                         score: .fair))
+        }
+
+        // Upper bound excluded, lower bound included — so adjacent windows cannot count the
+        // boundary check-in twice.
+        let read = try await store.checkIns(
+            in: referenceDate..<referenceDate.addingTimeInterval(2 * hour)
+        )
+
+        XCTAssertEqual(read.map(\.timestamp),
+                       [referenceDate, referenceDate.addingTimeInterval(hour)])
+    }
+
+    func testMostRecentCheckInIsStrictlyBeforeTheGivenInstant() async throws {
+        // Strictly before, so a feature computed at a check-in's own timestamp cannot pick
+        // up that check-in and leak its own label into the row.
+        let store = try makeCheckInStore()
+        let earlier = CheckIn(timestamp: referenceDate.addingTimeInterval(-3600), score: .poor)
+        let atInstant = CheckIn(timestamp: referenceDate, score: .veryGood)
+
+        try await store.save(earlier)
+        try await store.save(atInstant)
+
+        let prior = try await store.mostRecentCheckIn(before: referenceDate)
+        XCTAssertEqual(prior, earlier)
+    }
+
+    func testMostRecentCheckInIsNilWithNothingBehindIt() async throws {
+        let store = try makeCheckInStore()
+        try await store.save(CheckIn(timestamp: referenceDate, score: .fair))
+
+        let read = try await store.mostRecentCheckIn(before: referenceDate.addingTimeInterval(-1))
+        XCTAssertNil(read)
+    }
+
+    func testDeletingACheckInRemovesItAndDeletingNothingIsNotAnError() async throws {
+        let store = try makeCheckInStore()
+        let checkIn = CheckIn(timestamp: referenceDate, score: .fair)
+
+        try await store.save(checkIn)
+        try await store.delete(id: checkIn.id)
+        try await store.delete(id: UUID())
+
+        let remaining = try await store.checkIns(in: window(aroundHours: 1))
+        XCTAssertTrue(remaining.isEmpty)
+    }
+
+    func testCheckInsSurviveAFreshStoreOnTheSameContainer() async throws {
+        // Stands in for a relaunch. This is the property that was missing until now — the
+        // in-memory store lost every check-in with the process.
+        let container = try makeContainer()
+        let writer: any CheckInStore = SwiftDataCheckInStore(modelContainer: container)
+        try await writer.save(CheckIn(timestamp: referenceDate, score: .veryPoor))
+
+        let reader: any CheckInStore = SwiftDataCheckInStore(modelContainer: container)
+        let read = try await reader.checkIns(in: window(aroundHours: 1))
+
+        XCTAssertEqual(read.count, 1)
+        XCTAssertEqual(read.first?.score, .veryPoor)
+    }
+
+    func testAStoredScoreOutsideTheScaleIsRejectedRatherThanClamped() {
+        // A fabricated label is worse than a missing one: every metric in §7 of the ML spec
+        // is computed against this value.
+        let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate, score: .fair))
+        XCTAssertNotNil(row.checkIn)
+
+        row.scoreRawValue = 9
+        XCTAssertNil(row.checkIn)
+
+        row.scoreRawValue = 0
+        XCTAssertNil(row.checkIn)
+    }
+
+    func testTagIdentitiesUseTheSameStorageEncodingAsTheVocabulary() {
+        // Two encodings for one identity is how a check-in ends up pointing at a tag that
+        // exists but cannot be found.
+        let user = UUID()
+        let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate,
+                                                 score: .fair,
+                                                 tagIDs: [.seeded("fatigue"), .user(user)]))
+
+        XCTAssertEqual(Set(row.tagIdentityKeys), ["seeded:fatigue", "user:\(user.uuidString)"])
+        XCTAssertEqual(row.checkIn?.tagIDs, [.seeded("fatigue"), .user(user)])
+    }
 }
