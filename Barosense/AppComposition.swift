@@ -65,6 +65,7 @@ final class AppServices {
 struct AppRootView: View {
 
     let ingest: HealthIngestController
+    let pressure: PressureIngestController
 
     @State private var services = AppServices()
 
@@ -87,7 +88,7 @@ struct AppRootView: View {
                 }
 
             case .ready:
-                RootView(ingest: ingest)
+                RootView(ingest: ingest, pressure: pressure)
             }
         }
         .task { await services.start() }

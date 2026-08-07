@@ -7,6 +7,10 @@ struct BarosenseApp: App {
     /// the domain layer stays constructible from a test with doubles either way.
     private let ingest: HealthIngestController
 
+    /// Composition root for barometer ingest. The phone receives what the watch sampled and
+    /// never runs its own barometer — see `PressureIngestController` for why.
+    private let pressure: PressureIngestController
+
     init() {
         let log: any HealthSampleStore
         do {
@@ -27,11 +31,28 @@ struct BarosenseApp: App {
         ingest = HealthIngestController(recorder: recorder, changeObserver: changeObserver)
         // Observers must exist before HealthKit delivers a background wake.
         ingest.start()
+
+        let pressureLog: any PressureSampleStore
+        do {
+            pressureLog = try SwiftDataPressureSampleStore.makePersistent()
+        } catch {
+            // Same trade as above: the chart still draws whatever arrives this session, and
+            // the watch keeps its own copy, so a failed open here costs continuity rather
+            // than readings.
+            pressureLog = InMemoryPressureSampleStore()
+        }
+
+        pressure = PressureIngestController(
+            recorder: PressureSampleRecorder(source: UnavailablePressureSource(), log: pressureLog)
+        )
+        // The session must be live before WatchConnectivity delivers transfers queued while
+        // the app was not running — that delivery is the only way the log ever grows.
+        pressure.start()
     }
 
     var body: some Scene {
         WindowGroup {
-            AppRootView(ingest: ingest)
+            AppRootView(ingest: ingest, pressure: pressure)
         }
     }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
 
     let ingest: HealthIngestController
+    let pressure: PressureIngestController
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .now
@@ -16,7 +17,7 @@ struct RootView: View {
             // add its case here and route to it.
             switch selection {
             case .now:
-                NowScreen(recorder: ingest.recorder)
+                NowScreen(recorder: ingest.recorder, pressure: pressure)
             case .history, .log, .insights, .settings:
                 PlaceholderScreen(tab: selection)
             }
@@ -37,5 +38,8 @@ struct RootView: View {
     RootView(ingest: HealthIngestController(
         recorder: HealthSampleRecorder(reader: HealthKitDataReader(),
                                        log: InMemoryHealthSampleStore()),
-        changeObserver: NoOpHealthChangeObserver()))
+        changeObserver: NoOpHealthChangeObserver()),
+             pressure: PressureIngestController(
+                recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
+                                                 log: InMemoryPressureSampleStore())))
 }

@@ -87,6 +87,22 @@ enum Palette {
 
     /// `color/azure/56` (Royal Blue) — marker on the learning row of the closing screen.
     static let markerCool = Color(hex: 0x3E6BE0)
+
+    // MARK: - Pressure chart (Figma `7:671`)
+
+    /// `color/azure/56` (Royal Blue) — the pressure line.
+    ///
+    /// The same Figma token as `markerCool`, aliased rather than re-declared: one token, one
+    /// hex. Named for its role here because a chart series and a list marker move for
+    /// different reasons.
+    static let chartLine = markerCool
+
+    /// `color/grey/93` (Pampas) — the track behind the range selector.
+    ///
+    /// Not `onInk` (`#F4F2ED`), which the design library also calls Pampas: they are two
+    /// distinct values a shade apart, and using one for the other leaves the selector's
+    /// white pill barely visible against its own track.
+    static let segmentedTrack = Color(hex: 0xF0EEE8)
 }
 
 extension Color {

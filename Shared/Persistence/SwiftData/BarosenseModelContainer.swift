@@ -26,8 +26,10 @@ enum BarosenseModelContainer {
     /// Every durable type. Adding a `@Model` that is not listed here compiles and then
     /// fails at runtime on first use, so the list is the registry.
     ///
-    /// `CheckIn` and `PressureSample` are **not** here yet — they still have in-memory
-    /// stores only. Their durable rows land with the check-in flow.
+    /// `CheckIn` is **not** here yet — it still has an in-memory store only, and its durable
+    /// rows land with the check-in flow. `PressureSample` is durable but deliberately not on
+    /// this schema: sensor rows live in their own container
+    /// (`SwiftDataPressureSampleStore`), the way Health rows do.
     static let schema = Schema([
         StoredUserProfile.self,
         StoredWellbeingTag.self
