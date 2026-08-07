@@ -1,8 +1,41 @@
 import Foundation
 
-/// How much history the chart shows. The four options the design offers (Figma `7:682`).
+/// How much history the chart shows, and how finely it is drawn.
 ///
-/// Only the window length lives here. The labels are presentation and stay in the view —
+/// The four the design draws (Figma `7:682`): 1 / 3 / 6 / День.
+///
+/// ## Window and bucket are two different numbers
+///
+/// The phone aims to record one reading per 15 min (`PressureSamplingPolicy`). Drawing a
+/// day of that raw is 96 points inside a 92 pt-tall plot — a smear, and one that moves
+/// under a reading that lands while the user is looking at it. So every range wider than
+/// the sampling interval collapses its readings onto a fixed grid and draws the mean of
+/// each occupied slot.
+///
+/// At the nominal cadence that yields:
+///
+/// | Range | Bucket | Points |
+/// | ----- | ------ | ------ |
+/// | 1 год | 15 min | 4      |
+/// | 3 год | 15 min | 12     |
+/// | 6 год | 30 min | 12     |
+/// | День  | 1 h    | 24     |
+///
+/// The two narrow ranges sit on the sampling floor and therefore draw the log at the
+/// cadence it was recorded at. `.threeHours` is `PressureTrend.windowSeconds` wide on
+/// purpose: the button that matches the caption shows the same readings the caption was
+/// computed from, which is the shortest window either of them can say anything about.
+///
+/// ## The window is what is visible, not what is loaded
+///
+/// The plot scrolls. `seconds` is the width of one screenful; `historySeconds` is how far
+/// back the gesture reaches. Every range draws twelve screenfuls and opens on the newest.
+///
+/// Declaration order is the order the selector renders. A case inserted in the wrong place
+/// produces a scrambled row of buttons and nothing else complains, so the ordering has a
+/// test.
+///
+/// Only the arithmetic lives here. The labels are presentation and stay in the view —
 /// `Shared/` holds no user-facing copy.
 enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
     case oneHour
@@ -12,6 +45,8 @@ enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// Width of one screenful — the window the button names, and the only part of the plot
+    /// visible without scrolling.
     var seconds: TimeInterval {
         switch self {
         case .oneHour: 3600
@@ -21,9 +56,114 @@ enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The widest option. One store read of this length serves every range, so switching
-    /// between them is a re-slice rather than another query.
+    /// How far back the plot can be scrolled, ending at `now`.
+    ///
+    /// Twelve screenfuls on every range. The multiplier is a point budget rather than a
+    /// taste: the line is drawn from `historySeconds / bucketSeconds` points, so twelve
+    /// lands every range between 48 and 288 of them — enough history to be worth a gesture,
+    /// few enough that Swift Charts is still drawing a line and not a solid block. It also
+    /// makes the scroll cost the same on every button.
+    ///
+    /// | Range | Reaches back | Points drawn |
+    /// | ----- | ------------ | ------------ |
+    /// | 1 год | 12 год       | 48           |
+    /// | 3 год | 36 год       | 144          |
+    /// | 6 год | 3 доби       | 144          |
+    /// | День  | 12 діб       | 288          |
+    ///
+    /// Older rows than this are on disk — `PressureRetentionPolicy` keeps five years of
+    /// them — and reaching those is a History screen's job. A card 92 pt tall is not the
+    /// place to scroll through a year.
+    var historySeconds: TimeInterval { seconds * Self.scrollbackScreens }
+
+    /// Screenfuls of history behind the visible window. See `historySeconds`.
+    private static let scrollbackScreens: Double = 12
+
+    /// Points one screenful holds at the nominal cadence — 4, 12, 12, 24 up the ladder.
+    ///
+    /// The plot marks its points only while this is small. Derived from the range rather
+    /// than counted off the data, so the dots do not blink in and out as the scroll passes
+    /// over a densely sampled afternoon.
+    var pointsPerScreen: Int {
+        Int((seconds / bucketSeconds).rounded())
+    }
+
+    /// Width of one averaged point.
+    ///
+    /// Chosen to land every range between 4 and 24 points per screenful: enough to show the
+    /// shape of the window, few enough that `PressureChartPlot` can still mark them. Never
+    /// finer than `PressureSamplingPolicy.minimumIntervalSeconds`, because a bucket smaller
+    /// than the sampling interval averages nothing and only shifts the point off the instant
+    /// it was measured. The two narrow ranges sit exactly on that floor, so they draw the
+    /// log at the cadence it was recorded at.
+    var bucketSeconds: TimeInterval {
+        switch self {
+        case .oneHour: 15 * 60
+        case .threeHours: 15 * 60
+        case .sixHours: 30 * 60
+        case .day: 3600
+        }
+    }
+
+    /// The widest option, and therefore the deepest history any range asks for. One store
+    /// read of `widest.historySeconds` serves every range, so switching between them is a
+    /// re-slice rather than another query.
     static let widest = PressureChartRange.day
+}
+
+/// Collapses readings onto a fixed grid, one averaged point per occupied slot.
+///
+/// Separate from `PressureSeries` because it is arithmetic on a list and nothing else, and
+/// because it is the piece most likely to be wrong in a way the eye cannot check.
+///
+/// **Display only.** The model is fitted on the raw log; averaging is how a chart stays
+/// readable, not how a feature is computed. Nothing in `Shared/Features/` may call this.
+enum PressureBuckets {
+
+    /// Averages `samples` into slots `widthSeconds` wide, ascending by time.
+    ///
+    /// Slots are aligned to the epoch rather than to `now`, so a rebuild one second later
+    /// puts every point back where it was. Anchoring to `now` would slide the whole grid
+    /// under the line on every reload and make an unchanged history look like it moved.
+    ///
+    /// A slot holding a single reading is returned untouched — same identifier, same
+    /// timestamp, same value. That matters for the narrow ranges, where every slot holds at
+    /// most one row and the chart must not claim a measurement at an instant nothing was
+    /// measured.
+    static func collapse(_ samples: [PressureSample],
+                         intoBucketsOf widthSeconds: TimeInterval) -> [PressureSample] {
+        guard widthSeconds > 0, samples.count > 1 else { return samples }
+
+        let slots = Dictionary(grouping: samples) { sample in
+            (sample.timestamp.timeIntervalSince1970 / widthSeconds).rounded(.down)
+        }
+
+        return slots.values
+            .compactMap(mean)
+            .sorted { $0.timestamp < $1.timestamp }
+    }
+
+    /// The arithmetic mean of a slot, in both value and time.
+    ///
+    /// The timestamp is the mean of the readings' own timestamps, not the centre of the
+    /// slot: a slot covering 10:00–10:30 that holds one reading taken at 10:01 must draw at
+    /// 10:01. Averaging the times keeps a half-empty slot from pretending to be full.
+    ///
+    /// The identifier is the earliest reading's, so `ForEach` sees the same point across
+    /// rebuilds instead of a fresh identity every time the chart reloads.
+    private static func mean(of slot: [PressureSample]) -> PressureSample? {
+        let ordered = slot.sorted { $0.timestamp < $1.timestamp }
+        guard let earliest = ordered.first else { return nil }
+        guard ordered.count > 1 else { return earliest }
+
+        let count = Double(ordered.count)
+        let hectopascals = ordered.reduce(0) { $0 + $1.pressure.hectopascals } / count
+        let instant = ordered.reduce(0) { $0 + $1.timestamp.timeIntervalSince1970 } / count
+
+        return PressureSample(id: earliest.id,
+                              timestamp: Date(timeIntervalSince1970: instant),
+                              pressure: Pressure(hectopascals: hectopascals))
+    }
 }
 
 /// How a pressure figure is printed, on both platforms.
@@ -54,7 +194,11 @@ enum PressureFormat {
 /// the model consumes `pressureDeltaHPaPer3h` and friends as continuous values, and
 /// collapsing those to three buckets throws away exactly the resolution it needs. Nothing
 /// in `Shared/Features/` may read this type.
-enum PressureTrend: Hashable, Sendable {
+///
+/// `String`-backed and `Codable` because it crosses to the watch inside
+/// `PressureDisplaySnapshot`. A raw value the wire format can carry is cheaper than teaching
+/// the payload to encode a bare enum, and it keeps the four states readable in a log.
+enum PressureTrend: String, Hashable, Codable, Sendable {
     case rising
     case falling
     case steady
@@ -94,6 +238,9 @@ extension PressureTrend {
     /// ignored. The delta is taken raw between the window's first and last reading and is
     /// deliberately **not** scaled up to a full three hours: extrapolating a 65-minute span
     /// by 2.8× turns sensor noise into an arrow.
+    ///
+    /// Fed the raw log, never the bucketed points: an average is a smoother, and a smoother
+    /// applied before a difference is how a real fall gets rounded down into "steady".
     static func make(from samples: [PressureSample], asOf now: Date) -> PressureTrend {
         let window = now.addingTimeInterval(-windowSeconds)...now
         let inWindow = samples
@@ -119,13 +266,18 @@ extension PressureTrend {
 /// with a handful of literals and no sensor anywhere.
 struct PressureSeries: Hashable, Sendable {
 
-    /// Readings inside the selected range, ascending by timestamp. Sensor data only.
+    /// The points the line draws, ascending by timestamp — bucket means on every range that
+    /// asks for them, raw readings on the ones that do not. Sensor data only.
+    ///
+    /// Covers the whole scrollable extent (`PressureChartRange.historySeconds`), not the
+    /// visible window: the plot is one long line the viewport slides along, so everything
+    /// the gesture can reach has to be in here before the gesture starts.
     let observed: [PressureSample]
 
     /// Forward-looking values, ascending, all timestamped after `now`.
     ///
     /// A separate array rather than a flag on the sample, because the two are separate
-    /// feature families and must stay distinguishable downstream: the watch is ground truth
+    /// feature families and must stay distinguishable downstream: the phone is ground truth
     /// for "now", WeatherKit for "next" (`.claude/context/ml-spec.md` §2.2). Empty until
     /// WeatherKit is wired, which is why the chart has to render without it.
     let forecast: [PressureSample]
@@ -140,8 +292,24 @@ struct PressureSeries: Hashable, Sendable {
 
     let trend: PressureTrend
 
-    /// Most recent observed reading — the figure the card prints.
-    var latest: PressureSample? { observed.last }
+    /// Most recent **raw** reading inside the *visible* window — the figure the card prints.
+    ///
+    /// Stored rather than taken from `observed.last`, for two reasons. That is a bucket mean
+    /// on most ranges, and "поточний тиск" has to be a measurement, not an average of the
+    /// last hour — on a falling day the two differ by more than the decimal the card prints.
+    /// And it sits at the far end of the scrollback, which may be twelve days ago.
+    ///
+    /// Bounded by `range.seconds` and not by the scrollable extent, and deliberately not
+    /// moved by the scroll: the figure is a claim about the present, so scrolling into last
+    /// Tuesday must not relabel last Tuesday as "now". `nil` when nothing was recorded in
+    /// the visible window — background wakes are granted rather than scheduled, so an hour
+    /// with no reading in it is an ordinary outcome on the narrowest button.
+    let latest: PressureSample?
+
+    /// How many raw readings the scrollable extent holds, before bucketing. What VoiceOver
+    /// reports — announcing the bucket count would understate the history by up to 4×, and
+    /// VoiceOver cannot scroll the plot, so the summary describes all of it.
+    let readingCount: Int
 
     var isEmpty: Bool { observed.isEmpty }
 
@@ -158,49 +326,88 @@ struct PressureSeries: Hashable, Sendable {
 
         // 0.6× the span leaves the line occupying roughly the middle 45% of the plot, which
         // is how the design draws it. The 1 hPa floor covers a span of zero.
-        let padding = max((highest - lowest) * 0.6, 1.0)
+        //
+        // The 3 hPa ceiling is what scrolling added. The domain is fitted once, over the
+        // whole scrollable extent, because a domain refitted to the viewport would make the
+        // line climb and sink under the finger while the readings stood still. Twelve days
+        // of weather spans tens of hPa, and 60% of that as padding on each side squashes a
+        // day's movement into a flat line.
+        let padding = min(max((highest - lowest) * 0.6, 1.0), 3.0)
         return (lowest - padding)...(highest + padding)
     }
 
     /// Builds the series for one range.
     ///
-    /// `samples` is the whole trailing-`PressureChartRange.widest` window, not a
-    /// pre-sliced one: the trend caption always describes the last three hours, so changing
-    /// the range must not change it. Slicing here rather than in the store also means
-    /// switching range costs no I/O.
+    /// `samples` is the whole trailing-`PressureChartRange.widest.historySeconds` window,
+    /// not a pre-sliced one: the trend caption always describes the last three hours, so
+    /// changing the range must not change it. Slicing here rather than in the store also
+    /// means switching range costs no I/O.
+    ///
+    /// Three different windows come out of one input, and they are not interchangeable. The
+    /// line covers the scrollable extent, the figure covers the visible window, and the
+    /// caption covers the trailing three hours whatever the button says.
     static func make(from samples: [PressureSample],
                      forecast: [PressureSample] = [],
                      range: PressureChartRange,
                      asOf now: Date) -> PressureSeries {
-        let window = now.addingTimeInterval(-range.seconds)...now
-        let observed = samples
-            .filter { window.contains($0.timestamp) }
+        let extent = now.addingTimeInterval(-range.historySeconds)...now
+        let inExtent = samples
+            .filter { extent.contains($0.timestamp) }
             .sorted { $0.timestamp < $1.timestamp }
 
+        let drawn = PressureBuckets.collapse(inExtent, intoBucketsOf: range.bucketSeconds)
+
+        let visibleFrom = now.addingTimeInterval(-range.seconds)
+
         return PressureSeries(
-            observed: observed,
+            observed: drawn,
             forecast: forecast.filter { $0.timestamp > now }.sorted { $0.timestamp < $1.timestamp },
             now: now,
             range: range,
-            // From the full input, not from `observed`: the one-hour range holds too little
+            // From the full input, not from `inExtent`: the one-hour range holds too little
             // to judge a three-hour tendency, and it would otherwise report `.unknown`
             // purely because of which button is selected.
-            trend: PressureTrend.make(from: samples, asOf: now)
+            trend: PressureTrend.make(from: samples, asOf: now),
+            latest: inExtent.last { $0.timestamp >= visibleFrom },
+            readingCount: inExtent.count
         )
     }
 
     static func empty(range: PressureChartRange = .oneHour,
                       asOf now: Date = .now) -> PressureSeries {
-        PressureSeries(observed: [], forecast: [], now: now, range: range, trend: .unknown)
+        PressureSeries(observed: [], forecast: [], now: now, range: range,
+                       trend: .unknown, latest: nil, readingCount: 0)
     }
 
-    /// Horizontal extent to draw: the whole selected window, plus whatever the forecast
-    /// reaches into. Fixed by the range rather than by the data, so a thin day looks thin.
+    /// Horizontal extent of the whole plot — twelve screenfuls of history, plus whatever the
+    /// forecast reaches into. This is what the scroll travels over; `visibleSeconds` is how
+    /// much of it is on screen at once.
+    ///
+    /// Fixed by the range rather than by the data, so a thin day looks thin: two readings
+    /// twelve minutes apart must occupy twelve minutes of the plot instead of being
+    /// stretched across it to claim coverage that was never observed.
     var timeDomain: ClosedRange<Date> {
-        let start = now.addingTimeInterval(-range.seconds)
+        let start = now.addingTimeInterval(-range.historySeconds)
         // A minute of headroom past `now` keeps the newest reading and the divider off the
         // right edge of the plot, where a 3 pt line would be half clipped.
         let end = max(forecast.last?.timestamp ?? now, now).addingTimeInterval(60)
         return start...end
+    }
+
+    /// How much of `timeDomain` is on screen at once: one screenful, the window the selected
+    /// button names.
+    var visibleSeconds: TimeInterval { range.seconds }
+
+    /// Leading edge of the screenful the plot opens on.
+    ///
+    /// Anchored to the newest reading rather than to `now`. iOS grants background wakes, it
+    /// does not schedule them, so a phone left alone can leave the narrowest window empty;
+    /// opening on a blank viewport that the user has to scroll leftwards out of is worse
+    /// than opening a little way into the past with the line in view. Clamped into
+    /// `timeDomain` so a stale log cannot scroll the viewport off the end of the plot.
+    var initialScrollX: Date {
+        let newest = observed.last?.timestamp ?? now
+        let trailingEdge = min(newest.addingTimeInterval(60), timeDomain.upperBound)
+        return max(trailingEdge.addingTimeInterval(-visibleSeconds), timeDomain.lowerBound)
     }
 }

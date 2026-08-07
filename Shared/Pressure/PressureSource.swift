@@ -7,10 +7,10 @@ import Foundation
 /// `CMAltimeter`, so the pipeline runs from a plain XCTest with synthetic input.
 ///
 /// **One reading per call, not a stream.** A subscription is the shape that invites a
-/// long-lived sampling loop, and continuous barometer sampling is exactly what the watch
-/// battery cannot afford (`.claude/skills/watchos_budget/SKILL.md`). Making the cheap
-/// pattern the only pattern means a caller has to write a timer on purpose rather than by
-/// accident.
+/// long-lived sampling loop, and `CMAltimeter` left running reports at roughly 1 Hz for as
+/// long as the app is on screen — thousands of readings an hour to store four of. Making
+/// the cheap pattern the only pattern means a caller has to write a timer on purpose rather
+/// than by accident.
 protocol PressureSource: Sendable {
 
     /// Whether this device has a barometer at all.
@@ -47,9 +47,9 @@ enum PressureSourceError: Error, Sendable, Equatable {
     case implausibleReading(hectopascals: Double)
 }
 
-/// Used where there is no barometer to talk to: SwiftUI previews, and the iOS target,
-/// which receives the watch's readings rather than taking its own (see
-/// `PressureSampleUplink`).
+/// Used where there is no barometer to talk to: SwiftUI previews, and the watch target,
+/// which displays what the phone measured rather than measuring anything itself (see
+/// `PressureDisplayLink`).
 struct UnavailablePressureSource: PressureSource {
 
     var isAvailable: Bool { false }

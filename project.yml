@@ -33,10 +33,15 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.barosense.app
         PRODUCT_NAME: Barosense
         TARGETED_DEVICE_FAMILY: "1,2"
+        # Hand-written base plist, merged with the INFOPLIST_KEY_* settings below. It holds
+        # only the array-valued keys that cannot be expressed as a build setting —
+        # BGTaskSchedulerPermittedIdentifiers and UIBackgroundModes.
+        INFOPLIST_FILE: Barosense/Info.plist
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         # Purpose strings. Keep them non-medical: tracking / personal patterns only.
+        # Motion is requested on iOS only — the phone owns the barometer.
         INFOPLIST_KEY_NSMotionUsageDescription: >-
           Barosense reads barometric pressure to track weather changes alongside your
           check-ins.
@@ -70,9 +75,10 @@ targets:
         PRODUCT_NAME: Barosense
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.barosense.app
         INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: YES
-        INFOPLIST_KEY_NSMotionUsageDescription: >-
-          Barosense reads barometric pressure from the Watch barometer to track weather
-          changes alongside your check-ins.
+        # No NSMotionUsageDescription. The watch never touches CoreMotion — it displays what
+        # the phone measured. A purpose string for a permission nothing requests is a prompt
+        # the user is asked to answer for no feature, which is the surgical-permissions rule
+        # in CLAUDE.md applied to Motion rather than HealthKit.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
           Barosense reads your sleep, resting heart rate and blood oxygen to look for
           personal patterns between weather and how you feel. It stays on your device.

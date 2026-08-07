@@ -65,7 +65,7 @@ final class AppServices {
 struct AppRootView: View {
 
     let ingest: HealthIngestController
-    let pressure: PressureIngestController
+    let pressure: PressureCollectionController
 
     @State private var services = AppServices()
 

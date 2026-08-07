@@ -102,33 +102,77 @@ final class PressureSampleRecorderTests: XCTestCase {
         XCTAssertEqual(second?.pressure.hectopascals, 1013)
     }
 
-    // MARK: - Ingest
+    // MARK: - Retention
 
-    func testIngestedSamplesKeepTheIdentifierTheSenderGaveThem() async throws {
-        let log = InMemoryPressureSampleStore()
-        let recorder = PressureSampleRecorder(source: UnavailablePressureSource(), log: log)
-        let id = UUID()
-        let sample = PressureSample(id: id, timestamp: now, pressure: Pressure(hectopascals: 1012))
+    /// Five years, and five *calendar* years — the horizon has to land on the same date every
+    /// year rather than creeping forward by a day per leap year.
+    func testTheRetentionHorizonIsFiveCalendarYearsBack() {
+        let cutoff = PressureRetentionPolicy.cutoff(asOf: now)
+        let years = Calendar.current.dateComponents([.year], from: cutoff, to: now).year
 
-        try await recorder.ingest([sample])
-        try await recorder.ingest([sample])
-
-        let stored = try await log.samples(in: wholeHistory)
-        XCTAssertEqual(stored.count, 1, "a redelivered reading must collapse onto one row")
-        XCTAssertEqual(stored.first?.id, id)
+        XCTAssertEqual(PressureRetentionPolicy.maximumHistoryYears, 5)
+        XCTAssertEqual(years, PressureRetentionPolicy.maximumHistoryYears)
     }
 
-    func testIngestDropsImplausibleRowsAndKeepsTheRest() async throws {
-        let log = InMemoryPressureSampleStore()
-        let recorder = PressureSampleRecorder(source: UnavailablePressureSource(), log: log)
+    /// A recorded reading carries the retention pass with it. This is the only thing in the
+    /// app that deletes a pressure row, so if it stops happening the log grows without bound
+    /// and nothing anywhere complains.
+    func testRecordingDropsRowsPastTheHorizon() async throws {
+        let expired = PressureSample(timestamp: now.addingTimeInterval(-6 * 365 * 24 * 3600),
+                                     pressure: Pressure(hectopascals: 1005))
+        let kept = PressureSample(timestamp: now.addingTimeInterval(-30 * 24 * 3600),
+                                  pressure: Pressure(hectopascals: 1018))
+        let log = InMemoryPressureSampleStore([expired, kept])
+        let recorder = PressureSampleRecorder(source: StubPressureSource(hectopascals: 1013), log: log)
 
-        try await recorder.ingest([
-            PressureSample(timestamp: now, pressure: Pressure(hectopascals: 1012)),
-            PressureSample(timestamp: now.addingTimeInterval(60), pressure: Pressure(hectopascals: 101.3))
-        ])
+        _ = try await recorder.record(asOf: now)
 
-        let stored = try await log.samples(in: wholeHistory)
-        XCTAssertEqual(stored.map(\.pressure.hectopascals), [1012])
+        let stored = try await log.samples(in: Date.distantPast..<Date.distantFuture)
+        XCTAssertEqual(stored.map(\.pressure.hectopascals), [1018, 1013],
+                       "the six-year-old row goes, the month-old one stays")
+    }
+
+    /// The horizon moves by one day per day, so the pass runs daily and no more often. A
+    /// retention query on every reading would be up to 96 index scans a day that match
+    /// nothing.
+    func testRetentionRunsAtMostOncePerDay() async throws {
+        let log = CountingPressureSampleStore()
+        let recorder = PressureSampleRecorder(source: StubPressureSource(hectopascals: 1013),
+                                              log: log,
+                                              minimumInterval: 600)
+
+        _ = try await recorder.record(asOf: now)
+        _ = try await recorder.record(asOf: now.addingTimeInterval(3600))
+        let withinTheDay = await log.deleteCallCount
+
+        _ = try await recorder.record(asOf: now.addingTimeInterval(25 * 3600))
+        let afterADay = await log.deleteCallCount
+
+        XCTAssertEqual(withinTheDay, 1, "two readings an hour apart, one retention pass")
+        XCTAssertEqual(afterADay, 2, "the horizon has moved, so the pass runs again")
+    }
+
+    /// Retention is housekeeping and runs after the write. A store that cannot delete must
+    /// not cost the caller the reading it just took — that would turn a disk-space problem
+    /// into a lost measurement.
+    func testAFailedRetentionPassDoesNotFailTheReading() async throws {
+        let recorder = PressureSampleRecorder(source: StubPressureSource(hectopascals: 1013),
+                                              log: UndeletablePressureSampleStore())
+
+        let sample = try await recorder.record(asOf: now)
+
+        XCTAssertEqual(sample?.pressure.hectopascals, 1013)
+    }
+
+    // MARK: - Policy
+
+    /// The chart buckets on a grid derived from this number, and a bucket finer than the
+    /// sampling floor averages nothing. If the floor is ever loosened, `bucketSeconds` has to
+    /// move with it or the narrow ranges start drawing one point per bucket forever.
+    func testTheFinestChartBucketIsNotFinerThanTheSamplingFloor() {
+        let finestBucket = PressureChartRange.allCases.map(\.bucketSeconds).min()
+
+        XCTAssertEqual(finestBucket, PressureSamplingPolicy.minimumIntervalSeconds)
     }
 
     // MARK: - Reads
@@ -191,5 +235,51 @@ private struct FailingPressureSource: PressureSource {
 
     func currentPressure() async throws -> Pressure {
         throw PressureSourceError.barometerUnavailable
+    }
+}
+
+/// Counts retention passes. How often the store is *asked* to prune is the assertion, and no
+/// amount of inspecting its contents can show that.
+private actor CountingPressureSampleStore: PressureSampleStore {
+
+    private(set) var deleteCallCount = 0
+    private var storage: [PressureSample] = []
+
+    func save(_ samples: [PressureSample]) {
+        storage.append(contentsOf: samples)
+    }
+
+    func samples(in range: Range<Date>) -> [PressureSample] {
+        storage
+            .filter { range.contains($0.timestamp) }
+            .sorted { $0.timestamp < $1.timestamp }
+    }
+
+    @discardableResult
+    func deleteSamples(before date: Date) -> Int {
+        deleteCallCount += 1
+        return 0
+    }
+}
+
+/// Stores readings, refuses to delete them. Stands in for a store whose retention query
+/// fails while the write path is perfectly healthy.
+private actor UndeletablePressureSampleStore: PressureSampleStore {
+
+    private struct DeleteRefused: Error {}
+
+    private var storage: [PressureSample] = []
+
+    func save(_ samples: [PressureSample]) {
+        storage.append(contentsOf: samples)
+    }
+
+    func samples(in range: Range<Date>) -> [PressureSample] {
+        storage.filter { range.contains($0.timestamp) }
+    }
+
+    @discardableResult
+    func deleteSamples(before date: Date) throws -> Int {
+        throw DeleteRefused()
     }
 }

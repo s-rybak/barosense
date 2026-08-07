@@ -4,7 +4,7 @@ import SwiftUI
 struct RootView: View {
 
     let ingest: HealthIngestController
-    let pressure: PressureIngestController
+    let pressure: PressureCollectionController
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .now
@@ -28,6 +28,11 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 ingest.sceneDidBecomeActive()
+                // The phone is the barometer now, and foreground activation is where most
+                // of the log actually comes from — background wakes are granted sparsely.
+                // Cheap to call on every activation: the recorder's fifteen-minute floor
+                // decides whether the sensor runs at all.
+                pressure.sceneDidBecomeActive()
             }
         }
         // Follow the system appearance; introduce a dark palette when the design system defines one.
@@ -39,7 +44,8 @@ struct RootView: View {
         recorder: HealthSampleRecorder(reader: HealthKitDataReader(),
                                        log: InMemoryHealthSampleStore()),
         changeObserver: NoOpHealthChangeObserver()),
-             pressure: PressureIngestController(
+             pressure: PressureCollectionController(
                 recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
-                                                 log: InMemoryPressureSampleStore())))
+                                                 log: InMemoryPressureSampleStore()),
+                display: NoOpPressureDisplayLink()))
 }

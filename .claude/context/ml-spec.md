@@ -16,7 +16,7 @@ the code change.
 | Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` via `BarosenseModelContainer` (CloudKit off); `HealthSampleStore` via `SwiftDataHealthSampleStore`; **`PressureSampleStore` via `SwiftDataPressureSampleStore`** (own container, indexed on `timestamp`, runs on both targets). **Check-ins still do not survive a launch** |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
 | Model | not trained; health and barometer raw samples are now accumulateable on disk |
-| Barometer ingest | **shipped** — `Shared/Pressure/`. Watch-only sensor via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log → `WatchConnectivityPressureLink.transferUserInfo` → phone log. **The phone never samples its own barometer** (see below). Cadence: `WKApplication` background refresh requested hourly + foreground activation, floored at one reading / 10 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
+| Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
 | HealthKit read set | **3 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis`, via `Shared/Health/HealthKitDataReader.swift`. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
 | Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per authorised type + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
 
@@ -33,30 +33,49 @@ iPhone only. Unmeasured on device; flip `HealthBackgroundDelivery.isEnabled` if 
 
 ### Barometer sampling — battery note (provisional)
 
-Apple Watch. Unmeasured on device; flip `PressureSamplingPolicy.isBackgroundRefreshEnabled`
-if drain is bad. Budget: ≤8% additional daily drain.
+iPhone. Unmeasured on device; flip `PressureSamplingPolicy.isBackgroundRefreshEnabled`
+if drain is bad.
 
-1. Wake: `WKApplication` background refresh requested every 60 min (the system grants
-   fewer), plus foreground activation. Upper bound on a heavy day ≈ 24 background +
-   ~30 foreground readings; the 10 min floor in `PressureSamplingPolicy` caps the second.
-2. Work duration: unmeasured. Bound per wake = one `CMAltimeter` start / first-sample / stop
-   (≈1 s, hard-capped at 5 s), one SwiftData upsert, one `transferUserInfo` enqueue.
+1. Wake: `BGAppRefreshTask` with `earliestBeginDate` 15 min out (iOS grants far fewer —
+   `earliestBeginDate` is a floor, never a cadence), plus foreground activation. Upper
+   bound 96 readings/day; the 15 min floor in `PressureSamplingPolicy` caps both paths.
+2. Work duration: unmeasured. Bound per reading = one `CMAltimeter` start / first-sample /
+   stop (≈1 s, hard-capped at 5 s), one SwiftData upsert, at most one
+   `updateApplicationContext` write. A declined activation costs nothing at all.
 3. Powered while awake: the barometer only, for that ≈1 s. No display, no network, no
-   HealthKit, no `WKExtendedRuntimeSession`.
-4. Doubling to 2 h breaks a stated requirement rather than costing resolution: `pressureHPa`
-   needs a sample within 90 min of `t` (§2.1). 60 min is already the loosest setting the
-   feature registry allows.
-5. If the wake never fires — and it often will not, since background refresh favours apps
-   with a complication on the active face and this app has none yet — foreground activation
-   is the backstop. Gaps are expected; `pressureCoverage6h` / `pressureCoverage24h` exist to
-   report them.
+   location, no HealthKit.
+4. Loosening to 60 min would still satisfy `pressureHPa`'s 90 min tolerance (§2.1) but
+   costs delta resolution: `pressureDeltaHPaPer3h` on an hourly grid is 3 points, on a
+   15 min grid 12. 15 min is chosen for the delta features, not for `pressureHPa`.
+5. If the wake never fires — and often it will not, since iOS grants `BGAppRefreshTask`
+   from usage history and throttles it hard in Low Power Mode — foreground activation is
+   the backstop, and on a phone that is the main source rather than a fallback. The
+   overnight gap is real; `pressureCoverage6h` / `pressureCoverage24h` exist to report it.
 6. Daily drain %: unknown until Instruments on device.
+7. **Unverified:** that `CMAltimeter` delivers inside a `BGAppRefreshTask`. Expected — the
+   app is executing for the length of the task — but not confirmed on device.
 
-**Why the phone does not sample.** iPhones have a barometer and using it would look like
-free coverage. It is not: two devices at two altitudes writing into one series manufactures
-exactly the contamination §3 is about, and nothing in a `PressureSample` row says which
-device produced it. One sensor, one series. Adding device provenance and a per-device
-altitude reference is the change that would make phone sampling safe, and it is not made.
+**Why the watch does not sample, and the phone does.** Both devices have a barometer, and
+using both would look like free coverage. It is not: two devices at two altitudes writing
+into one series manufactures exactly the contamination §3 is about, and nothing in a
+`PressureSample` row says which device produced it. One sensor, one series.
+
+Which one is a real trade. The watch is on the wrist, so it measures where the user
+actually is; the phone can be on a desk while the user is outside. The phone wins anyway on
+everything else: it is picked up dozens of times a day, it is charged nightly rather than
+budgeted hourly, and its readings reach the training log with no radio hop that can stall.
+The watch keeps a role — it displays the phone's newest reading and is where check-ins are
+meant to be logged — but it contributes no rows.
+
+Adding device provenance and a per-device altitude reference is the change that would make
+sampling on both safe. It is not made.
+
+### watchOS battery — barometer feature
+
+Nothing to budget. The watch target starts no sensor, schedules no background refresh and
+opens no pressure store. It holds one `WCSession` and reacts to at most one context
+delivery per phone reading; the transport keeps a single slot rather than a queue, so a
+watch off the wrist for six hours receives one context on its next wake, not twenty-four.
 
 Every row below marked `planned` is a design decision, not shipped behaviour. Every
 HealthKit row is additionally gated by `../skills/healthkit_permissions/SKILL.md`: no type
@@ -112,7 +131,7 @@ and minimum coverage, behaviour on a gap.
 
 | name | source | unit | sampling / min coverage | on missing | status |
 | ---- | ------ | ---- | ----------------------- | ---------- | ------ |
-| `pressureHPa` | `CMAltimeter` | hPa | opportunistic, target ≥1/h; needs a sample within 90 min of `t` | feature nil → row dropped | planned |
+| `pressureHPa` | `CMAltimeter` (iPhone) | hPa | opportunistic, target ≥1/15 min; needs a sample within 90 min of `t` | feature nil → row dropped | planned |
 | `pressureDeltaHPaPer3h` | derived | hPa | ≥50% of the 3 h grid observed | nil | planned |
 | `pressureDeltaHPaPer6h` | derived | hPa | ≥50% of the 6 h grid | nil | planned |
 | `pressureDeltaHPaPer24h` | derived | hPa | ≥40% of the 24 h grid | nil | planned |
@@ -129,9 +148,25 @@ across gaps ≤ 2 h; longer gaps stay holes and reduce coverage. Interpolated ce
 count toward coverage.
 
 Every row here is still `planned` as a *feature*: raw `PressureSample` rows now accumulate
-on disk (see Barometer ingest above), but nothing derives a feature from them yet. The
-watch's rate gate is **not** applied at ingest — readings are stored raw so §3 can identify
-an altitude excursion from its neighbours, which is impossible once the evidence is deleted.
+on disk (see Barometer ingest above), but nothing derives a feature from them yet. Readings
+are stored **raw and unsmoothed**, so §3 can identify an altitude excursion from its
+neighbours — impossible once the evidence is averaged away.
+
+**Retention: five years.** `PressureRetentionPolicy` sets the horizon and
+`PressureSampleRecorder` drops what is past it, at most once a day, on the write path. Five
+calendar years is five passes over the annual cycle, which is the longest period any
+seasonal effect in §2.1 could need; nothing in §5's forward-chaining splits assumes more. It
+is a ceiling on file growth (~2 900 rows a month, ~175 000 at the horizon), not a target —
+the bias is toward keeping. Two consequences for anyone fitting on this table: the training
+window is bounded, and it is bounded on **one device**, because the store runs with
+`cloudKitDatabase: .none` and nothing backs it up. A reinstall costs the whole history and
+returns the model to the §4 cold-start path.
+
+The chart's bucket means (`PressureBuckets`, `PressureChartRange.bucketSeconds`) are
+**display only** and must never reach a feature. Averaging before differencing is a
+low-pass filter, and a low-pass filter applied ahead of `pressureDeltaHPaPer3h` rounds a
+real fall down toward "steady". The features build their own hourly grid from raw rows,
+with the interpolation and coverage policy stated above.
 
 `PressureTrend` (`Shared/Pressure/PressureSeries.swift`) is **display only** and has no row
 here on purpose. It buckets the trailing-3 h delta into rising / falling / steady for the
@@ -154,8 +189,8 @@ exposes a pressure-trend value; verify its exact type and semantics against curr
 documentation before using it — do not assume from this file.
 
 Sensor and forecast are **separate feature families**. A WeatherKit value never
-substitutes for a missing sensor sample: the watch is ground truth for "now", WeatherKit
-for "next". Silently swapping them makes the two families indistinguishable in
+substitutes for a missing sensor sample: the phone's barometer is ground truth for "now",
+WeatherKit for "next". Silently swapping them makes the two families indistinguishable in
 attribution.
 
 Outbound WeatherKit requests carry location and time only. Never a health-derived value.

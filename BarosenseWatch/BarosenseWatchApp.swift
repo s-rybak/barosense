@@ -3,55 +3,31 @@ import SwiftUI
 @main
 struct BarosenseWatchApp: App {
 
-    /// Composition root for barometer collection. The one place that knows the log is
-    /// SwiftData and the sensor is CoreMotion; everything below takes protocols.
-    private let collector: PressureCollectionController
+    /// Composition root for the watch. Short, because the watch owns nothing: no store, no
+    /// sensor, no background refresh — one link to the phone and the value it delivers.
+    private let display = PressureDisplayController()
 
     init() {
-        let log: any PressureSampleStore
-        do {
-            log = try SwiftDataPressureSampleStore.makePersistent()
-        } catch {
-            // A store that cannot open must not take the app down with it. Fall back to the
-            // in-memory double so sampling and the uplink still work for this launch; what
-            // is lost is the resend window, not the readings themselves — each one is still
-            // handed to the phone as it is taken.
-            log = InMemoryPressureSampleStore()
-        }
-
-        let recorder = PressureSampleRecorder(source: CoreMotionPressureSource(), log: log)
-
-        let link = WatchConnectivityPressureLink()
-        link?.activate()
-        let uplink: any PressureSampleUplink = link ?? NoOpPressureSampleUplink()
-
-        collector = PressureCollectionController(recorder: recorder, uplink: uplink)
-        collector.start()
+        // The session must be live before WatchConnectivity hands over a context published
+        // while this app was not running — that delivery is the only way the screen updates.
+        display.start()
     }
 
     var body: some Scene {
-        let collector = collector
-
-        return WindowGroup {
-            WatchRootView(collector: collector)
-        }
-        // The system holds the app awake for the length of this closure and suspends it the
-        // moment the closure returns, so the reading and the durable write have to finish
-        // inside it. `handleBackgroundRefresh` also re-arms the next wake.
-        .backgroundTask(.appRefresh) { _ in
-            await collector.handleBackgroundRefresh()
+        WindowGroup {
+            WatchRootView(display: display)
         }
     }
 }
 
-/// The watch app's only screen: the last reading this watch took.
+/// The watch app's only screen: the pressure the phone last measured.
 ///
 /// One number and its unit, nothing else — a watch screen is read in about half a second
-/// (`.claude/skills/watchos_budget/SKILL.md`). The history it is accumulating is shown on
-/// the phone, where there is room for a chart.
+/// (`.claude/skills/watchos_budget/SKILL.md`). The history it belongs to is shown on the
+/// phone, where there is room for a chart.
 struct WatchRootView: View {
 
-    let collector: PressureCollectionController
+    let display: PressureDisplayController
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -67,33 +43,60 @@ struct WatchRootView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
 
-            Text(unit)
+            Text(caption)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .accessibilityElement(children: .combine)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                collector.sceneDidBecomeActive()
+                display.sceneDidBecomeActive()
             }
         }
     }
 
-    /// The dash is the ordinary state on a device with no barometer, and while the first
-    /// reading is still in flight. Neither is an error worth wording.
+    /// The dash is the ordinary state until the phone's first reading arrives. Not an error
+    /// worth wording: a fresh install, a phone out of range, and a phone that has simply not
+    /// sampled yet all look the same from here and all resolve themselves.
     private var reading: String {
-        guard let hectopascals = collector.latest?.pressure.hectopascals else { return "—" }
+        guard let hectopascals = display.snapshot?.sample.pressure.hectopascals else { return "—" }
         return PressureFormat.roundedHectopascals(hectopascals)
     }
 
-    private var unit: String {
-        collector.latest == nil && collector.hasAttemptedSample ? "немає даних" : "гПа"
+    /// The unit, plus the two things that would otherwise be a lie.
+    ///
+    /// **The tendency**, because an arrow costs no space and is the one piece of context a
+    /// bare number lacks. **The age**, whenever the reading is older than the phone's own
+    /// sampling floor: a watch out of range for a day would otherwise present yesterday's
+    /// pressure as the current one, and the user has no way to tell.
+    private var caption: String {
+        guard let snapshot = display.snapshot else { return "чекаю телефон" }
+
+        var parts = ["гПа"]
+        if let arrow = Self.arrow(for: snapshot.trend) {
+            parts.append(arrow)
+        }
+
+        let age = Date.now.timeIntervalSince(snapshot.sample.timestamp)
+        if age > PressureSamplingPolicy.minimumIntervalSeconds {
+            parts.append(snapshot.sample.timestamp.formatted(.relative(presentation: .numeric)))
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
+    private static func arrow(for trend: PressureTrend) -> String? {
+        switch trend {
+        case .rising: "↗"
+        case .falling: "↘"
+        case .steady: "→"
+        case .unknown: nil
+        }
     }
 }
 
 #Preview {
-    WatchRootView(collector: PressureCollectionController(
-        recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
-                                         log: InMemoryPressureSampleStore()),
-        uplink: NoOpPressureSampleUplink()))
+    WatchRootView(display: PressureDisplayController())
 }

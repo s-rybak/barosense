@@ -10,7 +10,7 @@ struct NowScreen: View {
 
     @State private var model: HealthMetricsViewModel
 
-    private let pressure: PressureIngestController
+    private let pressure: PressureCollectionController
 
     /// Side margin the design uses for every card on this screen: 20 pt inside a 351 pt
     /// frame.
@@ -19,7 +19,7 @@ struct NowScreen: View {
     /// Gap between two cards: 494 − (234 + 246) in the design's own coordinates.
     private static let cardSpacing: CGFloat = 14
 
-    init(recorder: HealthSampleRecorder, pressure: PressureIngestController) {
+    init(recorder: HealthSampleRecorder, pressure: PressureCollectionController) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         self.pressure = pressure
     }
@@ -27,7 +27,7 @@ struct NowScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.cardSpacing) {
-                PressureChartCard(ingest: pressure)
+                PressureChartCard(collection: pressure)
 
                 VStack(alignment: .leading, spacing: 12) {
                     HealthMetricsRow(snapshot: model.snapshot)
@@ -98,9 +98,10 @@ final class HealthMetricsViewModel {
 #Preview {
     NowScreen(recorder: HealthSampleRecorder(reader: PreviewHealthDataReader(),
                                              log: InMemoryHealthSampleStore()),
-              pressure: PressureIngestController(
+              pressure: PressureCollectionController(
                 recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
-                                                 log: InMemoryPressureSampleStore())))
+                                                 log: InMemoryPressureSampleStore()),
+                display: NoOpPressureDisplayLink()))
     .background(Palette.surface)
 }
 

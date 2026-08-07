@@ -108,4 +108,37 @@ final class SwiftDataPressureSampleStoreTests: XCTestCase {
         XCTAssertEqual(removed, 0)
         XCTAssertEqual(remaining.count, 1)
     }
+
+    // MARK: - Durability
+
+    /// The store the app actually opens must open, and rows written through one instance
+    /// must be there for the next one.
+    ///
+    /// The regression it guards: the store used to take `ModelConfiguration`'s name-based
+    /// initialiser, whose default `groupContainer: .automatic` follows the target's
+    /// app-group entitlement into a directory nothing creates. The open then threw, both app
+    /// targets caught it and fell back to `InMemoryPressureSampleStore`, and the barometer
+    /// history restarted from empty on every launch — with nothing visible anywhere except
+    /// a pressure chart that stayed blank.
+    ///
+    /// Both instances are separate `@ModelActor`s over the same file, which is what makes
+    /// this a durability assertion rather than a cache one.
+    func testThePersistentStoreOpensAndRowsSurviveANewInstance() async throws {
+        // Well before any reading this app could ever have taken, so the cleanup below
+        // cannot reach a row that is not this test's.
+        let planted = PressureSample(timestamp: Date(timeIntervalSince1970: 100),
+                                     pressure: Pressure(hectopascals: 1002.5))
+        let cleanupBoundary = Date(timeIntervalSince1970: 1_000)
+
+        let writer = try SwiftDataPressureSampleStore.makePersistent()
+        try await writer.save([planted])
+
+        let reader = try SwiftDataPressureSampleStore.makePersistent()
+        let read = try await reader.samples(in: Date(timeIntervalSince1970: 0)..<cleanupBoundary)
+
+        _ = try? await reader.deleteSamples(before: cleanupBoundary)
+
+        XCTAssertEqual(read.map(\.id), [planted.id])
+        XCTAssertEqual(read.first?.pressure.hectopascals ?? 0, 1002.5, accuracy: 0.0001)
+    }
 }

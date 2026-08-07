@@ -42,21 +42,37 @@ final class PersistedPressureSample {
 /// barometer history that resets on relaunch can never reach the 3–7 days the cold-start
 /// requirement is stated against.
 ///
-/// Runs on both targets. On the watch it is the local log the uplink resends from; on the
-/// phone it is the training log everything downstream reads. Same code, same rows, and
-/// because every sample carries the identifier its originating device generated, the phone
-/// can accept the same reading twice without it becoming two training rows.
+/// Phone-only. The watch neither samples nor stores — it is a display onto the newest
+/// reading (`PressureDisplayLink`) — so this is the single copy of the barometer history,
+/// and the same rows serve the chart and the model. One history, not two nearly-identical
+/// ones.
+///
+/// **Nothing prunes it.** `deleteSamples(before:)` exists and is tested, but no scheduled
+/// pass calls it: at one row per 15 min the table gains ~2 900 rows a month, which is a
+/// few hundred kB with its indexes, and the forecast wants the longest history it can get.
+/// Retention becomes a decision when there is a reason to drop rows, not before.
 ///
 /// `@ModelActor` owns the `ModelContext` on its executor so SwiftData stays off the main
 /// actor. Callers still only see `PressureSampleStore`.
 @ModelActor
 actor SwiftDataPressureSampleStore: PressureSampleStore {
 
-    /// On-disk store in the app's default container.
+    /// File name of the on-disk store. Part of the storage contract — renaming it orphans
+    /// every existing install's history.
+    private static let storeFileName = "PressureSamples.store"
+
+    /// On-disk store in the app's own Application Support directory.
     ///
-    /// Its own named configuration, like `SwiftDataHealthSampleStore` — sensor rows are not
-    /// mixed into the profile/tag store. That store's schema is a deliberate list of what
-    /// belongs in it, and pressure is not on it.
+    /// Its own file, like `SwiftDataHealthSampleStore` — sensor rows are not mixed into the
+    /// profile/tag store. That store's schema is a deliberate list of what belongs in it,
+    /// and pressure is not on it.
+    ///
+    /// The URL is explicit rather than derived from a configuration name. The name-based
+    /// initialiser defaults to `groupContainer: .automatic`, which follows this target's
+    /// app-group entitlement into a container whose `Library/Application Support` does not
+    /// exist — the open then throws, both app targets catch it and fall back to
+    /// `InMemoryPressureSampleStore`, and the barometer history silently restarts from
+    /// empty on every launch. See `BarosenseModelContainer.storeURL(fileName:)`.
     static func makePersistent() throws -> SwiftDataPressureSampleStore {
         SwiftDataPressureSampleStore(modelContainer: try makeContainer(inMemory: false))
     }
@@ -69,10 +85,17 @@ actor SwiftDataPressureSampleStore: PressureSampleStore {
 
     private static func makeContainer(inMemory: Bool) throws -> ModelContainer {
         let schema = Schema([PersistedPressureSample.self])
-        let configuration = ModelConfiguration(inMemory ? "PressureSamples.InMemory" : "PressureSamples",
-                                               schema: schema,
-                                               isStoredInMemoryOnly: inMemory)
         do {
+            let configuration = if inMemory {
+                ModelConfiguration("PressureSamples.InMemory",
+                                   schema: schema,
+                                   isStoredInMemoryOnly: true,
+                                   cloudKitDatabase: .none)
+            } else {
+                ModelConfiguration(schema: schema,
+                                   url: try BarosenseModelContainer.storeURL(fileName: storeFileName),
+                                   cloudKitDatabase: .none)
+            }
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
             throw PersistenceError.containerUnavailable(underlying: error)
@@ -82,9 +105,10 @@ actor SwiftDataPressureSampleStore: PressureSampleStore {
     func save(_ samples: [PressureSample]) throws {
         guard !samples.isEmpty else { return }
 
-        // The uplink resends an overlapping window every time, so most of what arrives is
-        // already stored. Collapse duplicates inside this batch first — the last value wins
-        // — then upsert, so one repeated reading stays one row.
+        // Upsert, not insert. The recorder writes one reading at a time under a freshly
+        // generated identifier, so nothing collides today; the path is here because a
+        // restored backup or a later backfill would otherwise turn one reading into two
+        // training rows. Duplicates inside the batch collapse first, last value wins.
         var samplesByID: [UUID: PressureSample] = [:]
         for sample in samples {
             samplesByID[sample.id] = sample

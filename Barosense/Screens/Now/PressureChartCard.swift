@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The pressure chart card on the Now screen (Figma `7:671`).
 ///
-/// ## Two deliberate departures from the design
+/// ## Three deliberate departures from the design
 ///
 /// 1. **No "Точність 87%" caption.** There is no model yet, so any number in that slot would
 ///    be invented. A figure describing how well the app knows the user is also the kind of
@@ -13,11 +13,16 @@ import SwiftUI
 ///    convention; the app is Ukrainian, and hPa is the domain unit everywhere else in this
 ///    codebase (`.claude/skills/swift_conventions/SKILL.md`). Rendering the one figure on
 ///    screen in a different unit from every stored value is how a unit bug survives review.
+/// 3. **A time axis under the plot.** The design has none, and none was needed while the
+///    window was fixed: the selected button named it. The plot scrolls now, so "which hours
+///    am I looking at" stopped being answerable from the button alone, and an unlabelled
+///    scrollable chart is a chart the user cannot locate themselves in. It costs the 18 pt
+///    `Metrics.plotHeight` gained.
 struct PressureChartCard: View {
 
     @State private var model: PressureChartModel
 
-    private let ingest: PressureIngestController
+    private let collection: PressureCollectionController
 
     private enum Metrics {
         static let cornerRadius: CGFloat = 20
@@ -25,13 +30,14 @@ struct PressureChartCard: View {
         static let padding: CGFloat = 17
         /// Gap between the four rows of the card.
         static let rowSpacing: CGFloat = 10
-        /// Height of the plot region, label included.
-        static let plotHeight: CGFloat = 92
+        /// Height of the plot region, label included. 92 pt of line as the design draws it,
+        /// plus 18 pt for the time axis the scroll made necessary.
+        static let plotHeight: CGFloat = 110
     }
 
-    init(ingest: PressureIngestController) {
-        self.ingest = ingest
-        _model = State(initialValue: PressureChartModel(ingest: ingest))
+    init(collection: PressureCollectionController) {
+        self.collection = collection
+        _model = State(initialValue: PressureChartModel(collection: collection))
     }
 
     var body: some View {
@@ -59,9 +65,9 @@ struct PressureChartCard: View {
                 .strokeBorder(Palette.cardBorder, lineWidth: Metrics.borderWidth)
         }
         .task { await model.load() }
-        // A reading that lands from the watch while this screen is open should appear.
-        // Watching the controller beats a timer that ticks whether or not anything changed.
-        .onChange(of: ingest.lastIngestAt) { _, _ in
+        // A reading taken while this screen is open should appear. Watching the controller
+        // beats a timer that ticks whether or not anything changed.
+        .onChange(of: collection.lastUpdateAt) { _, _ in
             Task { await model.load() }
         }
     }
@@ -71,11 +77,18 @@ struct PressureChartCard: View {
     @ViewBuilder
     private var plot: some View {
         if model.series.isEmpty {
-            PressureChartEmptyState()
+            PressureChartEmptyState(reason: model.emptyReason)
                 .frame(height: Metrics.plotHeight)
         } else {
             PressureChartPlot(series: model.series)
                 .frame(height: Metrics.plotHeight)
+                // Rebuilds the chart when the range changes so `chartScrollPosition(initialX:)`
+                // is applied again — it is an *initial* position and is otherwise ignored for
+                // the life of the view. Without this, tapping "1год" after scrolling back a
+                // week leaves the viewport wherever the previous range's offset landed, in a
+                // plot that no longer reaches that far. Keyed on the range alone, so a reading
+                // arriving every 15 min does not tear the chart down.
+                .id(model.series.range)
         }
     }
 
@@ -114,8 +127,8 @@ final class PressureChartModel {
 
     private(set) var series: PressureSeries = .empty()
 
-    /// Selected range. Changing it re-slices what is already loaded — no store read, so the
-    /// four buttons feel instant and cost nothing.
+    /// Selected range. Changing it re-slices and re-buckets what is already loaded — no
+    /// store read, so the four buttons feel instant and cost nothing.
     var range: PressureChartRange = .oneHour {
         didSet {
             guard oldValue != range else { return }
@@ -123,19 +136,27 @@ final class PressureChartModel {
         }
     }
 
-    private let ingest: PressureIngestController
+    private let collection: PressureCollectionController
 
-    /// The full widest window, kept so a range change is a re-slice. At one row an hour this
-    /// is a couple of dozen samples — cheaper to hold than to re-query four times.
+    /// The deepest history any range scrolls over, kept so a range change is a re-slice. At
+    /// one row per 15 min twelve days is ~1 150 samples of 40-odd bytes — under 50 kB, and
+    /// cheaper to hold than to re-query on every button.
     private var samples: [PressureSample] = []
 
-    init(ingest: PressureIngestController) {
-        self.ingest = ingest
+    init(collection: PressureCollectionController) {
+        self.collection = collection
+    }
+
+    /// Why the plot has nothing to draw. Three states that need three different sentences,
+    /// because each is acted on differently — or, in one case, not at all.
+    var emptyReason: PressureChartEmptyReason {
+        if !collection.isBarometerAvailable { return .noBarometer }
+        return samples.isEmpty ? .noHistory : .nothingInRange
     }
 
     /// Reads the log and rebuilds the series. Safe to call repeatedly.
     func load() async {
-        samples = await ingest.samples(trailing: PressureChartRange.widest.seconds)
+        samples = await collection.samples(trailing: PressureChartRange.widest.historySeconds)
         rebuild()
     }
 
@@ -170,13 +191,21 @@ final class PressureChartModel {
 /// "зараз" divider, so the two are never confusable at a glance — the same boundary the
 /// feature registry draws between the barometer and WeatherKit families. The forecast side
 /// stays empty until WeatherKit is wired, which is why the divider only appears with it.
+///
+/// The plot is twelve screenfuls wide and scrolls horizontally, opening on the newest
+/// reading. Vertically it does not rescale as it scrolls — see `PressureSeries.valueDomainHPa`
+/// for why a domain that refitted under the finger is worse than a slightly flatter line.
 private struct PressureChartPlot: View {
 
     let series: PressureSeries
 
-    /// Above this many readings the dots become a smear and the line reads better alone.
-    /// The design draws roughly seven of them, which is a six-hour window at the target
-    /// cadence.
+    /// Above this many points *per screenful* the dots become a smear and the line reads
+    /// better alone. The design draws roughly seven of them, which is a six-hour window at
+    /// the target cadence.
+    ///
+    /// Compared against `PressureChartRange.pointsPerScreen` rather than `observed.count`:
+    /// the latter now counts twelve screenfuls, so every range but the narrowest would lose
+    /// its dots to history the user is not even looking at.
     private static let maximumVisiblePoints = 12
 
     private static let lineWidth: CGFloat = 3
@@ -192,7 +221,7 @@ private struct PressureChartPlot: View {
                 .foregroundStyle(Palette.chartLine)
             }
 
-            if series.observed.count <= Self.maximumVisiblePoints {
+            if series.range.pointsPerScreen <= Self.maximumVisiblePoints {
                 ForEach(series.observed) { sample in
                     PointMark(x: .value("Час", sample.timestamp),
                               y: .value("Тиск", sample.pressure.hectopascals))
@@ -221,10 +250,27 @@ private struct PressureChartPlot: View {
                 }
             }
         }
-        .chartXAxis(.hidden)
+        // Labels only — no grid lines, no ticks — so the axis says where the line is without
+        // becoming furniture the design never had. `AxisValueLabel()` with no format is
+        // deliberate: Swift Charts picks the format from the stride it chose, so the narrow
+        // ranges read as times and the day range as dates, without this file inventing a
+        // per-range format table.
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) {
+                AxisValueLabel()
+                    .font(Typography.chartAnnotation)
+                    .foregroundStyle(Palette.inkSubtle)
+            }
+        }
         .chartYAxis(.hidden)
+        // With scrolling on, `chartXScale` is the whole scrollable extent and
+        // `chartXVisibleDomain` is the viewport onto it. Both are needed: the scale alone
+        // would squeeze twelve screenfuls into 92 pt.
         .chartXScale(domain: series.timeDomain)
         .chartYScale(domain: yDomain)
+        .chartScrollableAxes(.horizontal)
+        .chartXVisibleDomain(length: series.visibleSeconds)
+        .chartScrollPosition(initialX: series.initialScrollX)
         .chartLegend(.hidden)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Графік тиску"))
@@ -240,21 +286,48 @@ private struct PressureChartPlot: View {
 
     /// VoiceOver gets the two facts the line carries: how many readings, and over how long.
     /// Reading out every point would be unusable.
+    ///
+    /// `readingCount`, not `observed.count` — on the day range the line is hourly means over
+    /// four times as many readings, and announcing the smaller number would understate the
+    /// history by 4×. It covers the whole scrollable extent, which is the honest scope:
+    /// VoiceOver cannot scroll the plot, so a summary of the viewport alone would describe a
+    /// twelfth of what is there.
+    ///
+    /// The span is formatted rather than printed as hours: the day range now covers twelve
+    /// of them, and "за 288 год" is a number VoiceOver can read but nobody can picture.
+    /// `Duration.UnitsFormatStyle` also gets the Ukrainian plural agreement right, which
+    /// string interpolation would not.
     private var accessibilitySummary: String {
-        let count = series.observed.count
+        let count = series.readingCount
         guard let first = series.observed.first, let last = series.observed.last else {
             return "Немає даних"
         }
-        let hours = Int((last.timestamp.timeIntervalSince(first.timestamp) / 3600).rounded())
-        return "\(count) вимірів за \(hours) год"
+        let span = Duration.seconds(last.timestamp.timeIntervalSince(first.timestamp))
+        return "\(count) вимірів за \(span.formatted(.units(allowed: [.days, .hours], width: .wide)))"
     }
 }
 
-/// Shown before the first reading arrives from the watch.
+/// Why the plot is empty. Three states, three different sentences.
 ///
-/// Deliberately not an error: an empty log is the ordinary state on a fresh install, on a
-/// phone whose watch has not been worn yet, and on any device without a barometer.
+/// They are not interchangeable. `noBarometer` is permanent and the user can do nothing
+/// about it — an iPad has no pressure sensor — so telling them to wait would be telling them
+/// to wait forever. `noHistory` resolves itself in minutes. `nothingInRange` is fixed by
+/// pressing a wider button: iOS grants background wakes rather than scheduling them, so a
+/// phone left alone overnight can have nothing at all inside the last hour.
+enum PressureChartEmptyReason {
+    case noBarometer
+    case noHistory
+    case nothingInRange
+}
+
+/// Shown when the plot has nothing to draw.
+///
+/// Deliberately not an error in any of its wordings: every one of the three is an ordinary
+/// state of a working app. None says anything about health, and none promises when data will
+/// appear.
 private struct PressureChartEmptyState: View {
+
+    let reason: PressureChartEmptyReason
 
     var body: some View {
         ZStack {
@@ -265,7 +338,7 @@ private struct PressureChartEmptyState: View {
                 .foregroundStyle(Palette.controlBorder)
                 .frame(height: 1)
 
-            Text("Дані з’являться після перших вимірів з годинника")
+            message
                 .font(Typography.cardNote)
                 .foregroundStyle(Palette.inkSubtle)
                 .multilineTextAlignment(.center)
@@ -274,6 +347,16 @@ private struct PressureChartEmptyState: View {
                 .background(Palette.cardSurface)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Every literal sits at a `Text` call site rather than behind a `String` so the string
+    /// catalog keeps extracting them. A `Text(someString)` is not a localisable key.
+    private var message: Text {
+        switch reason {
+        case .noBarometer: Text("Цей пристрій не має барометра")
+        case .noHistory: Text("Дані з’являться після перших вимірів")
+        case .nothingInRange: Text("За цей проміжок вимірів немає — оберіть ширший")
+        }
     }
 }
 
@@ -291,7 +374,12 @@ private struct HorizontalRule: Shape {
 
 // MARK: - Range selector
 
-/// The four range buttons (Figma `7:682`).
+/// The range buttons (Figma `7:682`).
+///
+/// Four, as the design draws them. On the narrowest device this app runs on — 375 pt — the
+/// track has 375 − 2×20 screen margin − 2×17 card padding − 2×4 track padding − 3×4 gaps =
+/// 281 pt to divide, so 70 pt per button against a widest label ("День") of roughly 32 pt
+/// at `segmentLabel`'s 12 pt.
 private struct PressureRangeSelector: View {
 
     @Binding var selection: PressureChartRange
@@ -360,11 +448,23 @@ private struct PressureRangeSelector: View {
     PressureChartPreviewHost(series: .empty(range: .oneHour))
 }
 
+#Preview("Nothing in this range") {
+    PressureChartPreviewHost(series: .empty(range: .oneHour), emptyReason: .nothingInRange)
+}
+
+#Preview("No barometer") {
+    PressureChartPreviewHost(series: .empty(range: .oneHour), emptyReason: .noBarometer)
+}
+
 /// Renders the card's pieces against a fixed series. The card itself needs a controller and
 /// therefore a store, which a preview has no business opening.
 private struct PressureChartPreviewHost: View {
 
     let series: PressureSeries
+
+    /// Which of the three empty messages to render. The card derives this from the log and
+    /// the device; a preview has neither, so it is stated.
+    var emptyReason: PressureChartEmptyReason = .noHistory
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -374,12 +474,12 @@ private struct PressureChartPreviewHost: View {
 
             Group {
                 if series.isEmpty {
-                    PressureChartEmptyState()
+                    PressureChartEmptyState(reason: emptyReason)
                 } else {
                     PressureChartPlot(series: series)
                 }
             }
-            .frame(height: 92)
+            .frame(height: 110)
 
             Text(latestText)
                 .font(Typography.pressureValue)
