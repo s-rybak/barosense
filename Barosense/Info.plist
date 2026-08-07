@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Base Info.plist for the iOS target.
+
+  Deliberately tiny. `GENERATE_INFOPLIST_FILE` stays on and merges every `INFOPLIST_KEY_*`
+  build setting in `project.yml` on top of this file at build time, so purpose strings and
+  scene configuration keep living in the manifest where they are reviewable next to the
+  entitlements. Only the two keys that cannot be written as an `INFOPLIST_KEY_*` build
+  setting — because they are arrays of app-defined strings — are here.
+
+  This file is hand-written and tracked, unlike Barosense.xcodeproj. XcodeGen references it
+  through INFOPLIST_FILE and does not generate it.
+-->
+<plist version="1.0">
+<dict>
+	<!-- Barometer sampling wakes. Must match PressureSamplingPolicy.backgroundRefreshIdentifier;
+	     a submission for an identifier missing here throws BGTaskSchedulerErrorCodeNotPermitted
+	     and the refresh chain silently never starts. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.barosense.pressure.refresh</string>
+	</array>
+	<!-- `fetch` is what BGAppRefreshTask runs under. No `processing`: the work is one sensor
+	     read and one row, not a long batch. No `location`, no `audio` — nothing here is
+	     allowed to keep the app resident. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>

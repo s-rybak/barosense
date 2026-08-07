@@ -2,31 +2,41 @@ import SwiftUI
 
 /// The Now destination (Figma `7:632`).
 ///
-/// Only the Health card row is built. The rest of the screen the design draws — the risk
-/// card, the pressure chart, the two progress cards — is still `PlaceholderScreen`
-/// territory and lands separately; this file grows a section at a time in the design's
-/// order.
+/// The pressure chart and the Health card row are built, in the design's own order. The rest
+/// of the screen it draws — the risk card above the chart, the two progress cards below the
+/// row — is still `PlaceholderScreen` territory and lands separately; this file grows a
+/// section at a time.
 struct NowScreen: View {
 
     @State private var model: HealthMetricsViewModel
+
+    private let pressure: PressureCollectionController
 
     /// Side margin the design uses for every card on this screen: 20 pt inside a 351 pt
     /// frame.
     private static let horizontalMargin: CGFloat = 20
 
-    init(recorder: HealthSampleRecorder) {
+    /// Gap between two cards: 494 − (234 + 246) in the design's own coordinates.
+    private static let cardSpacing: CGFloat = 14
+
+    init(recorder: HealthSampleRecorder, pressure: PressureCollectionController) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
+        self.pressure = pressure
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                HealthMetricsRow(snapshot: model.snapshot)
+            VStack(alignment: .leading, spacing: Self.cardSpacing) {
+                PressureChartCard(collection: pressure)
 
-                if model.showsEmptyNote {
-                    Text("Поки немає даних з Health")
-                        .font(Typography.cardNote)
-                        .foregroundStyle(Palette.inkSubtle)
+                VStack(alignment: .leading, spacing: 12) {
+                    HealthMetricsRow(snapshot: model.snapshot)
+
+                    if model.showsEmptyNote {
+                        Text("Поки немає даних з Health")
+                            .font(Typography.cardNote)
+                            .foregroundStyle(Palette.inkSubtle)
+                    }
                 }
             }
             .padding(.horizontal, Self.horizontalMargin)
@@ -87,7 +97,11 @@ final class HealthMetricsViewModel {
 
 #Preview {
     NowScreen(recorder: HealthSampleRecorder(reader: PreviewHealthDataReader(),
-                                             log: InMemoryHealthSampleStore()))
+                                             log: InMemoryHealthSampleStore()),
+              pressure: PressureCollectionController(
+                recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
+                                                 log: InMemoryPressureSampleStore()),
+                display: NoOpPressureDisplayLink()))
     .background(Palette.surface)
 }
 

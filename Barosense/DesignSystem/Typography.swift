@@ -105,4 +105,42 @@ enum Typography {
     static let tertiaryAction = Font
         .custom("Manrope-SemiBold", size: 13, relativeTo: .footnote)
         .weight(.semibold)
+
+    // MARK: - Pressure chart (Figma `7:671`)
+
+    /// `Manrope/Bold 15` — the heading of a card that owns a whole section.
+    static let cardTitle = Font
+        .custom("Manrope-Bold", size: 15, relativeTo: .subheadline)
+        .weight(.bold)
+
+    /// `Manrope/ExtraBold 17` — the pressure figure the chart card prints.
+    static let pressureValue = Font
+        .custom("Manrope-ExtraBold", size: 17, relativeTo: .title3)
+        .weight(.heavy)
+
+    /// `Manrope/SemiBold 11` — the trend caption beside that figure.
+    ///
+    /// Same face and size as `metricLabel` and `tabLabel`, kept separate for the same
+    /// reason they are separate from each other: three different roles that must be able to
+    /// move independently.
+    static let captionEmphasis = Font
+        .custom("Manrope-SemiBold", size: 11, relativeTo: .caption2)
+        .weight(.semibold)
+
+    /// `Manrope/Bold 9` — the "now" divider label inside the plot. The smallest type in the
+    /// app; it annotates the chart rather than carrying information on its own.
+    static let chartAnnotation = Font
+        .custom("Manrope-Bold", size: 9, relativeTo: .caption2)
+        .weight(.bold)
+
+    /// `Manrope/SemiBold 12` — an unselected option in the range selector.
+    static let segmentLabel = Font
+        .custom("Manrope-SemiBold", size: 12, relativeTo: .caption)
+        .weight(.semibold)
+
+    /// `Manrope/Bold 12` — the selected option. Heavier, not just darker: the design leans
+    /// on weight as well as colour, so the selection survives at an accessibility size.
+    static let segmentLabelSelected = Font
+        .custom("Manrope-Bold", size: 12, relativeTo: .caption)
+        .weight(.bold)
 }

@@ -7,6 +7,10 @@ struct BarosenseApp: App {
     /// the domain layer stays constructible from a test with doubles either way.
     private let ingest: HealthIngestController
 
+    /// Composition root for barometer collection. The phone is the device with the sensor;
+    /// the watch is a second screen onto it — see `PressureCollectionController` for why.
+    private let pressure: PressureCollectionController
+
     init() {
         let log: any HealthSampleStore
         do {
@@ -16,6 +20,13 @@ struct BarosenseApp: App {
             // the in-memory double so the Now row still works; the training log simply
             // does not survive this launch. Surface this in Settings later — do not
             // crash on first paint.
+            //
+            // Logged rather than swallowed: the Health row re-reads HealthKit on every
+            // screen load, so this failure is invisible on screen and shows up only as a
+            // training log that never grows.
+            BarosenseLog.persistence.error(
+                "health store unavailable, falling back to memory: \(String(describing: error), privacy: .public)"
+            )
             log = InMemoryHealthSampleStore()
         }
 
@@ -27,11 +38,50 @@ struct BarosenseApp: App {
         ingest = HealthIngestController(recorder: recorder, changeObserver: changeObserver)
         // Observers must exist before HealthKit delivers a background wake.
         ingest.start()
+
+        let pressureLog: any PressureSampleStore
+        do {
+            pressureLog = try SwiftDataPressureSampleStore.makePersistent()
+        } catch {
+            // Worse here than the Health fallback above. This is now the *only* copy of the
+            // barometer history — no other device keeps one — so a failed open costs the
+            // training log everything recorded before the next successful launch, and the
+            // chart reads as if the sensor had never run. Hence the log line.
+            BarosenseLog.persistence.error(
+                "pressure store unavailable, falling back to memory: \(String(describing: error), privacy: .public)"
+            )
+            pressureLog = InMemoryPressureSampleStore()
+        }
+
+        let link = WatchConnectivityPressureLink()
+        link?.activate()
+
+        pressure = PressureCollectionController(
+            recorder: PressureSampleRecorder(source: CoreMotionPressureSource(), log: pressureLog),
+            display: link ?? NoOpPressureDisplayLink()
+        )
+        // Takes the launch reading. The background chain is armed from the scene below,
+        // not here — see `PressureCollectionController.armBackgroundRefresh`.
+        pressure.start()
     }
 
     var body: some Scene {
-        WindowGroup {
-            AppRootView(ingest: ingest)
+        let pressure = pressure
+
+        return WindowGroup {
+            AppRootView(ingest: ingest, pressure: pressure)
+                // The earliest point at which `.backgroundTask` below has registered the
+                // identifier. Submitting before that raises an uncatchable ObjC exception.
+                .task { pressure.armBackgroundRefresh() }
+        }
+        // The system holds the app awake for the length of this closure and suspends it the
+        // moment the closure returns, so the reading and the durable write have to finish
+        // inside it. `handleBackgroundRefresh` also re-arms the next wake.
+        //
+        // The identifier must match `BGTaskSchedulerPermittedIdentifiers` in the generated
+        // Info.plist (`project.yml`); a mismatch fails at submit time, not here.
+        .backgroundTask(.appRefresh(PressureSamplingPolicy.backgroundRefreshIdentifier)) {
+            await pressure.handleBackgroundRefresh()
         }
     }
 }

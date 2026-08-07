@@ -68,15 +68,32 @@ final class PersistedHealthSample {
 @ModelActor
 actor SwiftDataHealthSampleStore: HealthSampleStore {
 
-    /// On-disk store in the app's default container. One named configuration so health
-    /// rows are not mixed into a later check-in / pressure store by accident.
+    /// File name of the on-disk store. Part of the storage contract — renaming it orphans
+    /// every existing install's history.
+    private static let storeFileName = "HealthSamples.store"
+
+    /// On-disk store in the app's own Application Support directory. Its own file so health
+    /// rows are not mixed into the check-in / pressure stores by accident.
+    ///
+    /// The URL is explicit for the same reason it is on the pressure store: the name-based
+    /// initialiser defaults to `groupContainer: .automatic` and follows this target's
+    /// app-group entitlement into a directory that does not exist, so the open throws and
+    /// `BarosenseApp` falls back to memory. The Health *row* still renders — it is re-read
+    /// from HealthKit on every screen load — so the failure is invisible on screen and only
+    /// shows up as a training log that never grows.
     static func makePersistent() throws -> SwiftDataHealthSampleStore {
         let schema = Schema([PersistedHealthSample.self])
-        let configuration = ModelConfiguration("HealthSamples",
-                                               schema: schema,
-                                               isStoredInMemoryOnly: false)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        return SwiftDataHealthSampleStore(modelContainer: container)
+        do {
+            let configuration = ModelConfiguration(
+                schema: schema,
+                url: try BarosenseModelContainer.storeURL(fileName: storeFileName),
+                cloudKitDatabase: .none
+            )
+            let container = try ModelContainer(for: schema, configurations: [configuration])
+            return SwiftDataHealthSampleStore(modelContainer: container)
+        } catch {
+            throw PersistenceError.containerUnavailable(underlying: error)
+        }
     }
 
     /// Process-local store for tests. Same code path as production, nothing on disk.
