@@ -9,8 +9,8 @@ import Foundation
 /// gap and coverage rules in `.claude/context/ml-spec.md` §2.1, which are stricter than what a
 /// 110 pt-tall plot needs.
 ///
-/// Carries the score rather than a colour: `Shared/` is UI-free, and which colour belongs to
-/// which point of the 1–5 scale is a design decision that lives in `Palette`.
+/// Carries the intensity rather than a colour: `Shared/` is UI-free, and which colour belongs
+/// to which point of the 1–10 scale is a design decision that lives in `Palette`.
 struct CheckInMarker: Identifiable, Hashable, Sendable {
 
     /// The check-in's own identifier, so a redraw keeps `ForEach` identity and a check-in
@@ -21,7 +21,7 @@ struct CheckInMarker: Identifiable, Hashable, Sendable {
     /// The dot has to sit at the instant it was logged, not at the nearest reading.
     let timestamp: Date
 
-    let score: WellbeingScore
+    let intensity: CheckInIntensity
 
     /// Where on the vertical axis the dot goes: the pressure the drawn line is at, in hPa.
     ///
@@ -77,7 +77,7 @@ extension CheckInMarker {
 
                 return CheckInMarker(id: checkIn.id,
                                      timestamp: checkIn.timestamp,
-                                     score: checkIn.score,
+                                     intensity: checkIn.intensity,
                                      hectopascals: hectopascals)
             }
     }

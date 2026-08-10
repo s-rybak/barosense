@@ -24,12 +24,27 @@ final class StoredCheckIn {
 
     var timestamp: Date = Date.distantPast
 
-    /// `WellbeingScore.rawValue`. Stored as its raw `Int` rather than as the enum: the raw
+    /// `CheckInIntensity.rawValue`. Stored as its raw `Int` rather than as the type: the raw
     /// values are the storage format (`Shared/Models/CheckIn.swift`), and a row written with
-    /// a value outside 1–5 has to be rejectable on read rather than crashing the history.
-    var scoreRawValue: Int = 0
+    /// a value outside 1–10 has to be rejectable on read rather than crashing the history.
+    ///
+    /// This attribute replaced a `scoreRawValue` holding a 1–5 wellbeing score, where **1 was
+    /// the worst**. Renaming it rather than reusing it is the point: the two scales run in
+    /// opposite directions, so a row carrying the old `2` ("poor") would read as the new `2`
+    /// ("barely there") — the same number meaning the opposite thing, silently. A new
+    /// attribute leaves those rows at the `0` default, which fails the range check below and
+    /// drops them. Losing a pre-release check-in is cheap; inverting one is not.
+    var intensityRawValue: Int = 0
 
     var tagIdentityKeys: [String] = []
+
+    /// What the user recorded taking, in entry order.
+    ///
+    /// A storage-owned struct rather than `MedicationEntry` itself, for the reason the tag
+    /// keys are strings and not `WellbeingTag.ID`s: the domain type is free to change shape,
+    /// and a stored blob that decodes straight into it would make every such change a
+    /// migration nobody noticed writing.
+    var medications: [StoredMedication] = []
 
     var note: String?
 
@@ -40,28 +55,57 @@ final class StoredCheckIn {
 
     func apply(_ checkIn: CheckIn) {
         timestamp = checkIn.timestamp
-        scoreRawValue = checkIn.score.rawValue
+        intensityRawValue = checkIn.intensity.rawValue
         tagIdentityKeys = checkIn.tagIDs
             .map(StoredWellbeingTag.identityKey(for:))
             .sorted()
+        medications = checkIn.medications.map(StoredMedication.init(entry:))
         note = checkIn.note
     }
 
-    /// `nil` when the stored score is not a point on the 1–5 scale — a row written by a build
-    /// that knew a wider scale. Skipped on read instead of being clamped into a neighbouring
-    /// score: a fabricated label is worse than a missing one, and every metric in
+    /// `nil` when the stored intensity is not a point on the 1–10 scale — a row written by a
+    /// build that knew a different scale, including every row written before this attribute
+    /// existed. Skipped on read instead of being clamped into a neighbouring value: a
+    /// fabricated label is worse than a missing one, and every metric in
     /// `.claude/context/ml-spec.md` §7 is computed against this value.
     var checkIn: CheckIn? {
-        guard let score = WellbeingScore(rawValue: scoreRawValue) else { return nil }
+        guard let intensity = CheckInIntensity(rawValue: intensityRawValue) else { return nil }
 
         return CheckIn(id: id,
                        timestamp: timestamp,
-                       score: score,
+                       intensity: intensity,
                        // Keys that no longer parse are dropped rather than failing the row:
-                       // the check-in and its score are the training data, the tags are
+                       // the check-in and its intensity are the training data, the tags are
                        // context that does not enter the v1 label.
                        tagIDs: Set(tagIdentityKeys.compactMap(StoredWellbeingTag.identity(from:))),
+                       // Same rule, same reason: an entry that will not map is dropped and
+                       // the check-in survives.
+                       medications: medications.compactMap(\.entry),
                        note: note)
+    }
+}
+
+/// Durable form of one `MedicationEntry`.
+///
+/// A plain `Codable` value stored inline on `StoredCheckIn` rather than a `@Model` of its
+/// own: these rows are only ever read as part of the check-in that owns them, and a separate
+/// model would buy a relationship to keep consistent in exchange for a query nothing makes.
+struct StoredMedication: Codable, Hashable {
+
+    var id: UUID
+    var name: String
+    var dose: String?
+
+    init(entry: MedicationEntry) {
+        id = entry.id
+        name = entry.name
+        dose = entry.dose
+    }
+
+    /// `nil` when the stored name is blank — `MedicationEntry` refuses to exist without one,
+    /// and a row that predates that rule must not be able to smuggle one in.
+    var entry: MedicationEntry? {
+        MedicationEntry(id: id, name: name, dose: dose)
     }
 }
 

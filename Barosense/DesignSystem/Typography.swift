@@ -143,4 +143,24 @@ enum Typography {
     static let segmentLabelSelected = Font
         .custom("Manrope-Bold", size: 12, relativeTo: .caption)
         .weight(.bold)
+
+    // MARK: - Check-in sheet (Figma `7:330`)
+
+    /// `Manrope/Medium 13` — the quiet noun that names a block of the form.
+    ///
+    /// Same face and size as `fieldUnit`, kept separate for the reason the three 11 pt
+    /// captions above are separate: it labels a section rather than annotating a value, and
+    /// the two have to be able to move apart.
+    static let sectionLabel = Font
+        .custom("Manrope-Medium", size: 13, relativeTo: .footnote)
+        .weight(.medium)
+
+    /// `Manrope/ExtraBold 34` — the chosen intensity, the largest numeral in the app.
+    ///
+    /// It is the value the whole sheet exists to capture, and the only part of the slider a
+    /// user reads rather than aims at, so it scales with the type ramp while the track and
+    /// thumb below it keep their fixed geometry.
+    static let intensityValue = Font
+        .custom("Manrope-ExtraBold", size: 34, relativeTo: .largeTitle)
+        .weight(.heavy)
 }

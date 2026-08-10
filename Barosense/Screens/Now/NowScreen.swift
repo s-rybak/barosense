@@ -13,6 +13,10 @@ struct NowScreen: View {
     private let pressure: PressureCollectionController
     private let checkIns: any CheckInStore
 
+    /// Bumped by the root when a check-in is written. Passed straight through to the chart,
+    /// which re-reads its markers on a change — see `PressureChartCard`.
+    private let checkInRevision: Int
+
     /// Side margin the design uses for every card on this screen: 20 pt inside a 351 pt
     /// frame.
     private static let horizontalMargin: CGFloat = 20
@@ -22,16 +26,20 @@ struct NowScreen: View {
 
     init(recorder: HealthSampleRecorder,
          pressure: PressureCollectionController,
-         checkIns: any CheckInStore) {
+         checkIns: any CheckInStore,
+         checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         self.pressure = pressure
         self.checkIns = checkIns
+        self.checkInRevision = checkInRevision
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.cardSpacing) {
-                PressureChartCard(collection: pressure, checkIns: checkIns)
+                PressureChartCard(collection: pressure,
+                                  checkIns: checkIns,
+                                  checkInRevision: checkInRevision)
 
                 VStack(alignment: .leading, spacing: 12) {
                     HealthMetricsRow(snapshot: model.snapshot)

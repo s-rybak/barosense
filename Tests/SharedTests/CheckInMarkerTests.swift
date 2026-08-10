@@ -15,8 +15,9 @@ final class CheckInMarkerTests: XCTestCase {
     }
 
     private func checkIn(_ offsetMinutes: Double,
-                         _ score: WellbeingScore = .fair) -> CheckIn {
-        CheckIn(timestamp: referenceDate.addingTimeInterval(offsetMinutes * 60), score: score)
+                         _ intensity: Int = 5) -> CheckIn {
+        CheckIn(timestamp: referenceDate.addingTimeInterval(offsetMinutes * 60),
+                intensity: CheckInIntensity(clamping: intensity))
     }
 
     // MARK: - Placement
@@ -49,15 +50,16 @@ final class CheckInMarkerTests: XCTestCase {
         XCTAssertEqual(placed.first?.timestamp, referenceDate.addingTimeInterval(20 * 60))
     }
 
-    func testMarkerCarriesTheCheckInsIdentityAndScore() {
-        // Identity is what keeps `ForEach` stable across a redraw, and the score is what the
-        // chart colours the dot by.
-        let source = CheckIn(timestamp: referenceDate.addingTimeInterval(600), score: .veryPoor)
+    func testMarkerCarriesTheCheckInsIdentityAndIntensity() {
+        // Identity is what keeps `ForEach` stable across a redraw, and the intensity is what
+        // the chart colours the dot by.
+        let source = CheckIn(timestamp: referenceDate.addingTimeInterval(600),
+                             intensity: CheckInIntensity(clamping: 10))
 
         let placed = CheckInMarker.place([source], on: [sample(0, 1000), sample(60, 1006)])
 
         XCTAssertEqual(placed.first?.id, source.id)
-        XCTAssertEqual(placed.first?.score, .veryPoor)
+        XCTAssertEqual(placed.first?.intensity.rawValue, 10)
     }
 
     // MARK: - Ends of the line

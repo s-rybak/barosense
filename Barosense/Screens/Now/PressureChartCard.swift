@@ -24,6 +24,10 @@ struct PressureChartCard: View {
 
     private let collection: PressureCollectionController
 
+    /// Bumped by the root when a check-in is written, so the markers are re-read without the
+    /// card being rebuilt — a rebuild would also reset the range the user picked.
+    private let checkInRevision: Int
+
     private enum Metrics {
         static let cornerRadius: CGFloat = 20
         static let borderWidth: CGFloat = 1
@@ -35,7 +39,10 @@ struct PressureChartCard: View {
         static let plotHeight: CGFloat = 110
     }
 
-    init(collection: PressureCollectionController, checkIns: any CheckInStore) {
+    init(collection: PressureCollectionController,
+         checkIns: any CheckInStore,
+         checkInRevision: Int = 0) {
+        self.checkInRevision = checkInRevision
         self.collection = collection
         _model = State(initialValue: PressureChartModel(collection: collection,
                                                         checkIns: checkIns))
@@ -73,7 +80,7 @@ struct PressureChartCard: View {
             RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
                 .strokeBorder(Palette.cardBorder, lineWidth: Metrics.borderWidth)
         }
-        .task { await model.load() }
+        .task(id: checkInRevision) { await model.load() }
         // A reading taken while this screen is open should appear. Watching the controller
         // beats a timer that ticks whether or not anything changed.
         .onChange(of: collection.lastUpdateAt) { _, _ in
@@ -289,7 +296,7 @@ private struct PressureChartPlot: View {
                 PointMark(x: .value("Час", marker.timestamp),
                           y: .value("Тиск", marker.hectopascals))
                 .symbol {
-                    CheckInDot(colour: Palette.wellbeing(marker.score))
+                    CheckInDot(colour: Palette.intensity(marker.intensity))
                 }
             }
         }
@@ -594,9 +601,12 @@ private extension PressureSeries {
     static var sampleFallingWithCheckIns: PressureSeries {
         let now = Date.now
         let checkIns = [
-            CheckIn(timestamp: now.addingTimeInterval(-5 * 3600), score: .veryGood),
-            CheckIn(timestamp: now.addingTimeInterval(-3 * 3600 - 1800), score: .fair),
-            CheckIn(timestamp: now.addingTimeInterval(-1200), score: .veryPoor)
+            CheckIn(timestamp: now.addingTimeInterval(-5 * 3600),
+                    intensity: CheckInIntensity(clamping: 1)),
+            CheckIn(timestamp: now.addingTimeInterval(-3 * 3600 - 1800),
+                    intensity: CheckInIntensity(clamping: 6)),
+            CheckIn(timestamp: now.addingTimeInterval(-1200),
+                    intensity: CheckInIntensity(clamping: 10))
         ]
         return .make(from: fallingSamples(asOf: now),
                      checkIns: checkIns,

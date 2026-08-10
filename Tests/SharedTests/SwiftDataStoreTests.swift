@@ -197,8 +197,9 @@ final class SwiftDataStoreTests: XCTestCase {
     func testCheckInRoundTripsThroughTheDurableStore() async throws {
         let store = try makeCheckInStore()
         let checkIn = CheckIn(timestamp: referenceDate,
-                              score: .poor,
+                              intensity: CheckInIntensity(clamping: 8),
                               tagIDs: [.seeded("fatigue"), .user(UUID())],
+                              medications: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!],
                               note: "Woke up early")
 
         try await store.save(checkIn)
@@ -207,16 +208,34 @@ final class SwiftDataStoreTests: XCTestCase {
         XCTAssertEqual(read, [checkIn])
     }
 
-    func testCheckInWithoutTagsOrNoteRoundTrips() async throws {
+    func testCheckInWithoutTagsMedicationOrNoteRoundTrips() async throws {
         let store = try makeCheckInStore()
-        let checkIn = CheckIn(timestamp: referenceDate, score: .veryGood)
+        let checkIn = CheckIn(timestamp: referenceDate, intensity: CheckInIntensity(clamping: 1))
 
         try await store.save(checkIn)
 
         let read = try await store.checkIns(in: window(aroundHours: 1))
         XCTAssertEqual(read, [checkIn])
         XCTAssertTrue(read.first?.tagIDs.isEmpty ?? false)
+        XCTAssertTrue(read.first?.medications.isEmpty ?? false)
         XCTAssertNil(read.first?.note)
+    }
+
+    func testMedicationEntriesKeepTheirOrderAndTheirMissingDoses() async throws {
+        // Order is what the user typed and is the only thing that distinguishes two entries
+        // of the same name, so the store may not sort or de-duplicate them.
+        let store = try makeCheckInStore()
+        let entries = [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!,
+                       MedicationEntry(name: "Magnesium")!,
+                       MedicationEntry(name: "Ibuprofen", dose: "400 mg")!]
+
+        try await store.save(CheckIn(timestamp: referenceDate,
+                                     intensity: CheckInIntensity(clamping: 6),
+                                     medications: entries))
+
+        let read = try await store.checkIns(in: window(aroundHours: 1))
+        XCTAssertEqual(read.first?.medications, entries)
+        XCTAssertNil(read.first?.medications[1].dose)
     }
 
     func testSavingTheSameIdentifierTwiceReplacesRatherThanDuplicates() async throws {
@@ -225,13 +244,15 @@ final class SwiftDataStoreTests: XCTestCase {
         let store = try makeCheckInStore()
         let id = UUID()
 
-        try await store.save(CheckIn(id: id, timestamp: referenceDate, score: .poor))
-        try await store.save(CheckIn(id: id, timestamp: referenceDate, score: .good,
+        try await store.save(CheckIn(id: id, timestamp: referenceDate,
+                                     intensity: CheckInIntensity(clamping: 8)))
+        try await store.save(CheckIn(id: id, timestamp: referenceDate,
+                                     intensity: CheckInIntensity(clamping: 3),
                                      note: "Better after lunch"))
 
         let read = try await store.checkIns(in: window(aroundHours: 1))
         XCTAssertEqual(read.count, 1)
-        XCTAssertEqual(read.first?.score, .good)
+        XCTAssertEqual(read.first?.intensity.rawValue, 3)
         XCTAssertEqual(read.first?.note, "Better after lunch")
     }
 
@@ -241,7 +262,7 @@ final class SwiftDataStoreTests: XCTestCase {
 
         for offset in [2 * hour, 0, hour] {
             try await store.save(CheckIn(timestamp: referenceDate.addingTimeInterval(offset),
-                                         score: .fair))
+                                         intensity: CheckInIntensity(clamping: 5)))
         }
 
         // Upper bound excluded, lower bound included — so adjacent windows cannot count the
@@ -258,8 +279,9 @@ final class SwiftDataStoreTests: XCTestCase {
         // Strictly before, so a feature computed at a check-in's own timestamp cannot pick
         // up that check-in and leak its own label into the row.
         let store = try makeCheckInStore()
-        let earlier = CheckIn(timestamp: referenceDate.addingTimeInterval(-3600), score: .poor)
-        let atInstant = CheckIn(timestamp: referenceDate, score: .veryGood)
+        let earlier = CheckIn(timestamp: referenceDate.addingTimeInterval(-3600),
+                              intensity: CheckInIntensity(clamping: 8))
+        let atInstant = CheckIn(timestamp: referenceDate, intensity: CheckInIntensity(clamping: 1))
 
         try await store.save(earlier)
         try await store.save(atInstant)
@@ -270,7 +292,8 @@ final class SwiftDataStoreTests: XCTestCase {
 
     func testMostRecentCheckInIsNilWithNothingBehindIt() async throws {
         let store = try makeCheckInStore()
-        try await store.save(CheckIn(timestamp: referenceDate, score: .fair))
+        try await store.save(CheckIn(timestamp: referenceDate,
+                                     intensity: CheckInIntensity(clamping: 5)))
 
         let read = try await store.mostRecentCheckIn(before: referenceDate.addingTimeInterval(-1))
         XCTAssertNil(read)
@@ -278,7 +301,7 @@ final class SwiftDataStoreTests: XCTestCase {
 
     func testDeletingACheckInRemovesItAndDeletingNothingIsNotAnError() async throws {
         let store = try makeCheckInStore()
-        let checkIn = CheckIn(timestamp: referenceDate, score: .fair)
+        let checkIn = CheckIn(timestamp: referenceDate, intensity: CheckInIntensity(clamping: 5))
 
         try await store.save(checkIn)
         try await store.delete(id: checkIn.id)
@@ -293,26 +316,42 @@ final class SwiftDataStoreTests: XCTestCase {
         // in-memory store lost every check-in with the process.
         let container = try makeContainer()
         let writer: any CheckInStore = SwiftDataCheckInStore(modelContainer: container)
-        try await writer.save(CheckIn(timestamp: referenceDate, score: .veryPoor))
+        try await writer.save(CheckIn(timestamp: referenceDate,
+                                      intensity: CheckInIntensity(clamping: 10)))
 
         let reader: any CheckInStore = SwiftDataCheckInStore(modelContainer: container)
         let read = try await reader.checkIns(in: window(aroundHours: 1))
 
         XCTAssertEqual(read.count, 1)
-        XCTAssertEqual(read.first?.score, .veryPoor)
+        XCTAssertEqual(read.first?.intensity.rawValue, 10)
     }
 
-    func testAStoredScoreOutsideTheScaleIsRejectedRatherThanClamped() {
+    func testAStoredIntensityOutsideTheScaleIsRejectedRatherThanClamped() {
         // A fabricated label is worse than a missing one: every metric in §7 of the ML spec
         // is computed against this value.
-        let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate, score: .fair))
+        let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate,
+                                                 intensity: CheckInIntensity(clamping: 5)))
         XCTAssertNotNil(row.checkIn)
 
-        row.scoreRawValue = 9
+        row.intensityRawValue = 11
         XCTAssertNil(row.checkIn)
 
-        row.scoreRawValue = 0
+        // The default a row written before this attribute existed comes back with. Those
+        // rows carried a 1–5 score running the other way, so reading them as an intensity
+        // would invert them — being dropped here is the whole point of the rename.
+        row.intensityRawValue = 0
         XCTAssertNil(row.checkIn)
+    }
+
+    func testAStoredMedicationWithoutANameIsDroppedAndTheCheckInSurvives() {
+        let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate,
+                                                 intensity: CheckInIntensity(clamping: 5),
+                                                 medications: [MedicationEntry(name: "Magnesium")!]))
+
+        row.medications[0].name = "  "
+
+        XCTAssertNotNil(row.checkIn)
+        XCTAssertTrue(row.checkIn?.medications.isEmpty ?? false)
     }
 
     func testTagIdentitiesUseTheSameStorageEncodingAsTheVocabulary() {
@@ -320,7 +359,7 @@ final class SwiftDataStoreTests: XCTestCase {
         // exists but cannot be found.
         let user = UUID()
         let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate,
-                                                 score: .fair,
+                                                 intensity: CheckInIntensity(clamping: 5),
                                                  tagIDs: [.seeded("fatigue"), .user(user)]))
 
         XCTAssertEqual(Set(row.tagIdentityKeys), ["seeded:fatigue", "user:\(user.uuidString)"])

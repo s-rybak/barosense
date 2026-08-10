@@ -358,7 +358,8 @@ final class PressureSeriesTests: XCTestCase {
     func testACheckInAtTheNewestReadingSitsInsideTheOpeningViewport() {
         let series = PressureSeries.make(from: [sample(hoursAgo: 1, hPa: 1013),
                                                 sample(hoursAgo: 0, hPa: 1010)],
-                                         checkIns: [CheckIn(timestamp: now, score: .poor)],
+                                         checkIns: [CheckIn(timestamp: now,
+                                                            intensity: CheckInIntensity(clamping: 8))],
                                          range: .sixHours,
                                          asOf: now)
 

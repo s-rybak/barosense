@@ -104,52 +104,75 @@ enum Palette {
     /// white pill barely visible against its own track.
     static let segmentedTrack = Color(hex: 0xF0EEE8)
 
-    // MARK: - Wellbeing scale (Figma `7:330`)
+    // MARK: - Check-in intensity (Figma `7:330`)
 
-    /// The colour of one point on the 1–5 check-in scale — the dot the user taps on the Log
-    /// screen, and the same colour that dot takes on the pressure chart. One mapping, so the
-    /// two surfaces cannot drift into meaning different things by the same colour.
+    /// The ramp the intensity scale runs along, low to high: green at 1, red at 10.
     ///
-    /// Lives here rather than beside `WellbeingScore`, because `Shared/` is UI-free: the
-    /// domain owns the score, the design system owns what it looks like.
+    /// Five evenly spaced stops. The two ends and the fourth are existing Figma tokens
+    /// (`positive`, `markerWarm`, `health`); the second and third are **not** in the design
+    /// library reachable from this repo, which has no amber and no mid-green. They are chosen
+    /// to keep the ramp monotone in both hue and lightness so it degrades to a usable
+    /// greyscale gradient. Replace them with real tokens when they exist — this array is the
+    /// only place either value is written.
     ///
-    /// **Colour is never the only channel.** The Log screen prints the chosen point's name
-    /// under the row and orders the dots worst→best, and both surfaces carry a VoiceOver
-    /// label — five hues alone are not distinguishable to every user, and a check-in scale
-    /// that only a trichromat can read is not a scale.
-    static func wellbeing(_ score: WellbeingScore) -> Color {
-        switch score {
-        case .veryPoor: wellbeingVeryPoor
-        case .poor: wellbeingPoor
-        case .fair: wellbeingFair
-        case .good: wellbeingGood
-        case .veryGood: wellbeingVeryGood
-        }
+    /// Hex rather than `Color` so a value between two stops can be mixed component-wise;
+    /// `Color` has no portable way back out to its components.
+    private static let intensityRamp: [UInt32] = [
+        0x3FA66B, // `color/spring-green/45` (Chateau Green) — aliases `positive`
+        0x84B85A, // not a Figma token
+        0xE3A93F, // not a Figma token
+        0xE8734F, // `color/red/61` (Burnt Sienna) — aliases `markerWarm`
+        0xD65B4A  // `color/red/56` (Red Damask) — aliases `health`
+    ]
+
+    /// The colour of one point on the 1–10 check-in scale — what the slider's thumb sits on
+    /// in the Log sheet, and the colour that check-in's dot takes on the pressure chart. One
+    /// mapping, so the two surfaces cannot drift into meaning different things by one colour.
+    ///
+    /// Lives here rather than beside `CheckInIntensity`, because `Shared/` is UI-free: the
+    /// domain owns the scale, the design system owns what it looks like.
+    ///
+    /// **Colour is never the only channel.** The Log sheet prints the chosen value as a
+    /// numeral beside the track and reports it to VoiceOver, and the track's position carries
+    /// it a third time. A ten-step ramp is not distinguishable by hue alone to every user,
+    /// and a scale only a trichromat can read is not a scale.
+    static func intensity(_ value: CheckInIntensity) -> Color {
+        rampColour(at: value.normalized)
     }
 
-    /// `color/red/56` (Red Damask). The same Figma token as `health`, aliased rather than
-    /// re-declared — one token, one hex — and named for its role here because a scale point
-    /// and the Apple Health tile move for different reasons.
-    static let wellbeingVeryPoor = health
+    /// The whole ramp, for the slider's track. Drawn end to end regardless of the current
+    /// value — the track shows what the scale means, not how far along it the user is.
+    static let intensityGradient = Gradient(colors: intensityRamp.map(Color.init(hex:)))
 
-    /// `color/red/61` (Burnt Sienna). Aliases `markerWarm`, for the reason above.
-    static let wellbeingPoor = markerWarm
-
-    /// The neutral middle of the scale.
+    /// The ramp sampled at `position`, 0 to 1, mixing the two stops it falls between.
     ///
-    /// **Not a Figma token.** The design library reachable from this repo has no amber, and
-    /// the Log frame's own swatches could not be read — see the file header on
-    /// `Screens/Log/LogScreen.swift`. Chosen to sit on the warm side of the palette and to
-    /// separate legibly from its two neighbours. Replace with the real token when it is
-    /// available; nothing else has to change, because this is the only place it is written.
-    static let wellbeingFair = Color(hex: 0xE3A93F)
+    /// Component-wise in sRGB, which is not perceptually uniform — a mix of two stops can sit
+    /// a little darker than an eye expects. Acceptable because the stops are close enough
+    /// together that no mix travels far, and the alternative is an Oklab conversion for a
+    /// difference nothing on screen would show.
+    private static func rampColour(at position: Double) -> Color {
+        let lastIndex = intensityRamp.count - 1
+        let scaled = min(max(position, 0), 1) * Double(lastIndex)
+        let lower = min(Int(scaled), lastIndex)
+        let upper = min(lower + 1, lastIndex)
+        let progress = scaled - Double(lower)
 
-    /// One step below `wellbeingVeryGood`. **Not a Figma token** — same caveat as
-    /// `wellbeingFair`.
-    static let wellbeingGood = Color(hex: 0x84B85A)
+        return Color(
+            .sRGB,
+            red: mix(intensityRamp[lower], intensityRamp[upper], shift: 16, progress: progress),
+            green: mix(intensityRamp[lower], intensityRamp[upper], shift: 8, progress: progress),
+            blue: mix(intensityRamp[lower], intensityRamp[upper], shift: 0, progress: progress),
+            opacity: 1
+        )
+    }
 
-    /// `color/spring-green/45` (Chateau Green). Aliases `positive`.
-    static let wellbeingVeryGood = positive
+    /// One 0–1 colour component, interpolated between two `0xRRGGBB` literals.
+    private static func mix(_ from: UInt32, _ to: UInt32,
+                            shift: UInt32, progress: Double) -> Double {
+        let start = Double((from >> shift) & 0xFF) / 255
+        let end = Double((to >> shift) & 0xFF) / 255
+        return start + (end - start) * progress
+    }
 }
 
 extension Color {
