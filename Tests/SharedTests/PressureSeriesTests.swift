@@ -334,8 +334,41 @@ final class PressureSeriesTests: XCTestCase {
                                          range: .oneHour,
                                          asOf: now)
 
-        // The viewport ends a minute past the reading, so it starts an hour before that.
-        XCTAssertEqual(series.initialScrollX, now.addingTimeInterval(-2 * 3600 + 60 - 3600))
+        // The viewport ends one headroom past the reading, so it starts an hour before that.
+        let headroom = series.trailingHeadroomSeconds
+        XCTAssertEqual(series.initialScrollX,
+                       now.addingTimeInterval(-2 * 3600 - 3600 + headroom))
+    }
+
+    /// The clearance past the newest point is a fraction of the visible window, not a fixed
+    /// interval: what has to stay unclipped is a 14 pt check-in dot, and points — not
+    /// seconds — are what the plot is measured in.
+    func testTrailingHeadroomIsTheSameFractionOfEveryRange() {
+        for range in PressureChartRange.allCases {
+            let series = PressureSeries.make(from: [sample(hoursAgo: 0, hPa: 1013)],
+                                             range: range,
+                                             asOf: now)
+            XCTAssertEqual(series.trailingHeadroomSeconds / range.seconds, 0.025, accuracy: 1e-9,
+                           "range \(range.rawValue)")
+        }
+    }
+
+    /// A check-in logged a moment ago is the common case, and it lands at the newest point.
+    /// It has to be inside the opening viewport, not on its boundary.
+    func testACheckInAtTheNewestReadingSitsInsideTheOpeningViewport() {
+        let series = PressureSeries.make(from: [sample(hoursAgo: 1, hPa: 1013),
+                                                sample(hoursAgo: 0, hPa: 1010)],
+                                         checkIns: [CheckIn(timestamp: now,
+                                                            intensity: CheckInIntensity(clamping: 8))],
+                                         range: .sixHours,
+                                         asOf: now)
+
+        let viewportEnd = series.initialScrollX.addingTimeInterval(series.visibleSeconds)
+        let marker = try? XCTUnwrap(series.checkIns.first)
+
+        XCTAssertNotNil(marker)
+        XCTAssertLessThan(marker?.timestamp ?? .distantFuture, viewportEnd)
+        XCTAssertLessThanOrEqual(viewportEnd, series.timeDomain.upperBound)
     }
 
     /// A reading near the far edge of the scrollback must not drag the viewport off the end

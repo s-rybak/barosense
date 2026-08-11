@@ -282,6 +282,14 @@ struct PressureSeries: Hashable, Sendable {
     /// WeatherKit is wired, which is why the chart has to render without it.
     let forecast: [PressureSample]
 
+    /// The user's own check-ins, placed onto `observed` so the chart can mark when each one
+    /// was logged. Ascending, and a subset of what was passed in: a check-in with no line
+    /// near it is dropped rather than pinned somewhere (`CheckInMarker.place`).
+    ///
+    /// Display only, like `trend` — the model aligns check-ins with pressure under its own
+    /// coverage rules and never reads this.
+    let checkIns: [CheckInMarker]
+
     /// The instant the series was built. The divider between observed and forecast.
     let now: Date
 
@@ -346,8 +354,13 @@ struct PressureSeries: Hashable, Sendable {
     /// Three different windows come out of one input, and they are not interchangeable. The
     /// line covers the scrollable extent, the figure covers the visible window, and the
     /// caption covers the trailing three hours whatever the button says.
+    ///
+    /// `checkIns` is filtered to the same extent as the line and then placed onto it. Passing
+    /// more than the extent holds is fine and is what the caller does — one store read serves
+    /// every range, the same way `samples` does.
     static func make(from samples: [PressureSample],
                      forecast: [PressureSample] = [],
+                     checkIns: [CheckIn] = [],
                      range: PressureChartRange,
                      asOf now: Date) -> PressureSeries {
         let extent = now.addingTimeInterval(-range.historySeconds)...now
@@ -362,6 +375,10 @@ struct PressureSeries: Hashable, Sendable {
         return PressureSeries(
             observed: drawn,
             forecast: forecast.filter { $0.timestamp > now }.sorted { $0.timestamp < $1.timestamp },
+            // Placed against `drawn` rather than `inExtent`, so the dots land on the line the
+            // chart actually renders instead of on the raw log behind it.
+            checkIns: CheckInMarker.place(checkIns.filter { extent.contains($0.timestamp) },
+                                          on: drawn),
             now: now,
             range: range,
             // From the full input, not from `inExtent`: the one-hour range holds too little
@@ -375,7 +392,7 @@ struct PressureSeries: Hashable, Sendable {
 
     static func empty(range: PressureChartRange = .oneHour,
                       asOf now: Date = .now) -> PressureSeries {
-        PressureSeries(observed: [], forecast: [], now: now, range: range,
+        PressureSeries(observed: [], forecast: [], checkIns: [], now: now, range: range,
                        trend: .unknown, latest: nil, readingCount: 0)
     }
 
@@ -388,11 +405,23 @@ struct PressureSeries: Hashable, Sendable {
     /// stretched across it to claim coverage that was never observed.
     var timeDomain: ClosedRange<Date> {
         let start = now.addingTimeInterval(-range.historySeconds)
-        // A minute of headroom past `now` keeps the newest reading and the divider off the
-        // right edge of the plot, where a 3 pt line would be half clipped.
-        let end = max(forecast.last?.timestamp ?? now, now).addingTimeInterval(60)
+        let end = max(forecast.last?.timestamp ?? now, now)
+            .addingTimeInterval(trailingHeadroomSeconds)
         return start...end
     }
+
+    /// Empty plot past the newest point, so whatever sits at `now` is not half clipped by the
+    /// right edge.
+    ///
+    /// A fraction of the visible window rather than a fixed interval, because the clearance
+    /// that matters is in **points**, and a fixed number of seconds buys 12× more of them on
+    /// the narrowest range than on the widest. 2.5% of a screenful is ~8 pt on the plot widths
+    /// this card is drawn at.
+    ///
+    /// It was one minute while the rightmost thing was a 3 pt line cap. A check-in dot is
+    /// 14 pt across with its ring (`CheckInDot`), and a check-in logged just now lands exactly
+    /// there — which is the common case, not the edge case.
+    var trailingHeadroomSeconds: TimeInterval { range.seconds * 0.025 }
 
     /// How much of `timeDomain` is on screen at once: one screenful, the window the selected
     /// button names.
@@ -407,7 +436,11 @@ struct PressureSeries: Hashable, Sendable {
     /// `timeDomain` so a stale log cannot scroll the viewport off the end of the plot.
     var initialScrollX: Date {
         let newest = observed.last?.timestamp ?? now
-        let trailingEdge = min(newest.addingTimeInterval(60), timeDomain.upperBound)
+        // The same headroom `timeDomain` leaves. It has to be applied here too: the viewport
+        // is what clips, so widening the plot alone would move the edge without moving what
+        // is on screen.
+        let trailingEdge = min(newest.addingTimeInterval(trailingHeadroomSeconds),
+                               timeDomain.upperBound)
         return max(trailingEdge.addingTimeInterval(-visibleSeconds), timeDomain.lowerBound)
     }
 }

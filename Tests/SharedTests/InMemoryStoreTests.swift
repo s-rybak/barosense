@@ -17,14 +17,16 @@ final class InMemoryCheckInStoreTests: XCTestCase {
     }
 
     private func checkIn(hours: Double,
-                         score: WellbeingScore = .fair,
+                         intensity: Int = 5,
                          id: UUID = UUID()) -> CheckIn {
-        CheckIn(id: id, timestamp: date(hoursFromReference: hours), score: score)
+        CheckIn(id: id,
+                timestamp: date(hoursFromReference: hours),
+                intensity: CheckInIntensity(clamping: intensity))
     }
 
     func testSavedCheckInIsReadBack() async throws {
         let store: any CheckInStore = InMemoryCheckInStore()
-        let saved = checkIn(hours: 1, score: .poor)
+        let saved = checkIn(hours: 1, intensity: 8)
 
         try await store.save(saved)
 
@@ -68,19 +70,19 @@ final class InMemoryCheckInStoreTests: XCTestCase {
         let store: any CheckInStore = InMemoryCheckInStore()
         let id = UUID()
 
-        try await store.save(checkIn(hours: 1, score: .poor, id: id))
-        try await store.save(checkIn(hours: 1, score: .good, id: id))
+        try await store.save(checkIn(hours: 1, intensity: 8, id: id))
+        try await store.save(checkIn(hours: 1, intensity: 3, id: id))
 
         let read = try await store.checkIns(in: dayWindow)
         XCTAssertEqual(read.count, 1)
-        XCTAssertEqual(read.first?.score, .good)
+        XCTAssertEqual(read.first?.intensity.rawValue, 3)
     }
 
     func testMostRecentCheckInIsStrictlyBeforeTheGivenInstant() async throws {
         // A feature computed at t must not read the check-in at t — that is its own label.
         let store: any CheckInStore = InMemoryCheckInStore()
-        let prior = checkIn(hours: 2, score: .veryPoor)
-        let atCutOff = checkIn(hours: 6, score: .veryGood)
+        let prior = checkIn(hours: 2, intensity: 10)
+        let atCutOff = checkIn(hours: 6, intensity: 1)
 
         try await store.save(prior)
         try await store.save(atCutOff)

@@ -24,6 +24,10 @@ struct PressureChartCard: View {
 
     private let collection: PressureCollectionController
 
+    /// Bumped by the root when a check-in is written, so the markers are re-read without the
+    /// card being rebuilt — a rebuild would also reset the range the user picked.
+    private let checkInRevision: Int
+
     private enum Metrics {
         static let cornerRadius: CGFloat = 20
         static let borderWidth: CGFloat = 1
@@ -35,9 +39,13 @@ struct PressureChartCard: View {
         static let plotHeight: CGFloat = 110
     }
 
-    init(collection: PressureCollectionController) {
+    init(collection: PressureCollectionController,
+         checkIns: any CheckInStore,
+         checkInRevision: Int = 0) {
+        self.checkInRevision = checkInRevision
         self.collection = collection
-        _model = State(initialValue: PressureChartModel(collection: collection))
+        _model = State(initialValue: PressureChartModel(collection: collection,
+                                                        checkIns: checkIns))
     }
 
     var body: some View {
@@ -49,6 +57,14 @@ struct PressureChartCard: View {
             plot
 
             valueRow
+
+            // Only once there is a dot to explain. A legend for something not on screen is
+            // noise, and this card already carries four rows.
+            if !model.series.checkIns.isEmpty {
+                Text("Coloured dots are your check-ins")
+                    .font(Typography.cardNote)
+                    .foregroundStyle(Palette.inkSubtle)
+            }
 
             PressureRangeSelector(selection: $model.range)
         }
@@ -64,7 +80,7 @@ struct PressureChartCard: View {
             RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
                 .strokeBorder(Palette.cardBorder, lineWidth: Metrics.borderWidth)
         }
-        .task { await model.load() }
+        .task(id: checkInRevision) { await model.load() }
         // A reading taken while this screen is open should appear. Watching the controller
         // beats a timer that ticks whether or not anything changed.
         .onChange(of: collection.lastUpdateAt) { _, _ in
@@ -132,19 +148,25 @@ final class PressureChartModel {
     var range: PressureChartRange = .oneHour {
         didSet {
             guard oldValue != range else { return }
-            rebuild()
+            rebuild(asOf: series.now)
         }
     }
 
     private let collection: PressureCollectionController
+    private let checkInStore: any CheckInStore
 
     /// The deepest history any range scrolls over, kept so a range change is a re-slice. At
     /// one row per 15 min twelve days is ~1 150 samples of 40-odd bytes — under 50 kB, and
     /// cheaper to hold than to re-query on every button.
     private var samples: [PressureSample] = []
 
-    init(collection: PressureCollectionController) {
+    /// The same window's check-ins, held for the same reason. Far fewer rows: a few a day at
+    /// the cadence the cold-start arithmetic assumes, so tens over twelve days.
+    private var checkIns: [CheckIn] = []
+
+    init(collection: PressureCollectionController, checkIns: any CheckInStore) {
         self.collection = collection
+        self.checkInStore = checkIns
     }
 
     /// Why the plot has nothing to draw. Three states that need three different sentences,
@@ -154,14 +176,39 @@ final class PressureChartModel {
         return samples.isEmpty ? .noHistory : .nothingInRange
     }
 
-    /// Reads the log and rebuilds the series. Safe to call repeatedly.
+    /// Reads both logs and rebuilds the series. Safe to call repeatedly.
     func load() async {
+        let now = Date.now
         samples = await collection.samples(trailing: PressureChartRange.widest.historySeconds)
-        rebuild()
+        checkIns = await loadCheckIns(asOf: now)
+        rebuild(asOf: now)
     }
 
-    private func rebuild() {
-        series = PressureSeries.make(from: samples, range: range, asOf: .now)
+    /// The check-ins the widest range can reach. Half-open at `now`, which is the instant
+    /// before either read started — so a check-in saved a moment ago is strictly earlier and
+    /// is picked up, and one saved *during* the read arrives on the next load rather than
+    /// half-appearing in this one.
+    ///
+    /// A failure reads as no check-ins. The chart is a pressure chart that also marks
+    /// check-ins; there is nothing useful it could say about a store it could not open, and
+    /// the empty states below all describe the pressure log instead.
+    private func loadCheckIns(asOf now: Date) async -> [CheckIn] {
+        let window = now.addingTimeInterval(-PressureChartRange.widest.historySeconds)..<now
+        return (try? await checkInStore.checkIns(in: window)) ?? []
+    }
+
+    /// The instant is threaded in rather than read from the clock here, because the same one
+    /// has to serve three things that only agree by construction: `PressureSeries.now` (the
+    /// divider between observed and forecast, and the rule the chart draws), the half-open
+    /// window `loadCheckIns(asOf:)` queried, and the extent the range slices out. Reading
+    /// `.now` again would put the series a few milliseconds ahead of the window its own
+    /// marks came from.
+    ///
+    /// A range change passes `series.now` for the same reason: it re-slices what is already
+    /// in memory, so nothing has been observed since, and moving the divider forward there
+    /// would walk the rule and the x-domain on every button tap over unchanged data.
+    private func rebuild(asOf now: Date) {
+        series = PressureSeries.make(from: samples, checkIns: checkIns, range: range, asOf: now)
     }
 
     /// The figure the card prints. One decimal, which is the resolution the barometer
@@ -255,6 +302,19 @@ private struct PressureChartPlot: View {
                     .foregroundStyle(Palette.chartLine.opacity(0.65))
                 }
             }
+
+            // Declared last, so the dots land on top of every line rather than under one.
+            //
+            // Unlike the reading dots above, these are never thinned out by range: a
+            // check-in is the user's own entry and a few a day is the whole density, so the
+            // smear the `maximumVisiblePoints` gate guards against cannot happen here.
+            ForEach(series.checkIns) { marker in
+                PointMark(x: .value("Час", marker.timestamp),
+                          y: .value("Тиск", marker.hectopascals))
+                .symbol {
+                    CheckInDot(colour: Palette.intensity(marker.intensity))
+                }
+            }
         }
         // Labels only — no grid lines, no ticks — so the axis says where the line is without
         // becoming furniture the design never had. `AxisValueLabel()` with no format is
@@ -315,6 +375,35 @@ private struct PressureChartPlot: View {
         let span = Duration.seconds(last.timestamp.timeIntervalSince(first.timestamp))
         let formattedSpan = span.formatted(.units(allowed: [.days, .hours], width: .wide))
         return Text("Readings: \(count) · \(formattedSpan)")
+    }
+}
+
+/// One check-in on the plot, in the colour of the point the user chose on the Log screen.
+///
+/// A ring in the card's own fill, not a bare disc: the pressure line is 3 pt of saturated
+/// blue and a 10 pt dot sitting on it would merge with it wherever the two colours are close
+/// in value. The ring is what keeps the dot legible against the line it marks.
+///
+/// A custom symbol rather than `symbolSize` + `foregroundStyle`, because that pair cannot
+/// draw the ring — and because a `foregroundStyle` per mark would have Swift Charts build a
+/// five-entry colour scale and a legend out of the five scores.
+private struct CheckInDot: View {
+
+    let colour: Color
+
+    private enum Metrics {
+        static let diameter: CGFloat = 10
+        static let ringWidth: CGFloat = 2
+    }
+
+    var body: some View {
+        Circle()
+            .fill(colour)
+            .frame(width: Metrics.diameter, height: Metrics.diameter)
+            .padding(Metrics.ringWidth)
+            .background {
+                Circle().fill(Palette.cardSurface)
+            }
     }
 }
 
@@ -455,6 +544,10 @@ private struct PressureRangeSelector: View {
     PressureChartPreviewHost(series: .sampleFalling)
 }
 
+#Preview("With check-ins") {
+    PressureChartPreviewHost(series: .sampleFallingWithCheckIns)
+}
+
 #Preview("Nothing recorded") {
     PressureChartPreviewHost(series: .empty(range: .oneHour))
 }
@@ -523,11 +616,32 @@ private extension PressureSeries {
     /// Six hours of gently falling pressure, one reading an hour.
     static var sampleFalling: PressureSeries {
         let now = Date.now
+        return .make(from: fallingSamples(asOf: now), range: .sixHours, asOf: now)
+    }
+
+    /// The same six hours with three check-ins on it, one per colour band, so the ramp and
+    /// the ring against the line can both be looked at.
+    static var sampleFallingWithCheckIns: PressureSeries {
+        let now = Date.now
+        let checkIns = [
+            CheckIn(timestamp: now.addingTimeInterval(-5 * 3600),
+                    intensity: CheckInIntensity(clamping: 1)),
+            CheckIn(timestamp: now.addingTimeInterval(-3 * 3600 - 1800),
+                    intensity: CheckInIntensity(clamping: 6)),
+            CheckIn(timestamp: now.addingTimeInterval(-1200),
+                    intensity: CheckInIntensity(clamping: 10))
+        ]
+        return .make(from: fallingSamples(asOf: now),
+                     checkIns: checkIns,
+                     range: .sixHours,
+                     asOf: now)
+    }
+
+    private static func fallingSamples(asOf now: Date) -> [PressureSample] {
         let values: [Double] = [1016.2, 1015.8, 1015.1, 1014.2, 1013.4, 1012.6, 1012.1]
-        let samples = values.enumerated().map { index, hectopascals in
+        return values.enumerated().map { index, hectopascals in
             PressureSample(timestamp: now.addingTimeInterval(TimeInterval(index - 6) * 3600),
                            pressure: Pressure(hectopascals: hectopascals))
         }
-        return .make(from: samples, range: .sixHours, asOf: now)
     }
 }

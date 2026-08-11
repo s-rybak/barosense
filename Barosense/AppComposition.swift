@@ -26,6 +26,7 @@ final class AppServices {
 
     private(set) var profileStore: (any UserProfileStore)?
     private(set) var tagStore: (any WellbeingTagStore)?
+    private(set) var checkInStore: (any CheckInStore)?
 
     /// Everything the settings tab reads. `nil` until `start()` has opened the store —
     /// which is also the only state in which the tab is not on screen.
@@ -60,6 +61,9 @@ final class AppServices {
             let container = try BarosenseModelContainer.makeDurable()
             let profileStore = SwiftDataUserProfileStore(modelContainer: container)
             let tagStore = SwiftDataWellbeingTagStore(modelContainer: container)
+            // Same container as the tag vocabulary a check-in points at, so the two cannot
+            // be opened separately and disagree about which tags exist.
+            let checkInStore = SwiftDataCheckInStore(modelContainer: container)
 
             // Seeding runs at every launch by contract — `insertIfAbsent` leaves renamed
             // and archived rows alone, and writes nothing when there is nothing new.
@@ -69,6 +73,7 @@ final class AppServices {
 
             self.profileStore = profileStore
             self.tagStore = tagStore
+            self.checkInStore = checkInStore
             self.settings = SettingsDependencies(profileStore: profileStore,
                                                  tagStore: tagStore,
                                                  healthLog: healthLog,
@@ -135,11 +140,19 @@ struct AppRootView: View {
                 }
 
             case .ready:
-                RootView(ingest: ingest,
-                         pressure: pressure,
-                         settings: services.settings,
-                         languages: languages,
-                         onDataErased: { await services.restartOnboarding() })
+                // Both stores are non-nil whenever the phase is `.ready` — `start()` sets
+                // them in the same `do` block that sets the phase. Unwrapped rather than
+                // force-unwrapped anyway: a `!` here would turn a future reordering of that
+                // block into a launch crash instead of a blank frame.
+                if let checkInStore = services.checkInStore, let tagStore = services.tagStore {
+                    RootView(ingest: ingest,
+                             pressure: pressure,
+                             checkInStore: checkInStore,
+                             tagStore: tagStore,
+                             settings: services.settings,
+                             languages: languages,
+                             onDataErased: { await services.restartOnboarding() })
+                }
             }
         }
         // The language row in Settings takes effect here and nowhere else: SwiftUI resolves

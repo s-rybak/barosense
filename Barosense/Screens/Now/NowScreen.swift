@@ -11,6 +11,11 @@ struct NowScreen: View {
     @State private var model: HealthMetricsViewModel
 
     private let pressure: PressureCollectionController
+    private let checkIns: any CheckInStore
+
+    /// Bumped by the root when a check-in is written. Passed straight through to the chart,
+    /// which re-reads its markers on a change — see `PressureChartCard`.
+    private let checkInRevision: Int
 
     /// Side margin the design uses for every card on this screen: 20 pt inside a 351 pt
     /// frame.
@@ -19,15 +24,22 @@ struct NowScreen: View {
     /// Gap between two cards: 494 − (234 + 246) in the design's own coordinates.
     private static let cardSpacing: CGFloat = 14
 
-    init(recorder: HealthSampleRecorder, pressure: PressureCollectionController) {
+    init(recorder: HealthSampleRecorder,
+         pressure: PressureCollectionController,
+         checkIns: any CheckInStore,
+         checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         self.pressure = pressure
+        self.checkIns = checkIns
+        self.checkInRevision = checkInRevision
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.cardSpacing) {
-                PressureChartCard(collection: pressure)
+                PressureChartCard(collection: pressure,
+                                  checkIns: checkIns,
+                                  checkInRevision: checkInRevision)
 
                 VStack(alignment: .leading, spacing: 12) {
                     HealthMetricsRow(snapshot: model.snapshot)
@@ -101,7 +113,8 @@ final class HealthMetricsViewModel {
               pressure: PressureCollectionController(
                 recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
                                                  log: InMemoryPressureSampleStore()),
-                display: NoOpPressureDisplayLink()))
+                display: NoOpPressureDisplayLink()),
+              checkIns: InMemoryCheckInStore())
     .background(Palette.surface)
 }
 
