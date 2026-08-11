@@ -410,6 +410,10 @@ private struct MedicationRow: View {
             .padding(.vertical, -11)
             .padding(.trailing, -12)
             .accessibilityLabel(Text("Remove"))
+            // Which row this one removes. Every row's button carries the same label, so in
+            // the rotor's list of buttons the name is the only thing telling them apart.
+            // `verbatim` for the same reason `label` uses it: these are the user's words.
+            .accessibilityValue(Text(verbatim: entry.name))
         }
         .padding(.horizontal, Metrics.horizontalPadding)
         .padding(.vertical, Metrics.verticalPadding)
