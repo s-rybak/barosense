@@ -1,36 +1,68 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "< 1 h" : {
-      "extractionState" : "manual",
+    "%@ of %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "< 1 h"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "< 1 год"
+            "state" : "new",
+            "value" : "%1$@ of %2$@"
           }
         }
       }
     },
-    "> 24 h" : {
+    "%lld of %lld" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "> 24 h"
+            "value" : "%1$lld of %2$lld"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "> 24 год"
+            "value" : "%1$lld з %2$lld"
+          }
+        }
+      }
+    },
+    "+ Add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Add"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Додати"
+          }
+        }
+      }
+    },
+    "+ New medication" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Новий засіб"
+          }
+        }
+      }
+    },
+    "+ Other dose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Інша доза"
           }
         }
       }
@@ -69,6 +101,40 @@
         }
       }
     },
+    "< 1 h" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "< 1 h"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "< 1 год"
+          }
+        }
+      }
+    },
+    "> 24 h" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "> 24 h"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "> 24 год"
+          }
+        }
+      }
+    },
     "Activity and blood oxygen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -82,6 +148,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Активність та рівень кисню у крові"
+          }
+        }
+      }
+    },
+    "Add medication" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додати ліки"
+          }
+        }
+      }
+    },
+    "Add to check-in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додати до запису"
           }
         }
       }
@@ -222,6 +310,34 @@
         }
       }
     },
+    "Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрити"
+          }
+        }
+      }
+    },
+    "Coloured dots are your check-ins" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coloured dots are your check-ins"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кольорові крапки — ваші записи"
+          }
+        }
+      }
+    },
     "Connect" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -320,6 +436,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Готово"
+          }
+        }
+      }
+    },
+    "Dose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дозування"
+          }
+        }
+      }
+    },
+    "Dose (optional)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dose (optional)"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дозування (необов’язково)"
           }
         }
       }
@@ -444,6 +588,23 @@
         }
       }
     },
+    "Intensity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intensity"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Інтенсивність"
+          }
+        }
+      }
+    },
     "Joint pain" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -495,6 +656,23 @@
         }
       }
     },
+    "Log how you feel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log how you feel"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записати стан"
+          }
+        }
+      }
+    },
     "Man" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -508,6 +686,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Чоловік"
+          }
+        }
+      }
+    },
+    "Medication name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medication name"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Назва ліків"
+          }
+        }
+      }
+    },
+    "Medication taken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medication taken"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прийняті ліки"
           }
         }
       }
@@ -559,6 +771,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Далі"
+          }
+        }
+      }
+    },
+    "Nothing added yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing added yet"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поки нічого не додано"
+          }
+        }
+      }
+    },
+    "Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зараз"
           }
         }
       }
@@ -631,6 +871,17 @@
         }
       }
     },
+    "Other time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Інший час"
+          }
+        }
+      }
+    },
     "Pressure forecast with push notifications" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -648,6 +899,23 @@
         }
       }
     },
+    "Remove" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прибрати"
+          }
+        }
+      }
+    },
     "Restart the app. If this keeps happening, free up some space on your device." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -661,6 +929,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Перезапусти застосунок. Якщо це повторюється, звільни трохи місця на пристрої."
+          }
+        }
+      }
+    },
+    "Save check-in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save check-in"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зберегти запис"
           }
         }
       }
@@ -802,6 +1087,17 @@
         }
       }
     },
+    "Time taken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Час прийому"
+          }
+        }
+      }
+    },
     "Try again" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -836,6 +1132,23 @@
         }
       }
     },
+    "What you noticed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you noticed"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Що відчувається"
+          }
+        }
+      }
+    },
     "Woman" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -853,23 +1166,6 @@
         }
       }
     },
-    "years" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "years"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "років"
-          }
-        }
-      }
-    },
     "Your answers could not be saved. Check that the device has free space and try again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -883,6 +1179,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Не вдалося зберегти твої відповіді. Переконайся, що на пристрої є вільне місце, і спробуй ще раз."
+          }
+        }
+      }
+    },
+    "Your check-in could not be saved. Check that the device has free space and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your check-in could not be saved. Check that the device has free space and try again."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося зберегти запис. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
+          }
+        }
+      }
+    },
+    "Your medications" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твої засоби"
           }
         }
       }
@@ -921,6 +1245,23 @@
         }
       }
     },
+    "years" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "years"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "років"
+          }
+        }
+      }
+    },
     "Графік тиску" : {
       "comment" : "A title of a pressure chart card.",
       "isCommentAutoGenerated" : true
@@ -933,10 +1274,6 @@
       "comment" : "A message that appears when there is no data in the graph.",
       "isCommentAutoGenerated" : true
     },
-    "зараз" : {
-      "comment" : "A label for the divider between the current and forecasted pressure.",
-      "isCommentAutoGenerated" : true
-    },
     "Поки немає даних з Health" : {
       "comment" : "A note displayed when the user has not yet added any health data.",
       "isCommentAutoGenerated" : true
@@ -947,6 +1284,10 @@
     },
     "Цей пристрій не має барометра" : {
       "comment" : "A message shown when the device has no barometric sensor.",
+      "isCommentAutoGenerated" : true
+    },
+    "зараз" : {
+      "comment" : "A label for the divider between the current and forecasted pressure.",
       "isCommentAutoGenerated" : true
     }
   },

@@ -26,6 +26,7 @@ final class AppServices {
 
     private(set) var profileStore: (any UserProfileStore)?
     private(set) var tagStore: (any WellbeingTagStore)?
+    private(set) var checkInStore: (any CheckInStore)?
 
     /// Opens the store, seeds the tag vocabulary, and reports whether onboarding still
     /// has to run. Safe to call again after a failure.
@@ -41,6 +42,9 @@ final class AppServices {
             let container = try BarosenseModelContainer.makeDurable()
             let profileStore = SwiftDataUserProfileStore(modelContainer: container)
             let tagStore = SwiftDataWellbeingTagStore(modelContainer: container)
+            // Same container as the tag vocabulary a check-in points at, so the two cannot
+            // be opened separately and disagree about which tags exist.
+            let checkInStore = SwiftDataCheckInStore(modelContainer: container)
 
             // Seeding runs at every launch by contract — `insertIfAbsent` leaves renamed
             // and archived rows alone, and writes nothing when there is nothing new.
@@ -50,6 +54,7 @@ final class AppServices {
 
             self.profileStore = profileStore
             self.tagStore = tagStore
+            self.checkInStore = checkInStore
             phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
             phase = .unavailable
@@ -88,7 +93,16 @@ struct AppRootView: View {
                 }
 
             case .ready:
-                RootView(ingest: ingest, pressure: pressure)
+                // Both stores are non-nil whenever the phase is `.ready` — `start()` sets
+                // them in the same `do` block that sets the phase. Unwrapped rather than
+                // force-unwrapped anyway: a `!` here would turn a future reordering of that
+                // block into a launch crash instead of a blank frame.
+                if let checkInStore = services.checkInStore, let tagStore = services.tagStore {
+                    RootView(ingest: ingest,
+                             pressure: pressure,
+                             checkInStore: checkInStore,
+                             tagStore: tagStore)
+                }
             }
         }
         .task { await services.start() }

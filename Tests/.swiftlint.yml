@@ -5,3 +5,16 @@ disabled_rules:
   - force_try
   - force_cast
   - implicitly_unwrapped_optional
+
+# One behaviour per test method, each with a sentence-length name, makes a cohesive
+# XCTestCase run long: PressureSeriesTests is 257 lines across 8 topics, SwiftDataStoreTests
+# 251 across 4. Neither is a type that wants splitting — they are one store or one type under
+# test, and cutting them at 250 would split by line count rather than by subject.
+#
+# 250 is SwiftLint's inherited default, not a limit this repo chose: the root config sets
+# file_length, function_body_length and line_length from swift_conventions and is silent on
+# type body size. Raised for tests only. App code keeps the default, where 250 lines in one
+# type is a real signal to split. file_length (900) stays the backstop here.
+type_body_length:
+  warning: 400
+  error: 800

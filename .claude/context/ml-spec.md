@@ -11,9 +11,10 @@ the code change.
 
 | | |
 | ------------------------- | -------------------------------------------------------- |
-| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `WellbeingScore`, `WellbeingTag` (user-owned, open set), `UserProfile`, `HealthSample` (+ `HealthMetricValue`, unit fixed by case) |
+| Domain types | `Shared/Models/` — `Pressure` (hPa), `PressureSample`, `CheckIn`, `CheckInIntensity` (1–10, **higher is worse**), `MedicationEntry` (name, dose, `takenAt`), `MedicationHistory` (recall of the user's own earlier entries — proposes nothing), `WellbeingTag` (user-owned, open set), `UserProfile`, `HealthSample` (+ `HealthMetricValue`, unit fixed by case) |
 | Label | defined — `Shared/Models/WellbeingLabel.swift` (§1) |
-| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` via `BarosenseModelContainer` (CloudKit off); `HealthSampleStore` via `SwiftDataHealthSampleStore`; **`PressureSampleStore` via `SwiftDataPressureSampleStore`** (own container, indexed on `timestamp`, runs on both targets). **Check-ins still do not survive a launch** |
+| Persistence | `CheckInStore` / `PressureSampleStore` / `WellbeingTagStore` / `UserProfileStore` / `HealthSampleStore` protocols + in-memory doubles in `Shared/Persistence/`. SwiftData: `UserProfileStore` + `WellbeingTagStore` + **`CheckInStore` via `SwiftDataCheckInStore`** all on `BarosenseModelContainer` (CloudKit off; check-ins share that container because they reference the tag vocabulary, and are indexed on `timestamp`; medication entries are stored inline on the check-in row, not as a model of their own, via `StoredMedication` whose `takenAt` is optional in storage and falls back to the check-in's timestamp on read); `HealthSampleStore` via `SwiftDataHealthSampleStore`; **`PressureSampleStore` via `SwiftDataPressureSampleStore`** (own container, indexed on `timestamp`, runs on both targets). Every store is durable — nothing resets on launch |
+| Check-in capture | **shipped, iPhone only** — a sheet from the tab bar's raised centre action (`Barosense/Screens/Log/`). One row per check-in: a point on the 1–10 intensity scale, any number of tags, any number of medication entries (free text, never interpreted; each carries its own `takenAt`, which may be hours before the check-in). **No free-text note is captured any more** — the field was removed from the form; `CheckIn.note` still exists, is still stored, and is now always `nil` on anything the app writes. The intensity **opens at 5** and needs no interaction, so a saved check-in that was never adjusted records a 5 — watch the recorded distribution for a spike at exactly 5 before trusting the base rate. Written straight to `SwiftDataCheckInStore`; no edit or delete UI yet, and the watch still cannot log one. The medication sheet (`AddMedicationSheet`) offers back names and doses from the last 90 days of the user's own entries — recall only, nothing shipped or inferred |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
 | Model | not trained; health and barometer raw samples are now accumulateable on disk |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
@@ -89,14 +90,29 @@ from the first real dataset and update this file.
 ## 1. Target label
 
 ```
-poorWellbeing(checkIn) = checkIn.score <= 2        // 1–5 scale, 1 = worst
+poorWellbeing(checkIn) = checkIn.intensity >= 7    // 1–10 scale, 10 = worst
 ```
 
 - Defined **once**, as `WellbeingLabel.poorWellbeingThreshold` in
   `Shared/Models/WellbeingLabel.swift`, with the rationale in a `///` comment. Never
   inlined at a call site.
-- Tags are recorded but do **not** enter the v1 label. Extending the label to
-  `score <= 3 && !tagIDs.isEmpty` is an open question (§9).
+- **The scale runs the opposite way to a wellbeing score**, and the comparison is `>=`.
+  The form asks for intensity — how strong it was — so 10 is the worst end. This replaced a
+  1–5 score where 1 was the worst; the storage attribute was renamed with it
+  (`scoreRawValue` → `intensityRawValue`) precisely so rows written under the old meaning
+  fail the range check and drop, rather than being read as their own opposite.
+- The threshold is the **top four of ten**, which is the same 40% of the range the old
+  scale's bottom two of five covered. Carried across rather than re-chosen, so moving to a
+  finer scale did not quietly move the event definition with it.
+- Tags and medication entries are recorded but do **not** enter the v1 label. Extending the
+  label to `intensity >= 6 && !tagIDs.isEmpty` is an open question (§9).
+- Medication text is user input and carries the `CheckIn.note` rule: never a feature, never
+  in an outbound payload. `MedicationEntry.takenAt` is *not* text and could become a feature
+  ("hours since last dose"); it is not one today, and making it one is an §9 question, not a
+  quiet addition — it is also the field most likely to be wrong, since the user types it from
+  memory.
+ "Did they take something" is a fixed-width summary that *could*
+  become one, and is not one today.
 - The tag vocabulary is **open and per user**: `WellbeingTag.seeds` is only where a fresh
   install starts, and the user adds, renames and retires tags from there. A check-in
   stores `Set<WellbeingTag.ID>`, not tag text, so a rename does not rewrite history.
@@ -167,6 +183,13 @@ The chart's bucket means (`PressureBuckets`, `PressureChartRange.bucketSeconds`)
 low-pass filter, and a low-pass filter applied ahead of `pressureDeltaHPaPer3h` rounds a
 real fall down toward "steady". The features build their own hourly grid from raw rows,
 with the interpolation and coverage policy stated above.
+
+`CheckInMarker` (`Shared/Pressure/CheckInMarker.swift`) is **display only** for the same
+reason. It places a check-in onto the *drawn* line — bucket means included — so the chart can
+mark when the user logged it, interpolating linearly and clamping to the ends inside a 2 h
+tolerance. That is a chart join, not an alignment: a feature computed at `t` reads raw rows
+under §2.1's own gap and coverage rules, which are stricter. Nothing in `Shared/Features/` may
+read this type.
 
 `PressureTrend` (`Shared/Pressure/PressureSeries.swift`) is **display only** and has no row
 here on purpose. It buckets the trailing-3 h delta into rising / falling / steady for the
