@@ -40,7 +40,7 @@ final class CheckInTests: XCTestCase {
         // `{"rawValue":7}`. That is the storage format the watch→phone payload will carry.
         let encoded = try JSONEncoder().encode(intensity(7))
 
-        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "7")
+        XCTAssertEqual(String(bytes: encoded, encoding: .utf8), "7")
     }
 
     func testDecodingAnOffScaleIntensityFails() {

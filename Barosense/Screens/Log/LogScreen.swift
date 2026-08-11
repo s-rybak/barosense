@@ -26,7 +26,7 @@ import SwiftUI
 /// pinned to the bottom, with the progress bar suppressed. Not because a check-in is
 /// onboarding, but because that scaffold *is* the app's "content plus one committing action"
 /// layout, and a second copy of the 56 pt / 18 pt action button is the exact drift the
-/// scaffold's own comment exists to prevent. The type's name is now too narrow; renaming it
+/// scaffold's own comment exists to guard against. The type's name is now too narrow; renaming it
 /// is a follow-up rather than part of this change.
 struct LogScreen: View {
 
@@ -68,7 +68,7 @@ struct LogScreen: View {
 
                 noteField
 
-                // Same treatment as the onboarding commit failure, deliberately: it is the
+                // Same handling as the onboarding commit failure, deliberately: it is the
                 // same kind of event — the one write the screen exists for did not happen.
                 if model.failure != nil {
                     Text("Your check-in could not be saved. Check that the device has free space and try again.")
@@ -488,7 +488,7 @@ private struct AddMedicationSheet: View {
                 .keyboardType(.default)
                 // Off, and this is the important one. A medication name is a brand name, not
                 // a dictionary word: Ukrainian autocorrect rewrites it while it is still
-                // being typed, and the inline prediction it puts on screen is marked text
+                // being typed, and the inline completion it puts on screen is marked text
                 // that a redraw of this sheet can drop — which reads as the field refusing
                 // letters while accepting digits, since digits are never autocorrected.
                 .autocorrectionDisabled()
@@ -694,11 +694,14 @@ final class LogModel {
     VStack(alignment: .leading, spacing: 20) {
         MedicationList(entries: [], remove: { _ in })
 
-        MedicationList(entries: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!],
+        // `MedicationEntry.init?` only rejects a blank name, so `compactMap` drops nothing
+        // from these literals — it is how the preview builds its rows without a force
+        // unwrap, which the lint config bans outside test targets.
+        MedicationList(entries: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")].compactMap { $0 },
                        remove: { _ in })
 
-        MedicationList(entries: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!,
-                                 MedicationEntry(name: "Magnesium")!],
+        MedicationList(entries: [MedicationEntry(name: "Ibuprofen", dose: "400 mg"),
+                                 MedicationEntry(name: "Magnesium")].compactMap { $0 },
                        remove: { _ in })
     }
     .padding(24)
