@@ -54,7 +54,9 @@ final class CheckInTests: XCTestCase {
         let original = CheckIn(timestamp: referenceDate,
                                intensity: intensity(3),
                                tagIDs: [.seeded("fatigue"), .user(UUID())],
-                               medications: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!],
+                               medications: [MedicationEntry(name: "Ibuprofen",
+                                                             dose: "400 mg",
+                                                             takenAt: referenceDate)!],
                                note: "Woke up early")
 
         let decoded = try JSONDecoder().decode(CheckIn.self,
@@ -152,7 +154,8 @@ final class CheckInTests: XCTestCase {
         let annotated = CheckIn(timestamp: referenceDate,
                                 intensity: intensity(5),
                                 tagIDs: [.seeded("fatigue")],
-                                medications: [MedicationEntry(name: "Ibuprofen")!])
+                                medications: [MedicationEntry(name: "Ibuprofen",
+                                                              takenAt: referenceDate)!])
         let bare = CheckIn(timestamp: referenceDate, intensity: intensity(5))
 
         XCTAssertFalse(annotated.isPoorWellbeing)
@@ -163,15 +166,17 @@ final class CheckInTests: XCTestCase {
 /// `MedicationEntry` lives only inside a check-in, so its tests sit beside the check-in's.
 final class MedicationEntryTests: XCTestCase {
 
+    private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+
     func testABlankNameIsNotAnEntry() {
         // Rejected in the initialiser so no screen has to remember to check.
-        XCTAssertNil(MedicationEntry(name: ""))
-        XCTAssertNil(MedicationEntry(name: "   \n "))
-        XCTAssertNil(MedicationEntry(name: " ", dose: "400 mg"))
+        XCTAssertNil(MedicationEntry(name: "", takenAt: referenceDate))
+        XCTAssertNil(MedicationEntry(name: "   \n ", takenAt: referenceDate))
+        XCTAssertNil(MedicationEntry(name: " ", dose: "400 mg", takenAt: referenceDate))
     }
 
     func testNameAndDoseAreTrimmed() {
-        let entry = MedicationEntry(name: "  Ibuprofen ", dose: "  400 mg  ")
+        let entry = MedicationEntry(name: "  Ibuprofen ", dose: "  400 mg  ", takenAt: referenceDate)
 
         XCTAssertEqual(entry?.name, "Ibuprofen")
         XCTAssertEqual(entry?.dose, "400 mg")
@@ -180,28 +185,44 @@ final class MedicationEntryTests: XCTestCase {
     func testABlankDoseBecomesNoDose() {
         // So "the user gave a dose" stays a meaningful distinction — the rule `CheckIn.note`
         // follows, applied to the same kind of optional free text.
-        XCTAssertNil(MedicationEntry(name: "Ibuprofen", dose: "")?.dose)
-        XCTAssertNil(MedicationEntry(name: "Ibuprofen", dose: "   ")?.dose)
-        XCTAssertNil(MedicationEntry(name: "Ibuprofen", dose: nil)?.dose)
+        XCTAssertNil(MedicationEntry(name: "Ibuprofen", dose: "", takenAt: referenceDate)?.dose)
+        XCTAssertNil(MedicationEntry(name: "Ibuprofen", dose: "   ", takenAt: referenceDate)?.dose)
+        XCTAssertNil(MedicationEntry(name: "Ibuprofen", dose: nil, takenAt: referenceDate)?.dose)
     }
 
     func testTwoEntriesWithTheSameNameStayDistinct() {
         // The user may have taken the same thing twice, and nothing in this app is in a
         // position to decide they did not.
-        let first = MedicationEntry(name: "Ibuprofen", dose: "400 mg")
-        let second = MedicationEntry(name: "Ibuprofen", dose: "400 mg")
+        let first = MedicationEntry(name: "Ibuprofen", dose: "400 mg", takenAt: referenceDate)
+        let second = MedicationEntry(name: "Ibuprofen", dose: "400 mg", takenAt: referenceDate)
 
         XCTAssertNotEqual(first, second)
         XCTAssertNotEqual(first?.id, second?.id)
     }
 
+    func testTheTakenTimeIsKeptExactlyAsGivenAndNotSnappedToTheCheckIn() throws {
+        // The whole reason the sheet has a time control: something taken at 09:40 and
+        // reported at 14:00 has to stay at 09:40 all the way through the check-in that
+        // carries it.
+        let taken = referenceDate.addingTimeInterval(-4 * 3600 - 20 * 60)
+        let entry = try XCTUnwrap(MedicationEntry(name: "Ibuprofen", takenAt: taken))
+
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 6),
+                              medications: [entry])
+
+        XCTAssertEqual(checkIn.medications.first?.takenAt, taken)
+        XCTAssertNotEqual(checkIn.medications.first?.takenAt, checkIn.timestamp)
+    }
+
     func testAnEntrySurvivesACodableRoundTrip() throws {
-        let original = try XCTUnwrap(MedicationEntry(name: "Magnesium"))
+        let original = try XCTUnwrap(MedicationEntry(name: "Magnesium", takenAt: referenceDate))
 
         let decoded = try JSONDecoder().decode(MedicationEntry.self,
                                                from: JSONEncoder().encode(original))
 
         XCTAssertEqual(decoded, original)
         XCTAssertNil(decoded.dose)
+        XCTAssertEqual(decoded.takenAt, referenceDate)
     }
 }

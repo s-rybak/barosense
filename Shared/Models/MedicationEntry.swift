@@ -1,7 +1,7 @@
 import Foundation
 
-/// One thing the user recorded taking around a check-in: a name, and optionally a dose,
-/// both in their own words (Figma `7:330`).
+/// One thing the user recorded taking around a check-in: a name, optionally a dose, and when
+/// they say they took it — the first two in their own words (Figma `7:330`, `Додати ліки`).
 ///
 /// **Recorded, never interpreted.** The app stores what the user typed and does nothing
 /// else with it — no dose checking, no interaction lookup, no suggestion of what to take or
@@ -27,12 +27,25 @@ struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
     /// toward interpreting it, and because the useful answer to "how much" is often not one.
     let dose: String?
 
+    /// When the user says they took it — which is not when they recorded it. The sheet offers
+    /// "now", the last ten-minute mark, and a time they pick, so a check-in written at 14:00
+    /// can carry an entry taken at 09:40.
+    ///
+    /// Required rather than optional, and deliberately not derived from the owning check-in's
+    /// timestamp: the gap between taking something and reporting it is the entire reason the
+    /// control exists, and a `nil` here would be filled in with the check-in's own time by
+    /// whoever read it next — which is the wrong answer stated confidently.
+    ///
+    /// Same rule as everything else on this type: recorded, never interpreted. Nothing derives
+    /// an interval, a schedule, or a "next dose" from it.
+    let takenAt: Date
+
     /// `nil` when the name is blank once trimmed — an entry with no name is not an entry,
     /// and rejecting it here means no screen has to remember to check.
     ///
     /// A dose that trims to nothing becomes `nil` rather than `""`, so "the user gave a
     /// dose" stays a meaningful distinction — the same rule `CheckIn.note` follows.
-    init?(id: UUID = UUID(), name: String, dose: String? = nil) {
+    init?(id: UUID = UUID(), name: String, dose: String? = nil, takenAt: Date) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return nil }
 
@@ -41,5 +54,6 @@ struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
         self.id = id
         self.name = trimmedName
         self.dose = (trimmedDose?.isEmpty ?? true) ? nil : trimmedDose
+        self.takenAt = takenAt
     }
 }

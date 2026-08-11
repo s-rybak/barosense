@@ -1,7 +1,7 @@
 import SwiftUI
 
 // The check-in sheet (Figma `7:330`) — one check-in: a point on the 1–10 intensity scale,
-// whatever tags apply, whatever the user took, and an optional note.
+// whatever tags apply, and whatever the user took.
 //
 // ## Where the design came from
 //
@@ -32,7 +32,6 @@ struct LogScreen: View {
 
     @State private var model: LogModel
     @State private var isAddingMedication = false
-    @FocusState private var isNoteFocused: Bool
 
     /// Gap between the blocks of the form — 26 pt in the frame, between every pair.
     private static let sectionSpacing: CGFloat = 26
@@ -66,8 +65,6 @@ struct LogScreen: View {
 
                 medicationSection
 
-                noteField
-
                 // Same handling as the onboarding commit failure, deliberately: it is the
                 // same kind of event — the one write the screen exists for did not happen.
                 if model.failure != nil {
@@ -80,7 +77,7 @@ struct LogScreen: View {
         .presentationDragIndicator(.visible)
         .task { await model.load() }
         .sheet(isPresented: $isAddingMedication) {
-            AddMedicationSheet(add: model.add(medication:))
+            AddMedicationSheet(history: model.medicationHistory, add: model.add(medication:))
         }
     }
 
@@ -148,38 +145,13 @@ struct LogScreen: View {
                            remove: model.remove(medication:))
         }
     }
-
-    // MARK: - Note
-
-    /// No section label, matching the frame: the placeholder says what the box is, and a
-    /// label above an optional free-text field is the one place in this form where a second
-    /// line of chrome buys nothing.
-    private var noteField: some View {
-        FieldSurface {
-            // Four lines reserved rather than one that grows, so the box has the presence
-            // the frame gives it and the form does not jump as the user types. It grows to
-            // six and scrolls past that — a long note cannot push the action off screen.
-            TextField("Note (optional)", text: $model.note, axis: .vertical)
-                .lineLimit(4...6)
-                .font(Typography.fieldText)
-                .foregroundStyle(Palette.heading)
-                .textInputAutocapitalization(.sentences)
-                .focused($isNoteFocused)
-                // Padding, not a frame: `FieldSurface` sets the 56 pt minimum and the field
-                // has to be free to grow past it.
-                .padding(.vertical, 14)
-        }
-        // An empty field claims only the width its absent text needs, so a tap on the rest
-        // of the box would otherwise do nothing — see `AddMedicationSheet.field`.
-        .contentShape(.rect)
-        .onTapGesture { isNoteFocused = true }
-    }
 }
 
 // MARK: - Section label
 
-/// The quiet noun that names a block of the form.
-private struct SectionLabel: View {
+/// The quiet noun that names a block of the form. Shared with `AddMedicationSheet`, which is
+/// the same form one level down.
+struct SectionLabel: View {
 
     let title: LocalizedStringKey
 
@@ -419,104 +391,18 @@ private struct MedicationRow: View {
         .padding(.vertical, Metrics.verticalPadding)
     }
 
-    /// `verbatim` on both sides: the name and the dose are the user's own words, and the
-    /// separator is punctuation rather than copy.
+    /// `verbatim` throughout: the name and the dose are the user's own words, the time is a
+    /// clock reading formatted for their locale, and the separator is punctuation rather than
+    /// copy.
+    ///
+    /// The time is always shown, including when it is "now". It is the one field on this row
+    /// the user cannot otherwise check after the sheet closes, and an entry filed at the wrong
+    /// hour is worth catching before the check-in is saved.
     private var label: Text {
-        guard let dose = entry.dose else { return Text(verbatim: entry.name) }
-        return Text(verbatim: "\(entry.name) · \(dose)")
-    }
-}
+        let time = entry.takenAt.formatted(date: .omitted, time: .shortened)
 
-/// Two fields and a commit — everything `MedicationEntry` holds, and nothing else.
-///
-/// Free text on both, with no list to match against. A shipped list of names would be a
-/// vocabulary the app asserts, and matching what the user typed against it would be
-/// interpretation of what they took — see `MedicationEntry`.
-private struct AddMedicationSheet: View {
-
-    let add: (MedicationEntry) -> Void
-
-    private enum Field { case name, dose }
-
-    @State private var name = ""
-    @State private var dose = ""
-    @FocusState private var focused: Field?
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        OnboardingStepScaffold(
-            completedSteps: nil,
-            actionTitle: "Add",
-            isActionEnabled: entry != nil,
-            action: commit
-        ) {
-            VStack(alignment: .leading, spacing: 18) {
-                OnboardingHeader(title: "What did you take?")
-
-                // Its own key rather than the profile step's "Name": Ukrainian splits the
-                // two, and a person's name and a thing's name are not the same word.
-                field(placeholder: "Medication name", text: $name, field: .name)
-                    .textInputAutocapitalization(.words)
-
-                field(placeholder: "Dose (optional)", text: $dose, field: .dose)
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .onAppear { focused = .name }
-    }
-
-    /// `nil` until there is a name — which is also what disables the action, so the sheet has
-    /// one definition of "ready" rather than two that can disagree.
-    private var entry: MedicationEntry? {
-        MedicationEntry(name: name, dose: dose)
-    }
-
-    private func commit() {
-        guard let entry else { return }
-        add(entry)
-        dismiss()
-    }
-
-    private func field(placeholder: LocalizedStringKey,
-                       text: Binding<String>,
-                       field: Field) -> some View {
-        FieldSurface {
-            TextField(placeholder, text: text)
-                .font(Typography.fieldText)
-                .foregroundStyle(Palette.heading)
-                // Both fields take letters *and* digits, stated rather than left to the
-                // system: a medication is "Ібупрофен", a dose is "400 мг" or "two", and
-                // neither is a number. Spelled out so no inherited or heuristic keyboard
-                // type can narrow it — this field reported as digits-only in the field.
-                .keyboardType(.default)
-                // Off, and this is the important one. A medication name is a brand name, not
-                // a dictionary word: Ukrainian autocorrect rewrites it while it is still
-                // being typed, and the inline completion it puts on screen is marked text
-                // that a redraw of this sheet can drop — which reads as the field refusing
-                // letters while accepting digits, since digits are never autocorrected.
-                .autocorrectionDisabled()
-                // No AutoFill. iOS otherwise offers to fill a contact's name here, which is
-                // both the wrong value and an invitation to put a third party's name into a
-                // health record on this device.
-                .textContentType(nil)
-                .focused($focused, equals: field)
-                .submitLabel(field == .name ? .next : .done)
-                .onSubmit {
-                    if field == .name {
-                        focused = .dose
-                    } else {
-                        commit()
-                    }
-                }
-        }
-        // An empty `TextField` only claims the width its (absent) text needs, so without
-        // this a tap on the right two-thirds of the box lands on the surface and focus stays
-        // wherever it was. Found on device: typing after tapping "Dose" went on filling in
-        // the name. The `TextField` is hit-tested first, so a tap on real text still places
-        // the caret rather than jumping to the end.
-        .contentShape(.rect)
-        .onTapGesture { focused = field }
+        guard let dose = entry.dose else { return Text(verbatim: "\(entry.name) · \(time)") }
+        return Text(verbatim: "\(entry.name) · \(dose) · \(time)")
     }
 }
 
@@ -549,11 +435,14 @@ final class LogModel {
     /// signal, and it is measurable from the same data.
     var intensity = CheckInIntensity(clamping: 5)
 
-    var note: String = ""
-
     private(set) var selectedTagIDs: Set<WellbeingTag.ID> = []
 
     private(set) var medications: [MedicationEntry] = []
+
+    /// Every entry the user has recorded in the last `medicationHistoryDays` days, which is
+    /// what `AddMedicationSheet` turns back into chips. Their own words only — nothing is
+    /// proposed, see `MedicationHistory`.
+    private(set) var medicationHistory: [MedicationEntry] = []
 
     /// The vocabulary this check-in may use, read from the store rather than from
     /// `WellbeingTag.seeds` — the user has been adding to and retiring from it since
@@ -579,6 +468,10 @@ final class LogModel {
         self.onSaved = onSaved
     }
 
+    /// How far back the medication chips look. Long enough to cover something taken once a
+    /// season, short enough that a name dropped a year ago stops being offered.
+    private static let medicationHistoryDays = 90
+
     /// The intensity always has a value, so the only thing that closes the action is a write
     /// already in flight — which matches the frame, where the button is never dimmed.
     var canSave: Bool { !isSaving }
@@ -589,6 +482,27 @@ final class LogModel {
         // A vocabulary that will not load costs the tag section and nothing else — the
         // intensity is what makes the check-in, so the form stays usable.
         offeredTags = Self.inSeedOrder((try? await tagStore.activeTags()) ?? [])
+
+        // Same rule: a history that will not load costs the chips and nothing else. The
+        // medication sheet still takes free text.
+        medicationHistory = await loadMedicationHistory()
+    }
+
+    /// The last `medicationHistoryDays` days of recorded entries, flattened out of their
+    /// check-ins.
+    ///
+    /// Read through the existing windowed query rather than a new `recentMedications` method on
+    /// `CheckInStore`: 90 days is a few hundred rows read once when the sheet opens, and a
+    /// fourth protocol method would be a fourth thing to keep true across the store, the
+    /// in-memory double and their tests — for a list only this one screen ever shows.
+    private func loadMedicationHistory() async -> [MedicationEntry] {
+        let end = now()
+        guard let start = Calendar.current.date(byAdding: .day,
+                                                value: -Self.medicationHistoryDays,
+                                                to: end) else { return [] }
+
+        let checkIns = (try? await checkInStore.checkIns(in: start..<end)) ?? []
+        return checkIns.flatMap(\.medications)
     }
 
     func toggleTag(_ id: WellbeingTag.ID) {
@@ -621,11 +535,14 @@ final class LogModel {
         failure = nil
         defer { isSaving = false }
 
+        // `note` is left unset: the form no longer asks for one. `CheckIn.note` stays on the
+        // domain type rather than being deleted with the field — it is stored, tested, and
+        // documented in `.claude/context/ml-spec.md`, and removing it would be a schema
+        // change made on the strength of one screen dropping its text box.
         let checkIn = CheckIn(timestamp: now(),
                               intensity: intensity,
                               tagIDs: selectedTagIDs,
-                              medications: medications,
-                              note: trimmedNote)
+                              medications: medications)
 
         do {
             try await checkInStore.save(checkIn)
@@ -635,13 +552,6 @@ final class LogModel {
         }
 
         onSaved()
-    }
-
-    /// Whitespace-only notes are stored as no note at all, so "the user wrote something"
-    /// stays a meaningful distinction.
-    private var trimmedNote: String? {
-        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
     }
 
     /// Shipped tags in the order `WellbeingTag.seeds` declares them, with anything the user
@@ -695,18 +605,20 @@ final class LogModel {
 }
 
 #Preview("Medication") {
+    // `compactMap` rather than a `!`: `MedicationEntry` is failable by design, and the ban on
+    // force unwrapping holds in a preview too — this target is not a test target.
+    let now = Date()
+    let one = [MedicationEntry(name: "Ibuprofen", dose: "400 mg", takenAt: now)].compactMap { $0 }
+    let two = [MedicationEntry(name: "Ibuprofen", dose: "400 mg", takenAt: now),
+               MedicationEntry(name: "Magnesium",
+                               takenAt: now.addingTimeInterval(-7200))].compactMap { $0 }
+
     VStack(alignment: .leading, spacing: 20) {
         MedicationList(entries: [], remove: { _ in })
 
-        // `MedicationEntry.init?` only rejects a blank name, so `compactMap` drops nothing
-        // from these literals — it is how the preview builds its rows without a force
-        // unwrap, which the lint config bans outside test targets.
-        MedicationList(entries: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")].compactMap { $0 },
-                       remove: { _ in })
+        MedicationList(entries: one, remove: { _ in })
 
-        MedicationList(entries: [MedicationEntry(name: "Ibuprofen", dose: "400 mg"),
-                                 MedicationEntry(name: "Magnesium")].compactMap { $0 },
-                       remove: { _ in })
+        MedicationList(entries: two, remove: { _ in })
     }
     .padding(24)
     .background(Palette.surface)
