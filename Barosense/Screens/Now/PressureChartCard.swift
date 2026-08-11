@@ -148,7 +148,7 @@ final class PressureChartModel {
     var range: PressureChartRange = .oneHour {
         didSet {
             guard oldValue != range else { return }
-            rebuild()
+            rebuild(asOf: series.now)
         }
     }
 
@@ -181,7 +181,7 @@ final class PressureChartModel {
         let now = Date.now
         samples = await collection.samples(trailing: PressureChartRange.widest.historySeconds)
         checkIns = await loadCheckIns(asOf: now)
-        rebuild()
+        rebuild(asOf: now)
     }
 
     /// The check-ins the widest range can reach. Half-open at `now`, which is the instant
@@ -197,8 +197,18 @@ final class PressureChartModel {
         return (try? await checkInStore.checkIns(in: window)) ?? []
     }
 
-    private func rebuild() {
-        series = PressureSeries.make(from: samples, checkIns: checkIns, range: range, asOf: .now)
+    /// The instant is threaded in rather than read from the clock here, because the same one
+    /// has to serve three things that only agree by construction: `PressureSeries.now` (the
+    /// divider between observed and forecast, and the rule the chart draws), the half-open
+    /// window `loadCheckIns(asOf:)` queried, and the extent the range slices out. Reading
+    /// `.now` again would put the series a few milliseconds ahead of the window its own
+    /// marks came from.
+    ///
+    /// A range change passes `series.now` for the same reason: it re-slices what is already
+    /// in memory, so nothing has been observed since, and moving the divider forward there
+    /// would walk the rule and the x-domain on every button tap over unchanged data.
+    private func rebuild(asOf now: Date) {
+        series = PressureSeries.make(from: samples, checkIns: checkIns, range: range, asOf: now)
     }
 
     /// The figure the card prints. One decimal, which is the resolution the barometer
