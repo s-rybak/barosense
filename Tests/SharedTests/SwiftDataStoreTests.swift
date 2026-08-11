@@ -199,7 +199,9 @@ final class SwiftDataStoreTests: XCTestCase {
         let checkIn = CheckIn(timestamp: referenceDate,
                               intensity: CheckInIntensity(clamping: 8),
                               tagIDs: [.seeded("fatigue"), .user(UUID())],
-                              medications: [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!],
+                              medications: [MedicationEntry(name: "Ibuprofen",
+                                                            dose: "400 mg",
+                                                            takenAt: referenceDate)!],
                               note: "Woke up early")
 
         try await store.save(checkIn)
@@ -225,9 +227,10 @@ final class SwiftDataStoreTests: XCTestCase {
         // Order is what the user typed and is the only thing that distinguishes two entries
         // of the same name, so the store may not sort or de-duplicate them.
         let store = try makeCheckInStore()
-        let entries = [MedicationEntry(name: "Ibuprofen", dose: "400 mg")!,
-                       MedicationEntry(name: "Magnesium")!,
-                       MedicationEntry(name: "Ibuprofen", dose: "400 mg")!]
+        let earlier = referenceDate.addingTimeInterval(-3600)
+        let entries = [MedicationEntry(name: "Ibuprofen", dose: "400 mg", takenAt: earlier)!,
+                       MedicationEntry(name: "Magnesium", takenAt: referenceDate)!,
+                       MedicationEntry(name: "Ibuprofen", dose: "400 mg", takenAt: referenceDate)!]
 
         try await store.save(CheckIn(timestamp: referenceDate,
                                      intensity: CheckInIntensity(clamping: 6),
@@ -236,6 +239,10 @@ final class SwiftDataStoreTests: XCTestCase {
         let read = try await store.checkIns(in: window(aroundHours: 1))
         XCTAssertEqual(read.first?.medications, entries)
         XCTAssertNil(read.first?.medications[1].dose)
+        // The time survives the round trip on its own rather than collapsing onto the
+        // check-in's timestamp, which is the fallback a row written before the attribute
+        // existed gets.
+        XCTAssertEqual(read.first?.medications.first?.takenAt, earlier)
     }
 
     func testSavingTheSameIdentifierTwiceReplacesRatherThanDuplicates() async throws {
@@ -346,7 +353,8 @@ final class SwiftDataStoreTests: XCTestCase {
     func testAStoredMedicationWithoutANameIsDroppedAndTheCheckInSurvives() {
         let row = StoredCheckIn(checkIn: CheckIn(timestamp: referenceDate,
                                                  intensity: CheckInIntensity(clamping: 5),
-                                                 medications: [MedicationEntry(name: "Magnesium")!]))
+                                                 medications: [MedicationEntry(name: "Magnesium",
+                                                                               takenAt: referenceDate)!]))
 
         row.medications[0].name = "  "
 

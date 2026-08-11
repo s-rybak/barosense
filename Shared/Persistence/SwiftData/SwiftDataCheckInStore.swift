@@ -80,7 +80,7 @@ final class StoredCheckIn {
                        tagIDs: Set(tagIdentityKeys.compactMap(StoredWellbeingTag.identity(from:))),
                        // Same rule, same reason: an entry that will not map is dropped and
                        // the check-in survives.
-                       medications: medications.compactMap(\.entry),
+                       medications: medications.compactMap { $0.entry(fallbackTakenAt: timestamp) },
                        note: note)
     }
 }
@@ -96,16 +96,28 @@ struct StoredMedication: Codable, Hashable {
     var name: String
     var dose: String?
 
+    /// Optional in storage while it is required in the domain, and that asymmetry is the point:
+    /// a blob written before this attribute existed decodes with `nil` here instead of failing
+    /// and taking the whole check-in's medication list with it. The reader supplies the
+    /// fallback, because the only defensible one is the check-in's own timestamp and this
+    /// struct does not know it.
+    var takenAt: Date?
+
     init(entry: MedicationEntry) {
         id = entry.id
         name = entry.name
         dose = entry.dose
+        takenAt = entry.takenAt
     }
 
     /// `nil` when the stored name is blank — `MedicationEntry` refuses to exist without one,
     /// and a row that predates that rule must not be able to smuggle one in.
-    var entry: MedicationEntry? {
-        MedicationEntry(id: id, name: name, dose: dose)
+    ///
+    /// A missing time falls back to `fallbackTakenAt`, the timestamp of the check-in that owns
+    /// the entry. That is a guess, and it is the least wrong one available: before the sheet
+    /// had a time control every entry *was* recorded at its check-in's moment.
+    func entry(fallbackTakenAt: Date) -> MedicationEntry? {
+        MedicationEntry(id: id, name: name, dose: dose, takenAt: takenAt ?? fallbackTakenAt)
     }
 }
 

@@ -167,10 +167,10 @@ enum Palette {
     }
 
     /// One 0–1 colour component, interpolated between two `0xRRGGBB` literals.
-    private static func mix(_ from: UInt32, _ to: UInt32,
+    private static func mix(_ lower: UInt32, _ upper: UInt32,
                             shift: UInt32, progress: Double) -> Double {
-        let start = Double((from >> shift) & 0xFF) / 255
-        let end = Double((to >> shift) & 0xFF) / 255
+        let start = Double((lower >> shift) & 0xFF) / 255
+        let end = Double((upper >> shift) & 0xFF) / 255
         return start + (end - start) * progress
     }
 }

@@ -45,36 +45,24 @@
         }
       }
     },
-    "< 1 h" : {
+    "+ New medication" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "< 1 h"
-          }
-        },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "< 1 год"
+            "value" : "+ Новий засіб"
           }
         }
       }
     },
-    "> 24 h" : {
+    "+ Other dose" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "> 24 h"
-          }
-        },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "> 24 год"
+            "value" : "+ Інша доза"
           }
         }
       }
@@ -113,6 +101,40 @@
         }
       }
     },
+    "< 1 h" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "< 1 h"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "< 1 год"
+          }
+        }
+      }
+    },
+    "> 24 h" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "> 24 h"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "> 24 год"
+          }
+        }
+      }
+    },
     "Activity and blood oxygen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -130,19 +152,24 @@
         }
       }
     },
-    "Add" : {
+    "Add medication" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add"
-          }
-        },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Додати"
+            "value" : "Додати ліки"
+          }
+        }
+      }
+    },
+    "Add to check-in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додати до запису"
           }
         }
       }
@@ -283,6 +310,17 @@
         }
       }
     },
+    "Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрити"
+          }
+        }
+      }
+    },
     "Coloured dots are your check-ins" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -398,6 +436,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Готово"
+          }
+        }
+      }
+    },
+    "Dose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дозування"
           }
         }
       }
@@ -726,23 +775,6 @@
         }
       }
     },
-    "Note (optional)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Note (optional)"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нотатка (необов’язково)"
-          }
-        }
-      }
-    },
     "Nothing added yet" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -756,6 +788,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Поки нічого не додано"
+          }
+        }
+      }
+    },
+    "Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зараз"
           }
         }
       }
@@ -824,6 +867,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Інше"
+          }
+        }
+      }
+    },
+    "Other time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Інший час"
           }
         }
       }
@@ -1033,6 +1087,17 @@
         }
       }
     },
+    "Time taken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Час прийому"
+          }
+        }
+      }
+    },
     "Try again" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1063,23 +1128,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Що найкраще описує твій стан?"
-          }
-        }
-      }
-    },
-    "What did you take?" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What did you take?"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Що ви прийняли?"
           }
         }
       }
@@ -1118,23 +1166,6 @@
         }
       }
     },
-    "years" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "years"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "років"
-          }
-        }
-      }
-    },
     "Your answers could not be saved. Check that the device has free space and try again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1165,6 +1196,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Не вдалося зберегти запис. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
+          }
+        }
+      }
+    },
+    "Your medications" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твої засоби"
           }
         }
       }
@@ -1203,6 +1245,23 @@
         }
       }
     },
+    "years" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "years"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "років"
+          }
+        }
+      }
+    },
     "Графік тиску" : {
       "comment" : "A title of a pressure chart card.",
       "isCommentAutoGenerated" : true
@@ -1215,10 +1274,6 @@
       "comment" : "A message that appears when there is no data in the graph.",
       "isCommentAutoGenerated" : true
     },
-    "зараз" : {
-      "comment" : "A label for the divider between the current and forecasted pressure.",
-      "isCommentAutoGenerated" : true
-    },
     "Поки немає даних з Health" : {
       "comment" : "A note displayed when the user has not yet added any health data.",
       "isCommentAutoGenerated" : true
@@ -1229,6 +1284,10 @@
     },
     "Цей пристрій не має барометра" : {
       "comment" : "A message shown when the device has no barometric sensor.",
+      "isCommentAutoGenerated" : true
+    },
+    "зараз" : {
+      "comment" : "A label for the divider between the current and forecasted pressure.",
       "isCommentAutoGenerated" : true
     }
   },
