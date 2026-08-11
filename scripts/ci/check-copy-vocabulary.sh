@@ -39,8 +39,11 @@ done
 #    A user-facing string containing "predict" still fails: this only exempts call sites.
 exempt='(not medical|non-medical|isn.t medical|no medical|\.prediction\(|Prediction(Input|Output)\b)'
 
+# `xcstrings` is on the list because the string catalogue is where UI copy actually lives
+# now: a Swift file holds the base-language key, and every translation of it sits in the
+# catalogue where nothing else would look at it.
 files=$(git ls-files -- "${product_paths[@]}" \
-    | grep -E '\.(swift|yml|yaml|strings|stringsdict|entitlements|plist|json)$' || true)
+    | grep -E '\.(swift|yml|yaml|strings|stringsdict|xcstrings|entitlements|plist|json)$' || true)
 
 if [ -z "$files" ]; then
     echo "no product files to scan"

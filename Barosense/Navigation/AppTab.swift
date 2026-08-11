@@ -11,7 +11,10 @@ enum AppTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// Tab-bar label. One short word each, so the bar stays readable at a glance.
-    var label: String {
+    ///
+    /// `LocalizedStringKey`, not `String`: `Text(someString)` is verbatim and would leave
+    /// the whole bar in the base language whatever the user picked in Settings.
+    var label: LocalizedStringKey {
         switch self {
         case .now: "Now"
         case .history: "History"
@@ -22,10 +25,10 @@ enum AppTab: String, CaseIterable, Identifiable {
     }
 
     /// Heading shown on the destination itself.
-    var screenTitle: String { label }
+    var screenTitle: LocalizedStringKey { label }
 
     /// One line describing what the destination will hold once it is built.
-    var screenSummary: String {
+    var screenSummary: LocalizedStringKey {
         switch self {
         case .now:
             "Current barometric pressure and how it has moved today."

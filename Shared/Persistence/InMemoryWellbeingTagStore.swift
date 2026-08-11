@@ -29,6 +29,10 @@ actor InMemoryWellbeingTagStore: WellbeingTagStore {
         storage[id] = WellbeingTag(id: tag.id, name: tag.name, isArchived: true)
     }
 
+    func deleteAllTags() {
+        storage.removeAll()
+    }
+
     func insertIfAbsent(_ tags: [WellbeingTag]) {
         for tag in tags where storage[tag.id] == nil {
             storage[tag.id] = tag

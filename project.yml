@@ -16,6 +16,11 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     SWIFT_STRICT_CONCURRENCY: complete
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Makes the compiler emit a .stringsdata sidecar for every `LocalizedStringKey` and
+    # `String(localized:)` literal, which is what lets Xcode keep Localizable.xcstrings in
+    # step with the source. Without it a new key silently never reaches the catalogue and
+    # ships untranslated.
+    SWIFT_EMIT_LOC_STRINGS: YES
     CODE_SIGN_STYLE: Automatic
     # Fill in before building on device / enabling WeatherKit + HealthKit.
     DEVELOPMENT_TEAM: ""

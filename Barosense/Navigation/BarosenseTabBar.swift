@@ -141,6 +141,10 @@ struct BarosenseTabBar: View {
                     .font(Typography.tabLabel)
                     .foregroundStyle(tint)
                     .lineLimit(1)
+                    // Shrinks rather than truncates. The design was drawn against the
+                    // English labels; "Налаштування" is twice the width of "Settings" and
+                    // would come out as "Налаштува…", which is not a word.
+                    .minimumScaleFactor(0.7)
             }
         }
         // The label gets the whole slot rather than the 52 pt the glyph needs, so it
@@ -172,6 +176,7 @@ struct BarosenseTabBar: View {
                     .font(Typography.tabLabel)
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
         }
         .frame(minWidth: Metrics.minItemWidth, maxWidth: .infinity)

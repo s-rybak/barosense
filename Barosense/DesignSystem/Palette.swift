@@ -97,6 +97,35 @@ enum Palette {
     /// different reasons.
     static let chartLine = markerCool
 
+    // MARK: - Settings (Figma `7:1246`, `7:1308`)
+
+    /// `color/grey/91-3` — the hairline between two rows *inside* one card.
+    ///
+    /// A step lighter than `separator`, which divides one surface from the next. Using
+    /// `separator` here would draw the rows of a grouped card as hard as the card's own
+    /// outline and lose the grouping the design is built on.
+    static let rowSeparator = Color(hex: 0xEEEBE3)
+
+    /// `color/orange/74` (Ash) — the dashed outline of the "add" affordance.
+    /// Darker than `controlBorder` because a dash reads lighter than a solid line at the
+    /// same value.
+    static let dashedBorder = Color(hex: 0xC7C2B4)
+
+    /// `color/azure/56` (Royal Blue) — a text action that is not the primary button:
+    /// Save, Change photo.
+    ///
+    /// The same Figma token as `markerCool` and `chartLine`, aliased rather than
+    /// re-declared: one token, one hex. Named for its role here because a tappable label
+    /// and a chart series move for different reasons.
+    static let link = markerCool
+
+    /// `color/red/56` (Red Damask) — an action that removes something.
+    ///
+    /// The same token as `health`, which the design also uses for the Apple Health tile.
+    /// Aliased for the same reason as `link`: the day the destructive colour needs to
+    /// stop being the Apple Health colour, exactly one of these two lines changes.
+    static let destructive = health
+
     /// `color/grey/93` (Pampas) — the track behind the range selector.
     ///
     /// Not `onInk` (`#F4F2ED`), which the design library also calls Pampas: they are two

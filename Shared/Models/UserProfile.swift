@@ -65,6 +65,19 @@ struct UserProfile: Hashable, Codable, Sendable {
 
     var gender: Gender?
 
+    /// The avatar the user picked, already downscaled and JPEG-encoded by the picker.
+    /// `nil` means fall back to the initial of `displayName`, which is what the design
+    /// draws before a photo is chosen.
+    ///
+    /// Bytes rather than a file path: a path is a second thing to keep in step with the
+    /// row, and "delete my data" would have to know about a directory as well as a store.
+    /// Kept small at the boundary — `ProfileAvatarEncoder` caps it — so this stays a
+    /// thumbnail and never a full camera capture.
+    ///
+    /// Personal data like every other field here: on-device only, never in an outbound
+    /// payload, never a model feature.
+    var avatarImageData: Data?
+
     var episodeFrequency: EpisodeFrequency?
 
     var typicalEpisodeDuration: EpisodeDuration?
@@ -87,6 +100,7 @@ struct UserProfile: Hashable, Codable, Sendable {
     init(displayName: String? = nil,
          ageYears: Int? = nil,
          gender: Gender? = nil,
+         avatarImageData: Data? = nil,
          episodeFrequency: EpisodeFrequency? = nil,
          typicalEpisodeDuration: EpisodeDuration? = nil,
          termsAcceptedAt: Date? = nil,
@@ -95,6 +109,7 @@ struct UserProfile: Hashable, Codable, Sendable {
         self.displayName = displayName
         self.ageYears = ageYears
         self.gender = gender
+        self.avatarImageData = avatarImageData
         self.episodeFrequency = episodeFrequency
         self.typicalEpisodeDuration = typicalEpisodeDuration
         self.termsAcceptedAt = termsAcceptedAt

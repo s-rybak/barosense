@@ -18,6 +18,15 @@ final class StoredUserProfile {
     /// crashing, so a row written by a newer build downgrades instead of taking the app
     /// with it.
     var genderRawValue: String?
+
+    /// Downscaled JPEG for the avatar, or `nil` when the user has not picked one.
+    ///
+    /// `.externalStorage` keeps the bytes in a sidecar file rather than in the row, so the
+    /// profile fetch — which runs on every launch to decide whether onboarding is done —
+    /// does not drag an image through it. Optional and defaulted, which is what keeps this
+    /// a lightweight migration for installs created before the field existed.
+    @Attribute(.externalStorage) var avatarImageData: Data?
+
     /// `EpisodeFrequency.rawValue`, same downgrade rule.
     var episodeFrequencyRawValue: String?
     /// `EpisodeDuration.rawValue`, same downgrade rule.
@@ -37,6 +46,7 @@ final class StoredUserProfile {
         displayName = profile.displayName
         ageYears = profile.ageYears
         genderRawValue = profile.gender?.rawValue
+        avatarImageData = profile.avatarImageData
         episodeFrequencyRawValue = profile.episodeFrequency?.rawValue
         typicalEpisodeDurationRawValue = profile.typicalEpisodeDuration?.rawValue
         termsAcceptedAt = profile.termsAcceptedAt
@@ -49,6 +59,7 @@ final class StoredUserProfile {
             displayName: displayName,
             ageYears: ageYears,
             gender: genderRawValue.flatMap(Gender.init(rawValue:)),
+            avatarImageData: avatarImageData,
             episodeFrequency: episodeFrequencyRawValue.flatMap(EpisodeFrequency.init(rawValue:)),
             typicalEpisodeDuration: typicalEpisodeDurationRawValue
                 .flatMap(EpisodeDuration.init(rawValue:)),

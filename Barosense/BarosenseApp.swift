@@ -11,6 +11,12 @@ struct BarosenseApp: App {
     /// the watch is a second screen onto it — see `PressureCollectionController` for why.
     private let pressure: PressureCollectionController
 
+    /// The two sensor logs, kept here as well as inside the controllers. Settings needs
+    /// them to erase the history, and re-opening the same store file a second time from
+    /// there would be a second container over one SQLite file.
+    private let healthLog: any HealthSampleStore
+    private let pressureLog: any PressureSampleStore
+
     init() {
         let log: any HealthSampleStore
         do {
@@ -35,6 +41,7 @@ struct BarosenseApp: App {
             ? HealthKitChangeObserver()
             : NoOpHealthChangeObserver()
 
+        healthLog = log
         ingest = HealthIngestController(recorder: recorder, changeObserver: changeObserver)
         // Observers must exist before HealthKit delivers a background wake.
         ingest.start()
@@ -53,6 +60,8 @@ struct BarosenseApp: App {
             pressureLog = InMemoryPressureSampleStore()
         }
 
+        self.pressureLog = pressureLog
+
         let link = WatchConnectivityPressureLink()
         link?.activate()
 
@@ -69,7 +78,10 @@ struct BarosenseApp: App {
         let pressure = pressure
 
         return WindowGroup {
-            AppRootView(ingest: ingest, pressure: pressure)
+            AppRootView(ingest: ingest,
+                        pressure: pressure,
+                        healthLog: healthLog,
+                        pressureLog: pressureLog)
                 // The earliest point at which `.backgroundTask` below has registered the
                 // identifier. Submitting before that raises an uncatchable ObjC exception.
                 .task { pressure.armBackgroundRefresh() }

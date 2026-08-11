@@ -290,21 +290,28 @@ final class HealthSampleGateTests: XCTestCase {
     }
 }
 
-/// The one piece of presentation logic worth a test: the sleep figure the design draws as
-/// `7г 20х`.
+/// The one piece of presentation logic worth a test: the split behind the sleep figure the
+/// design draws as `7г 20х`. The separator between the two numbers is a translation, so
+/// only the numbers are asserted here.
 final class HealthMetricsFormattingTests: XCTestCase {
 
     func testHoursAndMinutesMatchTheDesign() {
-        XCTAssertEqual(HealthMetricsRow.formattedHours(7 + 20.0 / 60), "7г 20х")
+        let split = HealthMetricsRow.hoursAndMinutes(7 + 20.0 / 60)
+        XCTAssertEqual(split.hours, 7)
+        XCTAssertEqual(split.minutes, 20)
     }
 
     func testMinutesRoundBeforeTheSplitSoSixtyNeverAppears() {
-        // 59.6 min must read 1г 0х, not 0г 60х.
-        XCTAssertEqual(HealthMetricsRow.formattedHours(59.6 / 60), "1г 0х")
+        // 59.6 min must read 1 h 0 min, not 0 h 60 min.
+        let split = HealthMetricsRow.hoursAndMinutes(59.6 / 60)
+        XCTAssertEqual(split.hours, 1)
+        XCTAssertEqual(split.minutes, 0)
     }
 
     func testAWholeNumberOfHoursShowsZeroMinutes() {
-        XCTAssertEqual(HealthMetricsRow.formattedHours(8), "8г 0х")
+        let split = HealthMetricsRow.hoursAndMinutes(8)
+        XCTAssertEqual(split.hours, 8)
+        XCTAssertEqual(split.minutes, 0)
     }
 }
 
