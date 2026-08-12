@@ -2236,18 +2236,18 @@
         }
       }
     },
-    "This removes your profile, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding." : {
+    "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This removes your profile, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding."
+            "value" : "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Це видалить твій профіль, теги та всі виміри тиску і дані Health, збережені на цьому пристрої. Скасувати неможливо — Barosense почне з початкового налаштування."
+            "value" : "Це видалить твій профіль, твої чек-іни, теги та всі виміри тиску і дані Health, збережені на цьому пристрої. Скасувати неможливо — Barosense почне з початкового налаштування."
           }
         }
       }

@@ -252,6 +252,7 @@ final class SettingsModelTests: XCTestCase {
         let dependencies = SettingsDependencies(
             profileStore: profiles,
             tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+            checkInStore: InMemoryCheckInStore(),
             healthLog: healthLog,
             pressureLog: pressureLog,
             healthAccess: access

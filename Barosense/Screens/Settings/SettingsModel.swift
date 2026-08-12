@@ -15,8 +15,14 @@ struct SettingsDependencies: Sendable {
 
     /// Builds the eraser from the same store instances the screens read, so an erase
     /// cannot miss a store the settings screen is showing.
+    ///
+    /// `checkInStore` is the exception and is required anyway: no settings screen displays
+    /// a check-in, so it is not stored above — but it holds the notes and medication
+    /// entries "delete my data" is mostly about, and taking it here is what stops the erase
+    /// being assembled without it.
     init(profileStore: any UserProfileStore,
          tagStore: any WellbeingTagStore,
+         checkInStore: any CheckInStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
          healthAccess: any HealthAccessReporting) {
@@ -25,6 +31,7 @@ struct SettingsDependencies: Sendable {
         self.healthLog = healthLog
         self.healthAccess = healthAccess
         self.eraser = BarosenseDataEraser(profileStore: profileStore,
+                                          checkInStore: checkInStore,
                                           tagStore: tagStore,
                                           healthLog: healthLog,
                                           pressureLog: pressureLog)
@@ -38,6 +45,7 @@ extension SettingsDependencies {
     static var preview: SettingsDependencies {
         SettingsDependencies(profileStore: InMemoryUserProfileStore(),
                              tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                             checkInStore: InMemoryCheckInStore(),
                              healthLog: InMemoryHealthSampleStore(),
                              pressureLog: InMemoryPressureSampleStore(),
                              healthAccess: UnavailableHealthAccessReporter())

@@ -16,6 +16,7 @@ enum DataEraseFailure: Error, Sendable {
 /// partial failure cannot go stale when a store is added.
 enum ErasableStore: String, CaseIterable, Sendable {
     case profile
+    case checkIns
     case tagVocabulary
     case healthLog
     case pressureLog
@@ -28,7 +29,7 @@ enum ErasableStore: String, CaseIterable, Sendable {
 /// everything" is a promise about all of them at once. One place to walk them is also one
 /// place to keep in step when a fourth lands.
 ///
-/// **Not transactional, and cannot be.** Three containers means three saves; a crash
+/// **Not transactional, and cannot be.** Three containers means separate saves; a crash
 /// between them leaves the device part-erased. Every store is therefore attempted even
 /// after one fails, and the failure names what survived — an erase that stopped at the
 /// first error would leave the user believing more was removed than actually was.
@@ -43,15 +44,18 @@ enum ErasableStore: String, CaseIterable, Sendable {
 struct BarosenseDataEraser: Sendable {
 
     private let profileStore: any UserProfileStore
+    private let checkInStore: any CheckInStore
     private let tagStore: any WellbeingTagStore
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
 
     init(profileStore: any UserProfileStore,
+         checkInStore: any CheckInStore,
          tagStore: any WellbeingTagStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore) {
         self.profileStore = profileStore
+        self.checkInStore = checkInStore
         self.tagStore = tagStore
         self.healthLog = healthLog
         self.pressureLog = pressureLog
@@ -75,6 +79,14 @@ struct BarosenseDataEraser: Sendable {
         }
         await attempt(.healthLog, into: &refused) {
             _ = try await healthLog.deleteSamples(before: .distantFuture)
+        }
+        // Check-ins before the vocabulary they point at. The other order is the one that
+        // can leave rows referencing tags that no longer exist: `deleteAllTags` is a hard
+        // delete, so a check-in step refusing after it had run would orphan every user-made
+        // tag reference. This way a refusal leaves a vocabulary with nothing pointing at
+        // it, which is inert and which the next attempt clears.
+        await attempt(.checkIns, into: &refused) {
+            try await checkInStore.deleteAllCheckIns()
         }
         await attempt(.tagVocabulary, into: &refused) {
             try await tagStore.deleteAllTags()

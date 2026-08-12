@@ -34,4 +34,8 @@ actor InMemoryCheckInStore: CheckInStore {
     func delete(id: UUID) {
         storage[id] = nil
     }
+
+    func deleteAllCheckIns() {
+        storage.removeAll()
+    }
 }

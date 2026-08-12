@@ -102,9 +102,9 @@ struct SettingsScreen: View {
             // two literals types the expression as `String`, which resolves `Text` to its
             // verbatim initialiser — the key would silently never reach the catalogue.
             Text("""
-                This removes your profile, your tags, and every pressure and Health reading \
-                stored on this device. It can't be undone, and Barosense starts again from \
-                onboarding.
+                This removes your profile, your check-ins, your tags, and every pressure and \
+                Health reading stored on this device. It can't be undone, and Barosense \
+                starts again from onboarding.
                 """)
         }
         .alert("Nothing to reset yet", isPresented: $model.isShowingLearnedDataNotice) {

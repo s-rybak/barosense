@@ -225,6 +225,7 @@ final class EditProfileModelTests: XCTestCase {
         let dependencies = SettingsDependencies(
             profileStore: profileStore ?? InMemoryUserProfileStore(profile),
             tagStore: tagStore,
+            checkInStore: InMemoryCheckInStore(),
             healthLog: InMemoryHealthSampleStore(),
             pressureLog: InMemoryPressureSampleStore(),
             healthAccess: UnavailableHealthAccessReporter()

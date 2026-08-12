@@ -318,6 +318,36 @@ final class SwiftDataStoreTests: XCTestCase {
         XCTAssertTrue(remaining.isEmpty)
     }
 
+    /// "Delete my data" reaches the check-in table, and reaches it on disk rather than only
+    /// in the context that issued the delete — the batch delete this uses does not go
+    /// through the same path as `delete(id:)`, so a fresh store on the same container is
+    /// the assertion that matters.
+    func testDeleteAllCheckInsEmptiesTheDurableTable() async throws {
+        let container = try makeContainer()
+        let store: any CheckInStore = SwiftDataCheckInStore(modelContainer: container)
+
+        for hours in [-2.0, -1.0, 0.0] {
+            try await store.save(CheckIn(timestamp: referenceDate.addingTimeInterval(hours * 3600),
+                                         intensity: CheckInIntensity(clamping: 6),
+                                         medications: [MedicationEntry(name: "Ibuprofen",
+                                                                       takenAt: referenceDate)!],
+                                         note: "Woke up early"))
+        }
+
+        try await store.deleteAllCheckIns()
+
+        let reader: any CheckInStore = SwiftDataCheckInStore(modelContainer: container)
+        let remaining = try await reader.checkIns(in: window(aroundHours: 24))
+        XCTAssertTrue(remaining.isEmpty)
+    }
+
+    func testDeletingEveryCheckInOnAnEmptyTableIsNotAnError() async throws {
+        let store = try makeCheckInStore()
+
+        try await store.deleteAllCheckIns()
+        try await store.deleteAllCheckIns()
+    }
+
     func testCheckInsSurviveAFreshStoreOnTheSameContainer() async throws {
         // Stands in for a relaunch. This is the property that was missing until now — the
         // in-memory store lost every check-in with the process.

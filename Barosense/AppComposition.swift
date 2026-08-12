@@ -76,6 +76,7 @@ final class AppServices {
             self.checkInStore = checkInStore
             self.settings = SettingsDependencies(profileStore: profileStore,
                                                  tagStore: tagStore,
+                                                 checkInStore: checkInStore,
                                                  healthLog: healthLog,
                                                  pressureLog: pressureLog,
                                                  healthAccess: healthAccess)

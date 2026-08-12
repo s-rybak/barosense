@@ -11,9 +11,19 @@ final class BarosenseDataEraserTests: XCTestCase {
         let profiles = InMemoryUserProfileStore(UserProfile(displayName: "Olena",
                                                             onboardingCompletedAt: now))
         let tags = InMemoryWellbeingTagStore(WellbeingTag.seeds)
+        let checkIns = InMemoryCheckInStore()
         let health = InMemoryHealthSampleStore()
         let pressure = InMemoryPressureSampleStore()
 
+        // Note and medication entry on purpose: this is the free text the erase promise is
+        // mostly about, and it is the row that used to survive it.
+        try await checkIns.save(CheckIn(timestamp: now,
+                                        intensity: CheckInIntensity(clamping: 7),
+                                        tagIDs: [.seeded("fatigue")],
+                                        medications: [MedicationEntry(name: "Ibuprofen",
+                                                                      dose: "400 mg",
+                                                                      takenAt: now)!],
+                                        note: "Woke up early"))
         try await health.save([HealthSample(id: UUID(),
                                             start: now,
                                             end: now,
@@ -23,6 +33,7 @@ final class BarosenseDataEraserTests: XCTestCase {
                                                 pressure: Pressure(hectopascals: 1013))])
 
         let eraser = BarosenseDataEraser(profileStore: profiles,
+                                         checkInStore: checkIns,
                                          tagStore: tags,
                                          healthLog: health,
                                          pressureLog: pressure)
@@ -36,11 +47,32 @@ final class BarosenseDataEraserTests: XCTestCase {
 
         let remainingProfile = try await profiles.profile()
         let remainingTags = try await tags.allTags()
+        let remainingCheckIns = try await checkIns.checkIns(in: Date.distantPast..<Date.distantFuture)
 
         XCTAssertNil(remainingProfile)
         XCTAssertEqual(remainingTags.count, 0)
+        XCTAssertEqual(remainingCheckIns.count, 0)
         XCTAssertEqual(remainingHealth.count, 0)
         XCTAssertEqual(remainingPressure.count, 0)
+    }
+
+    /// The vocabulary is hard-deleted, so the check-ins pointing at it have to be gone
+    /// first. Only the order protects a crash between the two steps — a refusal does not,
+    /// because the walk deliberately continues — which is why this is pinned by a test and
+    /// not left to the comment in `eraseEverything`.
+    func testCheckInsAreErasedBeforeTheVocabularyTheyPointAt() async throws {
+        let order = EraseOrder()
+
+        let eraser = BarosenseDataEraser(profileStore: InMemoryUserProfileStore(),
+                                         checkInStore: RecordingCheckInStore(order: order),
+                                         tagStore: RecordingWellbeingTagStore(order: order),
+                                         healthLog: InMemoryHealthSampleStore(),
+                                         pressureLog: InMemoryPressureSampleStore())
+
+        try await eraser.eraseEverything()
+
+        let walked = await order.walked
+        XCTAssertEqual(walked, [.checkIns, .tagVocabulary])
     }
 
     /// A reading taken in the same second as the erase — a foreground activation records one
@@ -51,6 +83,7 @@ final class BarosenseDataEraserTests: XCTestCase {
         try await pressure.save([sample])
 
         let eraser = BarosenseDataEraser(profileStore: InMemoryUserProfileStore(),
+                                         checkInStore: InMemoryCheckInStore(),
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: pressure)
@@ -67,10 +100,13 @@ final class BarosenseDataEraserTests: XCTestCase {
     func testARefusalDoesNotStopTheRemainingStores() async throws {
         let profiles = InMemoryUserProfileStore(UserProfile(displayName: "Olena"))
         let tags = InMemoryWellbeingTagStore(WellbeingTag.seeds)
+        let checkIns = InMemoryCheckInStore([CheckIn(timestamp: now,
+                                                     intensity: CheckInIntensity(clamping: 4))])
         let pressure = FailingPressureSampleStore()
         let health = InMemoryHealthSampleStore()
 
         let eraser = BarosenseDataEraser(profileStore: profiles,
+                                         checkInStore: checkIns,
                                          tagStore: tags,
                                          healthLog: health,
                                          pressureLog: pressure)
@@ -86,13 +122,16 @@ final class BarosenseDataEraserTests: XCTestCase {
         // that proves it kept going rather than returning at the first throw.
         let remainingProfile = try await profiles.profile()
         let remainingTags = try await tags.allTags()
+        let remainingCheckIns = try await checkIns.checkIns(in: Date.distantPast..<Date.distantFuture)
 
         XCTAssertNil(remainingProfile)
         XCTAssertEqual(remainingTags.count, 0)
+        XCTAssertEqual(remainingCheckIns.count, 0)
     }
 
     func testEveryStoreRefusingNamesAllOfThem() async throws {
         let eraser = BarosenseDataEraser(profileStore: FailingUserProfileStore(),
+                                         checkInStore: FailingCheckInStore(),
                                          tagStore: FailingWellbeingTagStore(),
                                          healthLog: FailingHealthSampleStore(),
                                          pressureLog: FailingPressureSampleStore())
@@ -108,6 +147,7 @@ final class BarosenseDataEraserTests: XCTestCase {
     /// Erasing an already-empty device is a normal thing to do twice.
     func testErasingNothingSucceeds() async throws {
         let eraser = BarosenseDataEraser(profileStore: InMemoryUserProfileStore(),
+                                         checkInStore: InMemoryCheckInStore(),
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: InMemoryPressureSampleStore())
@@ -125,6 +165,14 @@ private struct FailingUserProfileStore: UserProfileStore {
     func profile() async throws -> UserProfile? { throw StoreRefused() }
     func save(_ profile: UserProfile) async throws { throw StoreRefused() }
     func deleteProfile() async throws { throw StoreRefused() }
+}
+
+private struct FailingCheckInStore: CheckInStore {
+    func save(_ checkIn: CheckIn) async throws { throw StoreRefused() }
+    func checkIns(in range: Range<Date>) async throws -> [CheckIn] { throw StoreRefused() }
+    func mostRecentCheckIn(before date: Date) async throws -> CheckIn? { throw StoreRefused() }
+    func delete(id: UUID) async throws { throw StoreRefused() }
+    func deleteAllCheckIns() async throws { throw StoreRefused() }
 }
 
 private struct FailingWellbeingTagStore: WellbeingTagStore {
@@ -148,4 +196,35 @@ private struct FailingPressureSampleStore: PressureSampleStore {
     func save(_ samples: [PressureSample]) async throws { throw StoreRefused() }
     func samples(in range: Range<Date>) async throws -> [PressureSample] { throw StoreRefused() }
     func deleteSamples(before date: Date) async throws -> Int { throw StoreRefused() }
+}
+
+/// The order the eraser walked its stores in. An actor because the doubles writing to it
+/// are `Sendable` values handed to a non-isolated eraser.
+private actor EraseOrder {
+    private(set) var walked: [ErasableStore] = []
+
+    func record(_ store: ErasableStore) {
+        walked.append(store)
+    }
+}
+
+private struct RecordingCheckInStore: CheckInStore {
+    let order: EraseOrder
+
+    func save(_ checkIn: CheckIn) async throws {}
+    func checkIns(in range: Range<Date>) async throws -> [CheckIn] { [] }
+    func mostRecentCheckIn(before date: Date) async throws -> CheckIn? { nil }
+    func delete(id: UUID) async throws {}
+    func deleteAllCheckIns() async { await order.record(.checkIns) }
+}
+
+private struct RecordingWellbeingTagStore: WellbeingTagStore {
+    let order: EraseOrder
+
+    func activeTags() async throws -> [WellbeingTag] { [] }
+    func allTags() async throws -> [WellbeingTag] { [] }
+    func save(_ tag: WellbeingTag) async throws {}
+    func archive(id: WellbeingTag.ID) async throws {}
+    func deleteAllTags() async { await order.record(.tagVocabulary) }
+    func insertIfAbsent(_ tags: [WellbeingTag]) async throws {}
 }

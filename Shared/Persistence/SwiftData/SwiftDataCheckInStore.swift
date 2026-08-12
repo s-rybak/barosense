@@ -184,4 +184,13 @@ actor SwiftDataCheckInStore: CheckInStore {
         modelContext.delete(existing)
         try modelContext.save()
     }
+
+    /// A batch delete rather than the fetch-then-delete loop `SwiftDataWellbeingTagStore`
+    /// uses. The vocabulary is tens of rows; this table grows for the life of the install,
+    /// and materialising every check-in into the context just to remove it is memory spent
+    /// at the one moment the user has asked for the data to be gone.
+    func deleteAllCheckIns() throws {
+        try modelContext.delete(model: StoredCheckIn.self)
+        try modelContext.save()
+    }
 }
