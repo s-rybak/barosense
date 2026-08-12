@@ -413,6 +413,22 @@
         }
       }
     },
+    "Barosense can read only part of your Health data. Open Health to check what it may read." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense can read only part of your Health data. Open Health to check what it may read."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense зчитує з Health лише частину даних. Відкрий Health, щоб перевірити доступ."
+          }
+        }
+      }
+    },
     "Barosense can't open its data" : {
       "localizations" : {
         "en" : {
@@ -425,6 +441,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Barosense не може відкрити свої дані"
+          }
+        }
+      }
+    },
+    "Barosense can't read anything from Health. Open Health to check what it may read." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense can't read anything from Health. Open Health to check what it may read."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense не зчитує з Health нічого. Відкрий Health, щоб перевірити доступ."
           }
         }
       }

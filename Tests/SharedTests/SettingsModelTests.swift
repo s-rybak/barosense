@@ -7,10 +7,14 @@ final class SettingsModelTests: XCTestCase {
 
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
 
+    /// Every type in the read set proven readable — the only state the switch may be on in.
+    private static let everythingReadable = HealthAccessState.requested(
+        readable: Set(HealthMetricKind.allCases)
+    )
+
     // MARK: - Apple Health row
 
-    /// The switch reflects the one authorisation fact iOS exposes for a read set: whether
-    /// the user has been asked about all of it. Never "granted" — iOS does not say.
+    /// Nobody has been asked yet, so there is nothing readable to prove.
     func testTheSwitchIsOffUntilEveryTypeHasBeenAsked() async {
         let model = makeModel(access: StubHealthAccessReporter(state: .notRequested))
 
@@ -21,12 +25,42 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(model.health.isInteractive)
     }
 
-    func testTheSwitchIsOnOnceTheSheetHasBeenAnswered() async {
-        let model = makeModel(access: StubHealthAccessReporter(state: .requested))
+    /// The case this whole state exists for: the sheet has been answered, and answered in
+    /// a way that left nothing readable. Being *asked* is not being *granted*, and the
+    /// switch may not claim otherwise.
+    func testTheSwitchIsOffWhenTheSheetLeftNothingReadable() async {
+        let model = makeModel(access: StubHealthAccessReporter(state: .requested(readable: [])))
+
+        await model.load()
+
+        XCTAssertFalse(model.health.isConnected)
+        XCTAssertTrue(model.health.hasNothingReadable)
+        // Still actionable: the Health app can settle what the app cannot.
+        XCTAssertTrue(model.health.isInteractive)
+    }
+
+    /// Partial access is not access. One unreadable type is enough to keep it off, and the
+    /// screen is told which one so its caption does not have to guess.
+    func testTheSwitchIsOffWhileAnyTypeCannotBeRead() async {
+        let reporter = StubHealthAccessReporter(
+            state: .requested(readable: [.restingHeartRate, .asleep])
+        )
+        let model = makeModel(access: reporter)
+
+        await model.load()
+
+        XCTAssertFalse(model.health.isConnected)
+        XCTAssertFalse(model.health.hasNothingReadable)
+        XCTAssertEqual(model.health.unreadableTypes, [.oxygenSaturation])
+    }
+
+    func testTheSwitchIsOnOnlyWhenEveryTypeCanBeRead() async {
+        let model = makeModel(access: StubHealthAccessReporter(state: Self.everythingReadable))
 
         await model.load()
 
         XCTAssertTrue(model.health.isConnected)
+        XCTAssertTrue(model.health.unreadableTypes.isEmpty)
     }
 
     /// No Health store on this device: the row is inert rather than merely off, because
@@ -51,16 +85,17 @@ final class SettingsModelTests: XCTestCase {
                                          end: now.addingTimeInterval(-3600),
                                          value: .restingHeartRateBPM(58))])
 
-        let model = makeModel(access: StubHealthAccessReporter(state: .requested), healthLog: log)
+        let model = makeModel(access: StubHealthAccessReporter(state: Self.everythingReadable),
+                              healthLog: log)
         await model.load()
 
         XCTAssertTrue(model.health.hasReadings)
     }
 
-    /// Granted-but-empty and refused look identical from here. The model says only what it
-    /// can observe: nothing has arrived.
-    func testAnEmptyLogReportsNoReadingsWithoutClaimingARefusal() async {
-        let model = makeModel(access: StubHealthAccessReporter(state: .requested))
+    /// Read access can be granted while nothing has arrived — ingestion stalled, or the
+    /// watch left in a drawer. That is a caption, not a reason to turn the switch off.
+    func testAnEmptyLogDoesNotTurnAGrantedConnectionOff() async {
+        let model = makeModel(access: StubHealthAccessReporter(state: Self.everythingReadable))
 
         await model.load()
 
@@ -76,19 +111,22 @@ final class SettingsModelTests: XCTestCase {
         try await log.save([HealthSample(id: UUID(), start: old, end: old,
                                          value: .restingHeartRateBPM(58))])
 
-        let model = makeModel(access: StubHealthAccessReporter(state: .requested), healthLog: log)
+        let model = makeModel(access: StubHealthAccessReporter(state: Self.everythingReadable),
+                              healthLog: log)
         await model.load()
 
         XCTAssertFalse(model.health.hasReadings)
     }
 
-    func testTappingAnUnaskedRowPresentsTheSheetAndRereadsTheState() async {
+    // MARK: - Tapping the switch
+
+    func testTappingAnUnaskedRowRequestsAccessAndRereadsWhatBecameReadable() async {
         let reporter = StubHealthAccessReporter(state: .notRequested)
         let model = makeModel(access: reporter)
         await model.load()
 
-        // What the sheet moves to, whatever the user answered.
-        reporter.state = .requested
+        // The user allowed everything on the sheet the request put up.
+        reporter.state = Self.everythingReadable
         let outcome = await model.toggleHealthAccess()
 
         XCTAssertEqual(outcome, .presentedSheet)
@@ -96,10 +134,27 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(model.health.isConnected)
     }
 
+    /// The re-check is what makes the switch honest: the sheet does not report its answer,
+    /// so a refusal is only visible in what became readable behind it.
+    func testARefusedSheetLeavesTheSwitchOff() async {
+        let reporter = StubHealthAccessReporter(state: .notRequested)
+        let model = makeModel(access: reporter)
+        await model.load()
+
+        reporter.state = .requested(readable: [])
+        let outcome = await model.toggleHealthAccess()
+
+        XCTAssertEqual(reporter.requestCount, 1)
+        XCTAssertFalse(model.health.isConnected)
+        // Not `.needsHealthApp`: the sheet has only just been answered, and throwing the
+        // user into another app on top of it is the re-prompt loop the skill rules out.
+        XCTAssertEqual(outcome, .presentedSheet)
+    }
+
     /// iOS shows the sheet once. After that the app cannot change anything and must send
     /// the user to the Health app instead of silently doing nothing.
     func testTappingAnAlreadyAskedRowDoesNotRequestAgain() async {
-        let reporter = StubHealthAccessReporter(state: .requested)
+        let reporter = StubHealthAccessReporter(state: .requested(readable: []))
         let model = makeModel(access: reporter)
         await model.load()
 
@@ -107,6 +162,36 @@ final class SettingsModelTests: XCTestCase {
 
         XCTAssertEqual(outcome, .needsHealthApp)
         XCTAssertEqual(reporter.requestCount, 0)
+    }
+
+    /// Access given in the Health app while this screen was in the background. The tap
+    /// re-checks before routing anywhere, so the user is not bounced out of the app to be
+    /// told about something that has already happened.
+    func testARecheckThatFindsAccessTurnsTheSwitchOnWithoutLeavingTheApp() async {
+        let reporter = StubHealthAccessReporter(state: .requested(readable: []))
+        let model = makeModel(access: reporter)
+        await model.load()
+
+        reporter.state = Self.everythingReadable
+        let outcome = await model.toggleHealthAccess()
+
+        XCTAssertEqual(outcome, .connected)
+        XCTAssertEqual(reporter.requestCount, 0)
+        XCTAssertTrue(model.health.isConnected)
+    }
+
+    /// Turning a granted connection off is not something the app may do — only Health can
+    /// revoke a grant — so the tap has to lead there rather than flip the switch.
+    func testTurningAConnectedSwitchOffSendsTheUserToHealth() async {
+        let reporter = StubHealthAccessReporter(state: Self.everythingReadable)
+        let model = makeModel(access: reporter)
+        await model.load()
+
+        let outcome = await model.toggleHealthAccess()
+
+        XCTAssertEqual(outcome, .needsHealthApp)
+        XCTAssertEqual(reporter.requestCount, 0)
+        XCTAssertTrue(model.health.isConnected)
     }
 
     // MARK: - Erasing
@@ -158,7 +243,8 @@ final class SettingsModelTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeModel(access: any HealthAccessReporting = StubHealthAccessReporter(state: .requested),
+    private func makeModel(access: any HealthAccessReporting
+                               = StubHealthAccessReporter(state: SettingsModelTests.everythingReadable),
                            profiles: any UserProfileStore = InMemoryUserProfileStore(),
                            healthLog: any HealthSampleStore = InMemoryHealthSampleStore(),
                            pressureLog: any PressureSampleStore = InMemoryPressureSampleStore(),

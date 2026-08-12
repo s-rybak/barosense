@@ -26,6 +26,8 @@ struct SettingsScreen: View {
     /// the pushed screens in the design have no tab bar under them.
     @Binding var isDetailPresented: Bool
 
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var model: SettingsModel
     @State private var path: [SettingsRoute] = []
 
@@ -49,6 +51,19 @@ struct SettingsScreen: View {
                 }
         }
         .task { await model.load() }
+        // `.task` fires when the screen appears and never again, so without this the row
+        // would still be showing the pre-grant state after the trip to the Health app that
+        // this screen itself sends the user on. The switch is the one row here whose value
+        // another app can change while Barosense is in the background.
+        //
+        // Costs one reload per foreground activation, and only while Settings is on screen
+        // — the tab is a `switch` case, so this view does not exist on the other tabs. One
+        // authorisation-status call plus three `limit: 1` existence queries, in the
+        // foreground, on a user-initiated return.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await model.load() }
+        }
         .onChange(of: path) { _, newPath in
             isDetailPresented = !newPath.isEmpty
         }
@@ -200,12 +215,14 @@ struct SettingsScreen: View {
 
     // MARK: - Apple Health row
 
-    /// The switch reflects whether the user has been asked about every type Barosense
-    /// reads — the only authorisation fact iOS reports for a read set.
+    /// The switch reflects what Barosense can actually read from Health, not what it has
+    /// asked for. Anything less than the whole read set leaves it off.
     ///
     /// Writing to it never sets it. The setter runs the action the current state allows
-    /// (show the sheet, or send the user to Health) and leaves the displayed value to
-    /// `model.load()`, so the switch cannot show a state the system does not agree with.
+    /// (show the sheet, re-check, or send the user to Health) and leaves the displayed
+    /// value to `model.load()`, so the switch cannot show a state HealthKit does not agree
+    /// with — including the case where the user answers the sheet with a refusal and the
+    /// switch has to fall straight back to off.
     private var healthBinding: Binding<Bool> {
         Binding(
             get: { model.health.isConnected },
@@ -219,15 +236,20 @@ struct SettingsScreen: View {
         )
     }
 
+    /// None of these say "denied". iOS does not reveal a read refusal, and an empty Health
+    /// store looks exactly the same from here, so each line states what was observed and
+    /// points at the one place that can actually settle it.
     private var healthCaption: LocalizedStringKey? {
         switch model.health.access {
         case .unavailable:
             "Health data isn't available on this device."
         case .notRequested:
             "Fills in sleep, resting heart rate and blood oxygen for you."
+        case .requested where model.health.hasNothingReadable:
+            "Barosense can't read anything from Health. Open Health to check what it may read."
+        case .requested where !model.health.isConnected:
+            "Barosense can read only part of your Health data. Open Health to check what it may read."
         case .requested where !model.health.hasReadings:
-            // Deliberately does not say "denied": iOS does not reveal a read refusal, and
-            // an empty Health store looks exactly the same from here.
             "Nothing read in the last 7 days. Open Health to check what Barosense may read."
         case .requested:
             nil

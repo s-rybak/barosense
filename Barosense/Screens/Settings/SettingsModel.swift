@@ -55,22 +55,34 @@ final class SettingsModel {
 
     /// How the Apple Health row should read.
     ///
-    /// Two facts, not one, because iOS answers only the first and the second is what the
-    /// user actually cares about:
+    /// Two facts, not one, because they answer different questions and can disagree:
     ///
-    /// - `access` — has the user been asked about every type Barosense reads. This is the
-    ///   only authorisation fact iOS exposes for a read set, and it is what the switch
-    ///   shows.
-    /// - `hasReadings` — has anything actually landed in the training log recently. When
-    ///   the answer is no and the user *has* been asked, the cause is either a refusal or
-    ///   an empty Health store, and iOS will not say which. The caption states the
-    ///   observable fact instead of guessing.
+    /// - `access` — what Barosense can demonstrably read from HealthKit right now. This is
+    ///   what the switch shows, and it is off unless every type in the read set came back
+    ///   with data.
+    /// - `hasReadings` — has anything landed in the *training log* in the last week. Read
+    ///   access can be granted while ingestion has stalled or the user has stopped wearing
+    ///   the watch, and that is worth saying without turning the switch off.
     struct HealthConnection: Equatable {
         var access: HealthAccessState = .unavailable
         var hasReadings = false
 
-        var isConnected: Bool { access == .requested }
+        /// On only when every type Barosense reads is proven readable. Never "the user has
+        /// been asked" — being asked says nothing about the answer.
+        var isConnected: Bool { access.isFullyReadable }
+
         var isInteractive: Bool { access != .unavailable }
+
+        /// What the switch is off because of, for the caption. Empty while the sheet has
+        /// not been answered.
+        var unreadableTypes: [HealthMetricKind] { access.unreadableTypes }
+
+        /// Nothing in the read set came back at all. What a refused sheet leaves behind —
+        /// and, indistinguishably, what an empty Health store looks like, which is why the
+        /// caption it drives describes the reading rather than asserting a refusal.
+        var hasNothingReadable: Bool {
+            unreadableTypes.count == HealthMetricKind.allCases.count
+        }
     }
 
     /// Progress of "delete my data", which is slow enough to need a spinner and
@@ -150,8 +162,13 @@ final class SettingsModel {
     /// From "never asked" there is a sheet to show; after that only the Health app can
     /// change anything, and iOS will not present the sheet a second time.
     enum HealthToggleOutcome: Equatable {
+        /// The sheet was shown and the state re-read behind it. Whether anything became
+        /// readable is in `health`, not here — the tap is finished either way.
         case presentedSheet
-        /// Nothing to present — send the user to the Health app instead.
+        /// The re-check found access that was not there before. Nothing further to do:
+        /// the switch is now on.
+        case connected
+        /// Nothing left to present — send the user to the Health app instead.
         case needsHealthApp
         case unavailable
     }
@@ -166,10 +183,26 @@ final class SettingsModel {
             // A failure here means the sheet never appeared; re-reading the state below
             // leaves the row exactly as it was, which is the honest result.
             try? await dependencies.healthAccess.requestAccess()
+            // The whole point of the re-read: the sheet's answer is not returned to us, so
+            // the switch settles on what is readable *after* it, not on the fact it ran.
             await load()
+            // Deliberately not routed to the Health app on a refusal. The sheet has just
+            // been answered; bouncing the user straight into another app is the re-prompt
+            // loop `.claude/skills/healthkit_permissions/SKILL.md` rules out. The caption
+            // explains, and a second tap takes them there.
             return .presentedSheet
 
         case .requested:
+            let wasConnected = health.isConnected
+            // Re-check before sending the user away: the grant may have been given in the
+            // Health app since this screen last loaded, in which case there is nothing to
+            // send them there for.
+            await load()
+
+            if !wasConnected && health.isConnected { return .connected }
+
+            // Either the switch was on and the user wants it off, or it is still off and
+            // the app has nothing left to ask. Both are the Health app's to settle.
             return .needsHealthApp
         }
     }
