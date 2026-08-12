@@ -32,7 +32,8 @@ protocol LanguagePreferenceStore: Sendable {
 struct UserDefaultsLanguagePreferenceStore: LanguagePreferenceStore {
 
     private enum Keys {
-        /// Stored value is `"system"` or an `AppLanguage.rawValue`.
+        /// Stored value is an `AppLanguage.rawValue`. `.system` is the *absence* of the
+        /// key — see `setSelection`, which removes it rather than writing a sentinel.
         static let selection = "barosense.settings.language"
         /// Apple's own key. Not ours to rename.
         static let appleLanguages = "AppleLanguages"
