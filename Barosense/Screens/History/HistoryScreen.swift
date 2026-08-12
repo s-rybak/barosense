@@ -347,14 +347,32 @@ final class HistoryModel {
 /// A month of check-ins so the grid, the counts and the link all render without a store.
 enum PreviewHistory {
 
+    /// One row of the preview month. A named type rather than a tuple so the four members
+    /// stay addressable by name below; the positional init keeps the literal list a table.
+    private struct PlannedDay {
+        let day: Int
+        let intensity: Int
+        let tag: String
+        let doses: Int
+
+        init(_ day: Int, _ intensity: Int, _ tag: String, _ doses: Int) {
+            self.day = day
+            self.intensity = intensity
+            self.tag = tag
+            self.doses = doses
+        }
+    }
+
     static let checkIns: [CheckIn] = {
         let calendar = Calendar.current
         let start = CheckInHistory.startOfMonth(containing: .now, calendar: calendar)
-        let plan: [(day: Int, intensity: Int, tag: String, doses: Int)] = [
-            (1, 2, "fatigue", 0), (2, 3, "headache", 0), (4, 1, "mood", 0),
-            (5, 6, "headache", 1), (6, 8, "headache", 1), (7, 10, "headache", 2),
-            (10, 2, "fatigue", 0), (12, 5, "joints", 1), (14, 4, "fatigue", 0),
-            (17, 7, "headache", 1), (19, 3, "fatigue", 0), (24, 9, "headache", 1)
+        let plan: [PlannedDay] = [
+            PlannedDay(1, 2, "fatigue", 0), PlannedDay(2, 3, "headache", 0),
+            PlannedDay(4, 1, "mood", 0), PlannedDay(5, 6, "headache", 1),
+            PlannedDay(6, 8, "headache", 1), PlannedDay(7, 10, "headache", 2),
+            PlannedDay(10, 2, "fatigue", 0), PlannedDay(12, 5, "joints", 1),
+            PlannedDay(14, 4, "fatigue", 0), PlannedDay(17, 7, "headache", 1),
+            PlannedDay(19, 3, "fatigue", 0), PlannedDay(24, 9, "headache", 1)
         ]
 
         return plan.compactMap { entry in
