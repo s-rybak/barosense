@@ -1,15 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%@" : {
-
-    },
-    "%@ check-ins" : {
-
-    },
-    "%@ entries" : {
-
-    },
     "%@ of %@" : {
       "localizations" : {
         "en" : {
@@ -19,9 +10,6 @@
           }
         }
       }
-    },
-    "%@ times" : {
-
     },
     "%@. Nothing recorded" : {
       "extractionState" : "manual",
@@ -1283,9 +1271,6 @@
           }
         }
       }
-    },
-    "Peak intensity %@" : {
-
     },
     "Peak intensity %lld" : {
       "extractionState" : "manual",
