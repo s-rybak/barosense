@@ -7,7 +7,7 @@ final class BarosenseDataEraserTests: XCTestCase {
 
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
 
-    func testEverySoreIsEmptied() async throws {
+    func testEveryStoreIsEmptied() async throws {
         let profiles = InMemoryUserProfileStore(UserProfile(displayName: "Olena",
                                                             onboardingCompletedAt: now))
         let tags = InMemoryWellbeingTagStore(WellbeingTag.seeds)
@@ -91,7 +91,7 @@ final class BarosenseDataEraserTests: XCTestCase {
         XCTAssertEqual(remainingTags.count, 0)
     }
 
-    func testEverySoreRefusingNamesAllOfThem() async throws {
+    func testEveryStoreRefusingNamesAllOfThem() async throws {
         let eraser = BarosenseDataEraser(profileStore: FailingUserProfileStore(),
                                          tagStore: FailingWellbeingTagStore(),
                                          healthLog: FailingHealthSampleStore(),
