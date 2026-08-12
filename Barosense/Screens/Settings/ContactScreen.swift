@@ -3,7 +3,7 @@ import SwiftUI
 /// M6c · Contact us.
 ///
 /// **Placeholder, on purpose.** There is no support address, no site and no company entry
-/// yet, so every value here reads `XXXX` and nothing is tappable — a `mailto:` to a
+/// yet, so every value here shows an em dash and nothing is tappable — a `mailto:` to a
 /// made-up address would look like it worked and quietly lose the message.
 ///
 /// Filling these in is a release blocker: App Review expects working support contact
@@ -14,7 +14,7 @@ struct ContactScreen: View {
     let back: () -> Void
 
     /// Rows whose value is still to be decided. One list so filling them in is one edit.
-    private static let placeholder = "XXXX"
+    private static let placeholder = "—"
 
     var body: some View {
         VStack(spacing: 0) {
