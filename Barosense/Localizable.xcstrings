@@ -1,12 +1,147 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@" : {
+
+    },
+    "%@ check-ins" : {
+
+    },
+    "%@ entries" : {
+
+    },
     "%@ of %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "%@ times" : {
+
+    },
+    "%@. Nothing recorded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@. Nothing recorded"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@. Нічого не записано"
+          }
+        }
+      }
+    },
+    "%lld check-ins" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld check-in"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld check-ins"
+                }
+              }
+            }
+          }
+        },
+        "uk" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld записи"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld записів"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld запис"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld записів"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld entries" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld entry"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld entries"
+                }
+              }
+            }
+          }
+        },
+        "uk" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld записи"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld записів"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld запис"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld записів"
+                }
+              }
+            }
           }
         }
       }
@@ -24,6 +159,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$lld з %2$lld"
+          }
+        }
+      }
+    },
+    "%lld times" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld time"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld times"
+                }
+              }
+            }
+          }
+        },
+        "uk" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld рази"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld разів"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld раз"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld разів"
+                }
+              }
+            }
           }
         }
       }
@@ -67,40 +255,6 @@
         }
       }
     },
-    "1–6 h" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1–6 h"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1–6 год"
-          }
-        }
-      }
-    },
-    "6–24 h" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6–24 h"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6–24 год"
-          }
-        }
-      }
-    },
     "< 1 h" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -131,6 +285,68 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "> 24 год"
+          }
+        }
+      }
+    },
+    "1–6 h" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–6 h"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–6 год"
+          }
+        }
+      }
+    },
+    "3M" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3M"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3М"
+          }
+        }
+      }
+    },
+    "6–24 h" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6–24 h"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6–24 год"
+          }
+        }
+      }
+    },
+    "A–Z" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "А–Я"
           }
         }
       }
@@ -204,6 +420,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Погоджуюсь і продовжую"
+          }
+        }
+      }
+    },
+    "All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все"
+          }
+        }
+      }
+    },
+    "All time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All time"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Весь час"
           }
         }
       }
@@ -389,6 +639,28 @@
         }
       }
     },
+    "Day taken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "День прийому"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видалити"
+          }
+        }
+      }
+    },
     "Disrupted sleep" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -468,6 +740,23 @@
         }
       }
     },
+    "Doses taken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doses taken"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прийоми ліків"
+          }
+        }
+      }
+    },
     "Enter an age between %@ and %@" : {
       "comment" : "A label that displays a warning when the user enters an invalid age.",
       "isCommentAutoGenerated" : true,
@@ -533,6 +822,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Головний біль"
+          }
+        }
+      }
+    },
+    "History" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Історія"
           }
         }
       }
@@ -618,6 +924,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Біль у суглобах"
+          }
+        }
+      }
+    },
+    "Last taken %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last taken %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Востаннє %@"
           }
         }
       }
@@ -724,6 +1047,23 @@
         }
       }
     },
+    "Month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Місяць"
+          }
+        }
+      }
+    },
     "Mood swings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -737,6 +1077,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Перепади настрою"
+          }
+        }
+      }
+    },
+    "My medications" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My medications"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Мої ліки"
           }
         }
       }
@@ -775,6 +1132,23 @@
         }
       }
     },
+    "Next month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next month"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Наступний місяць"
+          }
+        }
+      }
+    },
     "Nothing added yet" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -788,6 +1162,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Поки нічого не додано"
+          }
+        }
+      }
+    },
+    "Nothing recorded in this period" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing recorded in this period"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "За цей період нічого не записано"
           }
         }
       }
@@ -871,6 +1262,17 @@
         }
       }
     },
+    "Other day" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Інший день"
+          }
+        }
+      }
+    },
     "Other time" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -878,6 +1280,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Інший час"
+          }
+        }
+      }
+    },
+    "Peak intensity %@" : {
+
+    },
+    "Peak intensity %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peak intensity %lld"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Найвища інтенсивність %lld"
           }
         }
       }
@@ -899,19 +1321,30 @@
         }
       }
     },
-    "Remove" : {
+    "Previous month" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remove"
+            "value" : "Previous month"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Прибрати"
+            "value" : "Попередній місяць"
+          }
+        }
+      }
+    },
+    "Recent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нещодавні"
           }
         }
       }
@@ -1132,6 +1565,23 @@
         }
       }
     },
+    "What you have logged, grouped by name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you have logged, grouped by name"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Те, що ти записував, згруповане за назвою"
+          }
+        }
+      }
+    },
     "What you noticed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1162,6 +1612,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Жінка"
+          }
+        }
+      }
+    },
+    "Year" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Year"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Рік"
+          }
+        }
+      }
+    },
+    "years" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "years"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "років"
           }
         }
       }
@@ -1245,23 +1729,6 @@
         }
       }
     },
-    "years" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "years"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "років"
-          }
-        }
-      }
-    },
     "Графік тиску" : {
       "comment" : "A title of a pressure chart card.",
       "isCommentAutoGenerated" : true
@@ -1274,6 +1741,10 @@
       "comment" : "A message that appears when there is no data in the graph.",
       "isCommentAutoGenerated" : true
     },
+    "зараз" : {
+      "comment" : "A label for the divider between the current and forecasted pressure.",
+      "isCommentAutoGenerated" : true
+    },
     "Поки немає даних з Health" : {
       "comment" : "A note displayed when the user has not yet added any health data.",
       "isCommentAutoGenerated" : true
@@ -1284,10 +1755,6 @@
     },
     "Цей пристрій не має барометра" : {
       "comment" : "A message shown when the device has no barometric sensor.",
-      "isCommentAutoGenerated" : true
-    },
-    "зараз" : {
-      "comment" : "A label for the divider between the current and forecasted pressure.",
       "isCommentAutoGenerated" : true
     }
   },

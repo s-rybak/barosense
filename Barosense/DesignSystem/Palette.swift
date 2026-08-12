@@ -82,6 +82,12 @@ enum Palette {
     /// `color/red/56` (Red Damask) — the Apple Health tile.
     static let health = Color(hex: 0xD65B4A)
 
+    /// The fill behind a destructive action revealed by a swipe.
+    ///
+    /// The same Figma token as `health`, aliased rather than re-declared: one token, one hex.
+    /// Named for its role here because a tile and a delete button move for different reasons.
+    static let destructive = health
+
     /// `color/red/61` (Burnt Sienna) — marker on the forecast row of the closing screen.
     static let markerWarm = Color(hex: 0xE8734F)
 

@@ -10,7 +10,7 @@ import SwiftUI
 // point or two rather than read off the frame, and corner radii come from the existing
 // components rather than being re-measured — the same basis as `LogScreen`.
 //
-// ## Three deliberate divergences, and why
+// ## Four deliberate divergences, and why
 //
 // 1. **The frame's chips carry a name *and* a dose** ("Ібупрофен 400мг") while it also has a
 //    separate "Дозування" block. Shipped with the name alone on the chip and the dose owned by
@@ -27,6 +27,12 @@ import SwiftUI
 //    notification code anywhere in this repo yet: authorisation, scheduling and cancellation
 //    should be built once, for the forecast warning `CLAUDE.md` describes, not bolted onto a
 //    medication form. A reminder at a time the *user* names is fine and is the shape to build.
+// 4. **The frame's middle time chip is a clock reading** — the last ten-minute mark before now,
+//    `09:40` at 09:41. It has been replaced by "Other day". The mark bought the user nothing:
+//    it named a moment at most ten minutes before "Now", and nothing this app measures resolves
+//    that finely. What was missing instead was the day. A time wheel has no date, so until this
+//    chip existed a dose taken yesterday could only be entered as one taken today — the sheet
+//    would file it against the wrong day and the History grid would colour the wrong cell.
 
 // MARK: - Sheet
 
@@ -50,10 +56,12 @@ struct AddMedicationSheet: View {
         case new
     }
 
+    /// Which part of the timestamp the user wants to say something about: nothing (it is now),
+    /// the clock time, or the day. Each one reveals the control that edits it.
     private enum TimeChoice: Hashable {
         case now
-        case recent
         case custom
+        case customDay
     }
 
     private enum Field: Hashable {
@@ -73,6 +81,11 @@ struct AddMedicationSheet: View {
     /// the moment the user asks for it — so the picker opens where they already were.
     @State private var customTime = Date()
 
+    /// The counterpart for `.customDay`. Carries a whole instant, not just a day: the calendar
+    /// edits the date components and leaves the time of day exactly as it was seeded, so a dose
+    /// the user placed at 09:00 stays at 09:00 when they move it to yesterday.
+    @State private var customDay = Date()
+
     /// Fixed for the life of the sheet rather than read per redraw: "Now" and the mark beside
     /// it must not drift under the user while they are looking at them, and the difference
     /// between presenting the sheet and tapping Add is not information this screen records.
@@ -85,9 +98,6 @@ struct AddMedicationSheet: View {
     /// the same pair `LogScreen` uses, so the two sheets read as one screen.
     private static let sectionSpacing: CGFloat = 24
     private static let labelSpacing: CGFloat = 10
-
-    /// The minute grid the second time chip snaps to: `09:40` at 09:41, as the frame draws it.
-    private static let markMinutes = 10
 
     var body: some View {
         OnboardingStepScaffold(
@@ -248,19 +258,16 @@ struct AddMedicationSheet: View {
                     focused = nil
                 }
 
-                // A clock reading, formatted for the reader's locale and 12/24-hour setting —
-                // not app copy, so it carries no key.
-                ChoiceChip(text: Text(verbatim: recentMark.formatted(date: .omitted, time: .shortened)),
-                           isSelected: timeChoice == .recent,
-                           font: Typography.choiceLabelCompact) {
-                    timeChoice = .recent
-                    focused = nil
-                }
-
                 ChoiceChip(title: "Other time",
                            isSelected: timeChoice == .custom,
                            font: Typography.choiceLabelCompact) {
                     chooseCustomTime()
+                }
+
+                ChoiceChip(title: "Other day",
+                           isSelected: timeChoice == .customDay,
+                           font: Typography.choiceLabelCompact) {
+                    chooseCustomDay()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -273,6 +280,12 @@ struct AddMedicationSheet: View {
                 // that is about a number the user has to think about.
                 TimeWheel(date: $customTime)
             }
+
+            if timeChoice == .customDay {
+                // Same promise, kept the same way: the calendar is on screen the moment the
+                // chip is tapped rather than behind a `.compact` field that opens one.
+                DayCalendar(date: $customDay, latest: latestDay)
+            }
         }
     }
 
@@ -284,22 +297,33 @@ struct AddMedicationSheet: View {
         focused = nil
     }
 
-    /// The last ten-minute mark before `now` — the frame's middle chip, `09:40` at 09:41.
+    /// Opens the calendar on the day currently selected, for the same reason `chooseCustomTime`
+    /// opens the wheel on the current time: switching chips must not change the answer.
     ///
-    /// Built from components rather than by subtracting seconds, so the result lands exactly on
-    /// the minute the chip is showing instead of carrying the fractional seconds of `now`.
-    private var recentMark: Date {
-        let calendar = Calendar.current
-        var components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: now)
-        components.minute = ((components.minute ?? 0) / Self.markMinutes) * Self.markMinutes
+    /// Seeding from `takenAt` is also what keeps the picker's range honest — `takenAt` is never
+    /// in the future, so the time of day the calendar carries forward cannot push the newly
+    /// picked day past `latestDay`.
+    private func chooseCustomDay() {
+        customDay = takenAt
+        timeChoice = .customDay
+        focused = nil
+    }
 
-        return calendar.date(from: components) ?? now
+    /// The last day the calendar offers: the end of today. A dose cannot have been taken after
+    /// the moment the user is writing it down.
+    private var latestDay: Date {
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))
+
+        return tomorrow?.addingTimeInterval(-1) ?? now
     }
 
     /// The picked wall-clock time, today — or yesterday when today would put it in the future.
     ///
     /// A time picker has no day. "23:00" chosen at 09:41 means last night, and recording it as
-    /// tonight would file a dose fourteen hours *after* the check-in that carries it.
+    /// tonight would file a dose fourteen hours *after* the check-in that carries it. This
+    /// guess only applies to `.custom`; `.customDay` is the user saying which day outright, and
+    /// nothing there needs inferring.
     private var resolvedCustomTime: Date {
         guard customTime > now else { return customTime }
 
@@ -319,8 +343,8 @@ struct AddMedicationSheet: View {
     private var takenAt: Date {
         switch timeChoice {
         case .now: now
-        case .recent: recentMark
         case .custom: resolvedCustomTime
+        case .customDay: customDay
         }
     }
 
@@ -420,7 +444,7 @@ struct AddMedicationSheet: View {
 /// ordinary `Text`, which carry the same ink as every other control on the form.
 ///
 /// The cost is the 12/24-hour question `DatePicker` answered for free. It is asked of the
-/// locale's own format template — the same source the `recentMark` chip formats through — so a
+/// locale's own format template, the same source a formatted time would resolve through, so a
 /// reader on a 12-hour locale gets a period column and one on a 24-hour locale does not.
 private struct TimeWheel: View {
 
@@ -523,6 +547,38 @@ private struct TimeWheel: View {
         if let minute { updated.minute = minute }
 
         date = calendar.date(from: updated) ?? date
+    }
+}
+
+// MARK: - Day calendar
+
+/// The month calendar behind the "Other day" chip.
+///
+/// `DatePicker` here where `TimeWheel` had to be hand-built: the objection to `DatePicker` under
+/// `.wheel` was that its digits ignore `foregroundStyle` and washed out on this surface. The
+/// `.graphical` style has no such problem — it takes the accent from `tint` and draws its
+/// numerals in the system label colour, which is the ink this sheet already uses. Rebuilding a
+/// month grid by hand to gain nothing would only be a second calendar to keep in step with
+/// `HistoryCalendarCard`.
+///
+/// `.date` only. The hour and minute are the other chip's job, and offering them twice is two
+/// controls that can disagree about the same entry.
+private struct DayCalendar: View {
+
+    @Binding var date: Date
+
+    /// End of today. Passed in rather than read from the clock here, so the calendar and the
+    /// sheet agree on "now" even if the sheet has been open for a while.
+    let latest: Date
+
+    var body: some View {
+        DatePicker("Day taken", selection: $date, in: ...latest, displayedComponents: .date)
+            .datePickerStyle(.graphical)
+            .labelsHidden()
+            // The same ink a selected chip is filled with, so the chosen day and the chip that
+            // revealed it read as one selection.
+            .tint(Palette.ink)
+            .frame(maxWidth: .infinity)
     }
 }
 
