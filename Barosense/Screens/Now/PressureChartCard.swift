@@ -480,52 +480,17 @@ private struct HorizontalRule: Shape {
 /// track has 375 − 2×20 screen margin − 2×17 card padding − 2×4 track padding − 3×4 gaps =
 /// 281 pt to divide, so 70 pt per button against a widest label ("Day") of roughly 32 pt
 /// at `segmentLabel`'s 12 pt.
+///
+/// The chrome is `SegmentedSelector`, shared with the History screen's period picker; this
+/// type is now just the range's own labels.
 private struct PressureRangeSelector: View {
 
     @Binding var selection: PressureChartRange
 
-    private enum Metrics {
-        static let trackRadius: CGFloat = 12
-        static let itemRadius: CGFloat = 9
-        static let trackPadding: CGFloat = 4
-        static let itemSpacing: CGFloat = 4
-        static let itemTopPadding: CGFloat = 12
-        static let itemBottomPadding: CGFloat = 9
-    }
-
     var body: some View {
-        HStack(spacing: Metrics.itemSpacing) {
-            ForEach(PressureChartRange.allCases) { range in
-                Button {
-                    selection = range
-                } label: {
-                    Text(Self.title(for: range))
-                        .font(range == selection ? Typography.segmentLabelSelected : Typography.segmentLabel)
-                        .foregroundStyle(range == selection ? Palette.heading : Palette.inkSubtle)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, Metrics.itemTopPadding)
-                        .padding(.bottom, Metrics.itemBottomPadding)
-                        .background {
-                            if range == selection {
-                                RoundedRectangle(cornerRadius: Metrics.itemRadius, style: .continuous)
-                                    .fill(Palette.cardSurface)
-                                    .shadow(color: .black.opacity(0.08), radius: 0.75, x: 0, y: 1)
-                            }
-                        }
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(range == selection ? [.isButton, .isSelected] : .isButton)
-            }
+        SegmentedSelector(options: PressureChartRange.allCases, selection: $selection) { range in
+            Text(Self.title(for: range))
         }
-        .padding(Metrics.trackPadding)
-        .background {
-            RoundedRectangle(cornerRadius: Metrics.trackRadius, style: .continuous)
-                .fill(Palette.segmentedTrack)
-        }
-        .animation(.easeInOut(duration: 0.15), value: selection)
     }
 
     private static func title(for range: PressureChartRange) -> LocalizedStringKey {

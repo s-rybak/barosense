@@ -104,6 +104,126 @@ final class MedicationHistoryTests: XCTestCase {
         XCTAssertEqual(MedicationHistory.doses(in: entries, for: "Ibuprofen"), ["400 mg"])
     }
 
+    // MARK: - Summaries
+
+    func testSummariesGroupByNameMostRecentlyTakenFirst() {
+        let entries = [
+            entry("Magnesium", dose: "1 sachet", takenAt: hoursAgo(48)),
+            entry("Ibuprofen", dose: "400 mg", takenAt: hoursAgo(6)),
+            entry("Ibuprofen", dose: "200 mg", takenAt: hoursAgo(1))
+        ]
+
+        let summaries = MedicationHistory.summaries(in: entries)
+
+        XCTAssertEqual(summaries.map(\.name), ["Ibuprofen", "Magnesium"])
+        XCTAssertEqual(summaries.first?.timesTaken, 2)
+        XCTAssertEqual(summaries.first?.doses, ["200 mg", "400 mg"])
+        XCTAssertEqual(summaries.first?.lastTakenAt, hoursAgo(1))
+    }
+
+    func testOneSpellingIsShownAndItIsTheMostRecentOne() {
+        // The screen lists one row per medication, so the same rule the chips follow: entries
+        // differing only by case are one thing, and the label is what the user last typed.
+        let entries = [
+            entry("ibuprofen", takenAt: hoursAgo(24)),
+            entry("Ibuprofen", takenAt: hoursAgo(1))
+        ]
+
+        let summaries = MedicationHistory.summaries(in: entries)
+
+        XCTAssertEqual(summaries.map(\.name), ["Ibuprofen"])
+        XCTAssertEqual(summaries.first?.timesTaken, 2)
+    }
+
+    func testASummaryCountsEveryEntryEvenWhenTheDoseIsAlwaysTheSame() {
+        // `timesTaken` counts entries, not distinct doses. Two identical entries are two
+        // takings, and collapsing them would under-report the user's own log.
+        let entries = (1...4).map { entry("Ibuprofen", dose: "400 mg", takenAt: hoursAgo(Double($0))) }
+
+        let summaries = MedicationHistory.summaries(in: entries)
+
+        XCTAssertEqual(summaries.first?.timesTaken, 4)
+        XCTAssertEqual(summaries.first?.doses, ["400 mg"])
+    }
+
+    func testAMedicationRecordedWithoutADoseHasNoDosesRatherThanABlankOne() {
+        let summaries = MedicationHistory.summaries(in: [entry("Magnesium", takenAt: hoursAgo(1))])
+
+        XCTAssertEqual(summaries.first?.doses, [])
+        XCTAssertEqual(summaries.first?.timesTaken, 1)
+    }
+
+    func testNoEntriesSummariseToNothing() {
+        XCTAssertTrue(MedicationHistory.summaries(in: []).isEmpty)
+    }
+
+    // MARK: - Summary order
+
+    func testTheRecentOrderIsWhateverGroupingProduced() {
+        let summaries = MedicationHistory.summaries(in: [
+            entry("Zinc", takenAt: hoursAgo(1)),
+            entry("Aspirin", takenAt: hoursAgo(48))
+        ])
+
+        XCTAssertEqual(MedicationHistory.ordered(summaries, by: .recent).map(\.name),
+                       ["Zinc", "Aspirin"])
+    }
+
+    func testTheNameOrderIsAlphabeticalRegardlessOfWhenEachWasTaken() {
+        let summaries = MedicationHistory.summaries(in: [
+            entry("Zinc", takenAt: hoursAgo(1)),
+            entry("Magnesium", takenAt: hoursAgo(24)),
+            entry("Aspirin", takenAt: hoursAgo(48))
+        ])
+
+        XCTAssertEqual(MedicationHistory.ordered(summaries, by: .name).map(\.name),
+                       ["Aspirin", "Magnesium", "Zinc"])
+    }
+
+    func testCyrillicNamesSortIntoTheAlphabetRatherThanAfterEveryLatinOne() {
+        // The point of `localizedStandardCompare`. Comparing `String` with `<` orders by Unicode
+        // scalar, which puts every Cyrillic name after every Latin one — an "alphabetical" list
+        // that is not the reader's alphabet.
+        let summaries = MedicationHistory.summaries(in: [
+            entry("Ібупрофен", takenAt: hoursAgo(1)),
+            entry("Аспірин", takenAt: hoursAgo(2)),
+            entry("Магній", takenAt: hoursAgo(3))
+        ])
+
+        XCTAssertEqual(MedicationHistory.ordered(summaries, by: .name).map(\.name),
+                       ["Аспірин", "Ібупрофен", "Магній"])
+    }
+
+    func testAlphabeticalOrderIgnoresCase() {
+        // Two different medications, so grouping does not merge them; only the sort is at stake.
+        let summaries = MedicationHistory.summaries(in: [
+            entry("zinc", takenAt: hoursAgo(1)),
+            entry("Aspirin", takenAt: hoursAgo(2))
+        ])
+
+        XCTAssertEqual(MedicationHistory.ordered(summaries, by: .name).map(\.name),
+                       ["Aspirin", "zinc"])
+    }
+
+    func testOrderingIsATotalFunctionOfTheInputOrder() {
+        // Names a locale can collate as equal must not swap between two calls: the list would
+        // reshuffle under the user on an unrelated redraw.
+        let summaries = MedicationHistory.summaries(in: [
+            entry("Vitamin D", takenAt: hoursAgo(1)),
+            entry("vitamin  d", takenAt: hoursAgo(2)),
+            entry("Aspirin", takenAt: hoursAgo(3))
+        ])
+
+        let first = MedicationHistory.ordered(summaries, by: .name).map(\.name)
+        XCTAssertEqual(first, MedicationHistory.ordered(summaries, by: .name).map(\.name))
+        XCTAssertEqual(first.first, "Aspirin")
+    }
+
+    func testOrderingNothingIsNotAnError() {
+        XCTAssertTrue(MedicationHistory.ordered([], by: .name).isEmpty)
+        XCTAssertTrue(MedicationHistory.ordered([], by: .recent).isEmpty)
+    }
+
     // MARK: - Ordering
 
     func testEntriesTakenAtTheSameMomentComeBackInAStableOrder() {

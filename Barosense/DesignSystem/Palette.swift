@@ -82,6 +82,15 @@ enum Palette {
     /// `color/red/56` (Red Damask) — the Apple Health tile.
     static let health = Color(hex: 0xD65B4A)
 
+    /// An action that removes something: the fill behind a swipe, and bare destructive text
+    /// in Settings.
+    ///
+    /// The same Figma token as `health`, aliased rather than re-declared: one token, one hex.
+    /// Named for its role here because a tile and a delete button move for different reasons —
+    /// the day the destructive colour stops being the Apple Health colour, exactly one of
+    /// these two lines changes.
+    static let destructive = health
+
     /// `color/red/61` (Burnt Sienna) — marker on the forecast row of the closing screen.
     static let markerWarm = Color(hex: 0xE8734F)
 
@@ -118,13 +127,6 @@ enum Palette {
     /// re-declared: one token, one hex. Named for its role here because a tappable label
     /// and a chart series move for different reasons.
     static let link = markerCool
-
-    /// `color/red/56` (Red Damask) — an action that removes something.
-    ///
-    /// The same token as `health`, which the design also uses for the Apple Health tile.
-    /// Aliased for the same reason as `link`: the day the destructive colour needs to
-    /// stop being the Apple Health colour, exactly one of these two lines changes.
-    static let destructive = health
 
     /// `color/grey/93` (Pampas) — the track behind the range selector.
     ///

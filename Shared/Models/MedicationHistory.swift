@@ -1,5 +1,44 @@
 import Foundation
 
+/// Everything one medication's entries add up to, for the "My medications" screen.
+///
+/// Four facts, all of them the user's own: what they called it, the amounts they wrote, how
+/// many times they wrote it down, and when that last was. There is deliberately no fifth —
+/// nothing here relates a medication to how the user felt, and nothing schedules the next one.
+struct MedicationSummary: Identifiable, Hashable, Sendable {
+
+    /// The most recent spelling the user used. Unique across a result — entries differing only
+    /// by case are one row — so it also serves as identity for a list.
+    let name: String
+
+    /// Distinct doses recorded for it, most recently used first. Empty when they never gave one.
+    let doses: [String]
+
+    /// How many entries carry this name. Two of the same thing on one day counts twice.
+    let timesTaken: Int
+
+    let lastTakenAt: Date
+
+    var id: String { name }
+}
+
+/// How the "My medications" list is arranged.
+///
+/// Two orders and no third: both are properties of the log itself. Nothing here ranks a
+/// medication by how much of it was taken or by how the user felt around it — an order is a
+/// way of finding a row, not a statement about it.
+enum MedicationOrder: String, CaseIterable, Identifiable, Sendable {
+
+    /// Most recently taken first. The default, because a list opened straight after writing
+    /// something down should have that thing at the top.
+    case recent
+
+    /// A–Z by name, collated the way the reader's own language collates it.
+    case name
+
+    var id: String { rawValue }
+}
+
 /// What the user has recorded taking before, offered back to them as chips (Figma
 /// `Додати ліки` — "Твої засоби" and "Дозування").
 ///
@@ -27,6 +66,58 @@ enum MedicationHistory {
     static func doses(in entries: [MedicationEntry], for name: String? = nil, limit: Int = 6) -> [String] {
         let matching = matches(entries, name: name)
         return distinct(mostRecentFirst(matching).compactMap(\.dose), limit: limit)
+    }
+
+    /// One row per distinct medication, most recently taken first — what the "My medications"
+    /// screen lists.
+    ///
+    /// Same rule as everything else here: this is the user's own log grouped, nothing more. It
+    /// reports how many times they wrote something down and which amounts they wrote, and it
+    /// does not total doses, work out an interval, or say anything about any of it.
+    static func summaries(in entries: [MedicationEntry]) -> [MedicationSummary] {
+        var order: [String] = []
+        var grouped: [String: [MedicationEntry]] = [:]
+
+        for entry in mostRecentFirst(entries) {
+            let key = folded(entry.name)
+            if grouped[key] == nil { order.append(key) }
+            grouped[key, default: []].append(entry)
+        }
+
+        return order.compactMap { key in
+            guard let group = grouped[key], let newest = group.first else { return nil }
+
+            return MedicationSummary(name: newest.name,
+                                     doses: distinct(group.compactMap(\.dose), limit: .max),
+                                     timesTaken: group.count,
+                                     lastTakenAt: newest.takenAt)
+        }
+    }
+
+    /// The same summaries, arranged. Separate from `summaries(in:)` rather than a parameter on
+    /// it, so a screen can re-arrange rows it already holds without going back to the store:
+    /// grouping the log is the expensive half, and it does not change when the order does.
+    ///
+    /// `localizedStandardCompare` rather than `<`. Comparing `String` directly orders by Unicode
+    /// scalar, which puts every Cyrillic name after every Latin one and sorts "ібупрофен" away
+    /// from "Ібупрофен" — an alphabetical order that is not the reader's alphabet is not the
+    /// feature they asked for.
+    static func ordered(_ summaries: [MedicationSummary],
+                        by order: MedicationOrder) -> [MedicationSummary] {
+        guard order == .name else { return summaries }
+
+        // Decorated with the incoming index because `sorted(by:)` is not documented as stable
+        // and the input is already in a meaningful order. Two names a locale collates as equal
+        // then keep their recency order instead of swapping between redraws.
+        return summaries.enumerated()
+            .sorted { lhs, rhs in
+                switch lhs.element.name.localizedStandardCompare(rhs.element.name) {
+                case .orderedAscending: true
+                case .orderedDescending: false
+                case .orderedSame: lhs.offset < rhs.offset
+                }
+            }
+            .map(\.element)
     }
 
     /// Entries for `name`, or all of them when there is no name or the name is new.

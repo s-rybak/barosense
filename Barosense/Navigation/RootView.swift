@@ -87,6 +87,13 @@ struct RootView: View {
                       pressure: pressure,
                       checkIns: checkInStore,
                       checkInRevision: checkInRevision)
+        case .history:
+            // Re-identified on `checkInRevision` so a check-in written from the sheet appears
+            // in the grid. Unlike the chart, this screen has no state worth preserving across
+            // that — the month and period reset to today, which is where a user who has just
+            // logged something is looking anyway.
+            HistoryScreen(checkInStore: checkInStore, tagStore: tagStore)
+                .id(checkInRevision)
         case .settings:
             if let settings {
                 SettingsScreen(dependencies: settings,
@@ -94,7 +101,7 @@ struct RootView: View {
                                isDetailPresented: $isSettingsDetailPresented,
                                onDataErased: onDataErased)
             }
-        case .history, .insights:
+        case .insights:
             PlaceholderScreen(tab: selection)
         }
     }
