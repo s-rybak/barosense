@@ -96,6 +96,16 @@ actor SwiftDataWellbeingTagStore: WellbeingTagStore {
         try modelContext.save()
     }
 
+    func deleteAllTags() throws {
+        let stored = try storedTags()
+        guard !stored.isEmpty else { return }
+
+        for row in stored {
+            modelContext.delete(row)
+        }
+        try modelContext.save()
+    }
+
     func insertIfAbsent(_ tags: [WellbeingTag]) throws {
         // Fetch the whole key set once instead of a query per tag: seeding runs on every
         // launch, and the vocabulary is small enough that one round trip is cheaper than

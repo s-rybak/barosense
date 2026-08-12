@@ -115,6 +115,15 @@ final class InMemoryCheckInStoreTests: XCTestCase {
 
         try await store.delete(id: UUID())
     }
+
+    func testDeleteAllCheckInsLeavesNothingBehind() async throws {
+        let store: any CheckInStore = InMemoryCheckInStore([checkIn(hours: 1), checkIn(hours: 2)])
+
+        try await store.deleteAllCheckIns()
+
+        let read = try await store.checkIns(in: dayWindow)
+        XCTAssertTrue(read.isEmpty)
+    }
 }
 
 final class InMemoryPressureSampleStoreTests: XCTestCase {

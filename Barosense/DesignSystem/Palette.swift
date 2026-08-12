@@ -82,10 +82,13 @@ enum Palette {
     /// `color/red/56` (Red Damask) — the Apple Health tile.
     static let health = Color(hex: 0xD65B4A)
 
-    /// The fill behind a destructive action revealed by a swipe.
+    /// An action that removes something: the fill behind a swipe, and bare destructive text
+    /// in Settings.
     ///
     /// The same Figma token as `health`, aliased rather than re-declared: one token, one hex.
-    /// Named for its role here because a tile and a delete button move for different reasons.
+    /// Named for its role here because a tile and a delete button move for different reasons —
+    /// the day the destructive colour stops being the Apple Health colour, exactly one of
+    /// these two lines changes.
     static let destructive = health
 
     /// `color/red/61` (Burnt Sienna) — marker on the forecast row of the closing screen.
@@ -102,6 +105,28 @@ enum Palette {
     /// hex. Named for its role here because a chart series and a list marker move for
     /// different reasons.
     static let chartLine = markerCool
+
+    // MARK: - Settings (Figma `7:1246`, `7:1308`)
+
+    /// `color/grey/91-3` — the hairline between two rows *inside* one card.
+    ///
+    /// A step lighter than `separator`, which divides one surface from the next. Using
+    /// `separator` here would draw the rows of a grouped card as hard as the card's own
+    /// outline and lose the grouping the design is built on.
+    static let rowSeparator = Color(hex: 0xEEEBE3)
+
+    /// `color/orange/74` (Ash) — the dashed outline of the "add" affordance.
+    /// Darker than `controlBorder` because a dash reads lighter than a solid line at the
+    /// same value.
+    static let dashedBorder = Color(hex: 0xC7C2B4)
+
+    /// `color/azure/56` (Royal Blue) — a text action that is not the primary button:
+    /// Save, Change photo.
+    ///
+    /// The same Figma token as `markerCool` and `chartLine`, aliased rather than
+    /// re-declared: one token, one hex. Named for its role here because a tappable label
+    /// and a chart series move for different reasons.
+    static let link = markerCool
 
     /// `color/grey/93` (Pampas) — the track behind the range selector.
     ///

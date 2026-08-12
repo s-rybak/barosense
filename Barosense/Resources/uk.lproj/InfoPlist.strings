@@ -1,0 +1,10 @@
+/* Ukrainian purpose strings. Keep in step with en.lproj/InfoPlist.strings and with the
+   INFOPLIST_KEY_* values in project.yml.
+
+   Informal "ти", matching the register the rest of Localizable.xcstrings is written in. */
+
+"NSMotionUsageDescription" = "Barosense зчитує атмосферний тиск, щоб відстежувати зміни погоди поруч із твоїми чек-інами.";
+
+"NSHealthShareUsageDescription" = "Barosense читає твій сон, пульс у спокої та кисень у крові, щоб шукати особисті закономірності між погодою та самопочуттям. Дані залишаються на пристрої.";
+
+"NSLocationWhenInUseUsageDescription" = "Barosense використовує твоє місцезнаходження, щоб отримати локальний прогноз тиску.";

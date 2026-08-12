@@ -18,26 +18,16 @@ struct HealthKitDataReader: HealthDataReader {
         self.healthStore = healthStore
     }
 
-    /// Exactly the three types a shipped feature reads, and nothing held "for later".
-    ///
-    /// Each one has a consumer on screen today and a feature row in
-    /// `.claude/context/ml-spec.md` §2.3. Adding a fourth is a gated change, not an edit
-    /// to this array — see `.claude/skills/healthkit_permissions/SKILL.md`.
-    private static var readSet: Set<HKObjectType> {
-        [
-            HKQuantityType(HKQuantityTypeIdentifier.restingHeartRate),
-            HKQuantityType(HKQuantityTypeIdentifier.oxygenSaturation),
-            HKCategoryType(HKCategoryTypeIdentifier.sleepAnalysis)
-        ]
-    }
-
     /// Read-only. The app asks for nothing it can write, so `toShare` stays empty and the
     /// user is never shown a write toggle they would have to reason about.
+    ///
+    /// The type list lives in `HealthKitReadSet` because the Settings toggle asks iOS
+    /// about the same set — see the note there on why there may only be one copy of it.
     func requestAuthorization() async throws {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthDataError.healthDataUnavailable
         }
-        try await healthStore.requestAuthorization(toShare: [], read: Self.readSet)
+        try await healthStore.requestAuthorization(toShare: [], read: HealthKitReadSet.objectTypes)
     }
 
     func samples(of kind: HealthMetricKind, in range: Range<Date>) async throws -> [HealthSample] {

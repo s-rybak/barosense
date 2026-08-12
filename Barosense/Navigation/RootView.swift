@@ -8,6 +8,12 @@ struct RootView: View {
     let checkInStore: any CheckInStore
     let tagStore: any WellbeingTagStore
 
+    /// `nil` only while the store is still opening, which is a state this view is never
+    /// shown in. Optional rather than force-unwrapped at the composition root.
+    let settings: SettingsDependencies?
+    let languages: LanguageController
+    let onDataErased: () async -> Void
+
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .now
     @State private var isLoggingCheckIn = false
@@ -20,6 +26,10 @@ struct RootView: View {
     /// screen's own `@State`, which threw away the range the user had picked on the chart.
     @State private var checkInRevision = 0
 
+    /// Raised while Settings has something pushed. The pushed screens draw their own
+    /// navigation bar and, in the design, no tab bar under them.
+    @State private var isSettingsDetailPresented = false
+
     var body: some View {
         ZStack {
             Palette.surface.ignoresSafeArea()
@@ -27,7 +37,16 @@ struct RootView: View {
             destination
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            BarosenseTabBar(selection: tabBarSelection)
+            if !isSettingsDetailPresented {
+                BarosenseTabBar(selection: tabBarSelection)
+                    .transition(.move(edge: .bottom))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isSettingsDetailPresented)
+        .onChange(of: selection) { _, tab in
+            // Leaving Settings while a detail is pushed would otherwise strand the tab bar
+            // hidden on a tab that has no way to bring it back.
+            if tab != .settings { isSettingsDetailPresented = false }
         }
         // The check-in is a sheet over whatever the user was looking at, not a destination
         // of its own (Figma `7:330` — the frame is drawn with a sheet's grab handle and no
@@ -75,7 +94,14 @@ struct RootView: View {
             // logged something is looking anyway.
             HistoryScreen(checkInStore: checkInStore, tagStore: tagStore)
                 .id(checkInRevision)
-        case .insights, .settings:
+        case .settings:
+            if let settings {
+                SettingsScreen(dependencies: settings,
+                               languages: languages,
+                               isDetailPresented: $isSettingsDetailPresented,
+                               onDataErased: onDataErased)
+            }
+        case .insights:
             PlaceholderScreen(tab: selection)
         }
     }
@@ -109,5 +135,8 @@ struct RootView: View {
                                                  log: InMemoryPressureSampleStore()),
                 display: NoOpPressureDisplayLink()),
              checkInStore: InMemoryCheckInStore(),
-             tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds))
+             tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+             settings: .preview,
+             languages: LanguageController(),
+             onDataErased: {})
 }

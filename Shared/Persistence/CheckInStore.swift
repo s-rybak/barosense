@@ -34,4 +34,13 @@ protocol CheckInStore: Sendable {
 
     /// Removes the check-in with this `id`. Deleting something absent is not an error.
     func delete(id: UUID) async throws
+
+    /// Removes every stored check-in.
+    ///
+    /// The counterpart to `WellbeingTagStore.deleteAllTags`, and it exists for the same
+    /// single caller: "delete my data" (`BarosenseDataEraser`). Separate from `delete(id:)`
+    /// rather than left to the caller as a loop, because the caller is an erase that must
+    /// not have to read every row of the most personal table on the device — the note and
+    /// the medication list — in order to remove it.
+    func deleteAllCheckIns() async throws
 }

@@ -50,7 +50,7 @@ struct PressureChartCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.rowSpacing) {
-            Text("Графік тиску")
+            Text("Pressure chart")
                 .font(Typography.cardTitle)
                 .foregroundStyle(Palette.heading)
 
@@ -100,7 +100,7 @@ struct PressureChartCard: View {
                 .frame(height: Metrics.plotHeight)
                 // Rebuilds the chart when the range changes so `chartScrollPosition(initialX:)`
                 // is applied again — it is an *initial* position and is otherwise ignored for
-                // the life of the view. Without this, tapping "1год" after scrolling back a
+                // the life of the view. Without this, tapping "1h" after scrolling back a
                 // week leaves the viewport wherever the previous range's offset landed, in a
                 // plot that no longer reaches that far. Keyed on the range alone, so a reading
                 // arriving every 15 min does not tear the chart down.
@@ -112,7 +112,7 @@ struct PressureChartCard: View {
 
     private var valueRow: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(model.latestValueText)
+            model.latestValueText
                 .font(Typography.pressureValue)
                 .foregroundStyle(Palette.heading)
                 .monospacedDigit()
@@ -129,7 +129,7 @@ struct PressureChartCard: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text("Поточний тиск"))
+        .accessibilityLabel(Text("Current pressure"))
     }
 }
 
@@ -213,18 +213,24 @@ final class PressureChartModel {
 
     /// The figure the card prints. One decimal, which is the resolution the barometer
     /// actually has — printing more would claim precision the sensor does not deliver.
-    var latestValueText: String {
-        guard let hectopascals = series.latest?.pressure.hectopascals else { return "—" }
-        return "\(PressureFormat.hectopascals(hectopascals)) гПа"
+    ///
+    /// A `Text` rather than a `String`: the unit is copy (`hPa` / `гПа`) and has to come
+    /// from the catalogue, while the figure itself must not — `Text(someString)` is
+    /// verbatim and would leave the unit untranslated.
+    var latestValueText: Text {
+        guard let hectopascals = series.latest?.pressure.hectopascals else {
+            return Text(verbatim: "—")
+        }
+        return Text("\(PressureFormat.hectopascals(hectopascals)) hPa")
     }
 
     /// `nil` when there is not enough history to say. The caption is then simply absent —
     /// never a guessed arrow.
-    var trendText: String? {
+    var trendText: LocalizedStringKey? {
         switch series.trend {
-        case .rising: "↗ росте"
-        case .falling: "↘ падає"
-        case .steady: "→ стабільно"
+        case .rising: "↗ rising"
+        case .falling: "↘ falling"
+        case .steady: "→ steady"
         case .unknown: nil
         }
     }
@@ -235,7 +241,7 @@ final class PressureChartModel {
 /// The line itself (Figma `7:304`).
 ///
 /// Sensor readings are drawn solid; forward-looking values are dashed and separated by the
-/// "зараз" divider, so the two are never confusable at a glance — the same boundary the
+/// "now" divider, so the two are never confusable at a glance — the same boundary the
 /// feature registry draws between the barometer and WeatherKit families. The forecast side
 /// stays empty until WeatherKit is wired, which is why the divider only appears with it.
 ///
@@ -260,9 +266,9 @@ private struct PressureChartPlot: View {
     var body: some View {
         Chart {
             ForEach(series.observed) { sample in
-                LineMark(x: .value("Час", sample.timestamp),
-                         y: .value("Тиск", sample.pressure.hectopascals),
-                         series: .value("Ряд", "observed"))
+                LineMark(x: .value("Time", sample.timestamp),
+                         y: .value("Pressure", sample.pressure.hectopascals),
+                         series: .value("Series", "observed"))
                 .interpolationMethod(.catmullRom)
                 .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, lineJoin: .round))
                 .foregroundStyle(Palette.chartLine)
@@ -270,27 +276,27 @@ private struct PressureChartPlot: View {
 
             if series.range.pointsPerScreen <= Self.maximumVisiblePoints {
                 ForEach(series.observed) { sample in
-                    PointMark(x: .value("Час", sample.timestamp),
-                              y: .value("Тиск", sample.pressure.hectopascals))
+                    PointMark(x: .value("Time", sample.timestamp),
+                              y: .value("Pressure", sample.pressure.hectopascals))
                     .symbolSize(40)
                     .foregroundStyle(Palette.chartLine)
                 }
             }
 
             if !series.forecast.isEmpty {
-                RuleMark(x: .value("Зараз", series.now))
+                RuleMark(x: .value("Now", series.now))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     .foregroundStyle(Palette.controlBorder)
                     .annotation(position: .top, spacing: 2) {
-                        Text("зараз")
+                        Text("now")
                             .font(Typography.chartAnnotation)
                             .foregroundStyle(Palette.inkSubtle)
                     }
 
                 ForEach(series.forecast) { sample in
-                    LineMark(x: .value("Час", sample.timestamp),
-                             y: .value("Тиск", sample.pressure.hectopascals),
-                             series: .value("Ряд", "forecast"))
+                    LineMark(x: .value("Time", sample.timestamp),
+                             y: .value("Pressure", sample.pressure.hectopascals),
+                             series: .value("Series", "forecast"))
                     .interpolationMethod(.catmullRom)
                     .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))
                     .foregroundStyle(Palette.chartLine.opacity(0.65))
@@ -333,8 +339,8 @@ private struct PressureChartPlot: View {
         .chartScrollPosition(initialX: series.initialScrollX)
         .chartLegend(.hidden)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Графік тиску"))
-        .accessibilityValue(Text(accessibilitySummary))
+        .accessibilityLabel(Text("Pressure chart"))
+        .accessibilityValue(accessibilitySummary)
     }
 
     /// Falls back to a nominal sea-level band when there is nothing to measure from, so the
@@ -354,16 +360,21 @@ private struct PressureChartPlot: View {
     /// twelfth of what is there.
     ///
     /// The span is formatted rather than printed as hours: the day range now covers twelve
-    /// of them, and "за 288 год" is a number VoiceOver can read but nobody can picture.
+    /// of them, and "over 288 h" is a number VoiceOver can read but nobody can picture.
     /// `Duration.UnitsFormatStyle` also gets the Ukrainian plural agreement right, which
     /// string interpolation would not.
-    private var accessibilitySummary: String {
+    ///
+    /// The count is stated as a labelled figure rather than as "N readings", because
+    /// Ukrainian agrees the noun with the number in three forms and a plural rule in the
+    /// catalogue would be a translation defect waiting to happen for a string nobody sees.
+    private var accessibilitySummary: Text {
         let count = series.readingCount
         guard let first = series.observed.first, let last = series.observed.last else {
-            return "Немає даних"
+            return Text("No data")
         }
         let span = Duration.seconds(last.timestamp.timeIntervalSince(first.timestamp))
-        return "\(count) вимірів за \(span.formatted(.units(allowed: [.days, .hours], width: .wide)))"
+        let formattedSpan = span.formatted(.units(allowed: [.days, .hours], width: .wide))
+        return Text("Readings: \(count) · \(formattedSpan)")
     }
 }
 
@@ -442,9 +453,9 @@ private struct PressureChartEmptyState: View {
     /// catalog keeps extracting them. A `Text(someString)` is not a localisable key.
     private var message: Text {
         switch reason {
-        case .noBarometer: Text("Цей пристрій не має барометра")
-        case .noHistory: Text("Дані з’являться після перших вимірів")
-        case .nothingInRange: Text("За цей проміжок вимірів немає — оберіть ширший")
+        case .noBarometer: Text("This device has no barometer")
+        case .noHistory: Text("Readings appear once the first samples land")
+        case .nothingInRange: Text("Nothing recorded in this range — try a wider one")
         }
     }
 }
@@ -467,7 +478,7 @@ private struct HorizontalRule: Shape {
 ///
 /// Four, as the design draws them. On the narrowest device this app runs on — 375 pt — the
 /// track has 375 − 2×20 screen margin − 2×17 card padding − 2×4 track padding − 3×4 gaps =
-/// 281 pt to divide, so 70 pt per button against a widest label ("День") of roughly 32 pt
+/// 281 pt to divide, so 70 pt per button against a widest label ("Day") of roughly 32 pt
 /// at `segmentLabel`'s 12 pt.
 ///
 /// The chrome is `SegmentedSelector`, shared with the History screen's period picker; this
@@ -482,12 +493,12 @@ private struct PressureRangeSelector: View {
         }
     }
 
-    private static func title(for range: PressureChartRange) -> String {
+    private static func title(for range: PressureChartRange) -> LocalizedStringKey {
         switch range {
-        case .oneHour: "1год"
-        case .threeHours: "3год"
-        case .sixHours: "6год"
-        case .day: "День"
+        case .oneHour: "1h"
+        case .threeHours: "3h"
+        case .sixHours: "6h"
+        case .day: "Day"
         }
     }
 }
@@ -526,7 +537,7 @@ private struct PressureChartPreviewHost: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Графік тиску")
+            Text("Pressure chart")
                 .font(Typography.cardTitle)
                 .foregroundStyle(Palette.heading)
 
@@ -539,7 +550,7 @@ private struct PressureChartPreviewHost: View {
             }
             .frame(height: 110)
 
-            Text(latestText)
+            latestText
                 .font(Typography.pressureValue)
                 .foregroundStyle(Palette.heading)
 
@@ -557,9 +568,11 @@ private struct PressureChartPreviewHost: View {
         .background(Palette.surface)
     }
 
-    private var latestText: String {
-        guard let hectopascals = series.latest?.pressure.hectopascals else { return "—" }
-        return "\(PressureFormat.hectopascals(hectopascals)) гПа"
+    private var latestText: Text {
+        guard let hectopascals = series.latest?.pressure.hectopascals else {
+            return Text(verbatim: "—")
+        }
+        return Text("\(PressureFormat.hectopascals(hectopascals)) hPa")
     }
 }
 

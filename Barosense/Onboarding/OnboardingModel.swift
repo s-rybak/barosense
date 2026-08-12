@@ -107,7 +107,7 @@ final class OnboardingModel {
         guard offeredTags.isEmpty else { return }
 
         do {
-            let tags = Self.inSeedOrder(try await tagStore.activeTags())
+            let tags = WellbeingTag.inSeedOrder(try await tagStore.activeTags())
             offeredTags = tags
             selectedTagIDs = Set(tags.map(\.id))
         } catch {
@@ -116,29 +116,6 @@ final class OnboardingModel {
             // until it does.
             offeredTags = []
             selectedTagIDs = []
-        }
-    }
-
-    /// Puts the shipped tags back into the order `WellbeingTag.seeds` declares, with
-    /// anything the user added after them.
-    ///
-    /// The store returns tags sorted by their stored `name`, which is the base-language
-    /// text — so in a translated build the chips would come out in the alphabetical order
-    /// of a language the user is not reading. Sorting by the localised label instead would
-    /// make the layout depend on the translation. The seed order is the one the design
-    /// draws and the only one that is stable across languages.
-    private static func inSeedOrder(_ tags: [WellbeingTag]) -> [WellbeingTag] {
-        let position = Dictionary(
-            uniqueKeysWithValues: WellbeingTag.seeds.enumerated().map { ($1.id, $0) }
-        )
-
-        return tags.sorted { lhs, rhs in
-            switch (position[lhs.id], position[rhs.id]) {
-            case let (left?, right?): left < right
-            case (_?, nil): true
-            case (nil, _?): false
-            case (nil, nil): lhs.name < rhs.name
-            }
         }
     }
 

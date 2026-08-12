@@ -225,24 +225,41 @@ struct ChoiceChip: View {
     private let title: Text
     private let isSelected: Bool
     private let font: Font
+    private let cornerRadius: CGFloat
+    private let expands: Bool
     private let action: () -> Void
 
     init(title: LocalizedStringKey,
          isSelected: Bool,
          font: Font = Typography.choiceLabel,
+         cornerRadius: CGFloat = 20,
+         expands: Bool = false,
          action: @escaping () -> Void) {
-        self.init(text: Text(title), isSelected: isSelected, font: font, action: action)
+        self.init(text: Text(title),
+                  isSelected: isSelected,
+                  font: font,
+                  cornerRadius: cornerRadius,
+                  expands: expands,
+                  action: action)
     }
 
     /// Takes a built `Text` for a label the caller has already resolved — a tag name is
     /// app copy or user input depending on the tag, and only the caller knows which.
+    ///
+    /// `expands` fills the width the parent offers instead of hugging the label, which is
+    /// how a fixed-count row of choices is drawn (Figma `7:1349`); `cornerRadius` because
+    /// those rows are a shade squarer than the wrapping chips.
     init(text: Text,
          isSelected: Bool,
          font: Font = Typography.choiceLabel,
+         cornerRadius: CGFloat = 20,
+         expands: Bool = false,
          action: @escaping () -> Void) {
         self.title = text
         self.isSelected = isSelected
         self.font = font
+        self.cornerRadius = cornerRadius
+        self.expands = expands
         self.action = action
     }
 
@@ -251,9 +268,12 @@ struct ChoiceChip: View {
             title
                 .font(font)
                 .foregroundStyle(isSelected ? Palette.onInk : Palette.bodyText)
+                .lineLimit(expands ? 1 : nil)
+                .minimumScaleFactor(expands ? 0.75 : 1)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 13)
-                .background(ChoiceBackground(isSelected: isSelected, cornerRadius: 20))
+                .frame(maxWidth: expands ? .infinity : nil)
+                .background(ChoiceBackground(isSelected: isSelected, cornerRadius: cornerRadius))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)

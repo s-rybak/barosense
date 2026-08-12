@@ -163,4 +163,68 @@ enum Typography {
     static let intensityValue = Font
         .custom("Manrope-ExtraBold", size: 34, relativeTo: .largeTitle)
         .weight(.heavy)
+
+    // MARK: - Settings (Figma `7:1246`, `7:1308`)
+
+    /// `Manrope/ExtraBold 24` — the heading of a top-level screen.
+    ///
+    /// Same face and size as `onboardingTitle`, kept separate because the two answer to
+    /// different frames: retuning the onboarding heading must not silently resize the
+    /// heading of every tab.
+    static let screenHeading = Font
+        .custom("Manrope-ExtraBold", size: 24, relativeTo: .title3)
+        .weight(.heavy)
+
+    /// `Manrope/Bold 15` — the title in a pushed screen's navigation bar.
+    static let navigationTitle = Font
+        .custom("Manrope-Bold", size: 15, relativeTo: .subheadline)
+        .weight(.bold)
+
+    /// `Manrope/Bold 13` — the confirming action in that bar (Save).
+    static let navigationAction = Font
+        .custom("Manrope-Bold", size: 13, relativeTo: .footnote)
+        .weight(.bold)
+
+    /// `Manrope/SemiBold 13` — a tappable label rendered as text rather than a button,
+    /// such as "Change photo".
+    static let linkAction = Font
+        .custom("Manrope-SemiBold", size: 13, relativeTo: .footnote)
+        .weight(.semibold)
+
+    /// `Manrope/Medium 14` — the label of a settings row.
+    static let settingsRowLabel = Font
+        .custom("Manrope-Medium", size: 14, relativeTo: .subheadline)
+        .weight(.medium)
+
+    /// `Manrope/Medium 13` — the current value printed at the trailing edge of a row.
+    static let settingsRowValue = Font
+        .custom("Manrope-Medium", size: 13, relativeTo: .footnote)
+        .weight(.medium)
+
+    /// `Manrope/Medium 12` — the supporting line under a card's title, and the caption
+    /// under a row that needs one.
+    static let settingsCaption = Font
+        .custom("Manrope-Medium", size: 12, relativeTo: .caption)
+        .weight(.medium)
+
+    /// `Manrope/Bold 12` — an all-caps group heading above a block of fields. Rendered
+    /// with `.tracking(0.48)` at the call site, matching `letter spacing/0_48`.
+    static let sectionHeader = Font
+        .custom("Manrope-Bold", size: 12, relativeTo: .caption)
+        .weight(.bold)
+
+    /// `Manrope/SemiBold 14` — an action that removes something, drawn as bare text.
+    static let destructiveAction = Font
+        .custom("Manrope-SemiBold", size: 14, relativeTo: .subheadline)
+        .weight(.semibold)
+
+    /// `Manrope/Bold 24` — the initial standing in for a photo on the large avatar.
+    static let avatarInitial = Font
+        .custom("Manrope-Bold", size: 24, relativeTo: .title3)
+        .weight(.bold)
+
+    /// `Manrope/Bold 18` — the same initial on the 48 pt avatar in the settings list.
+    static let avatarInitialCompact = Font
+        .custom("Manrope-Bold", size: 18, relativeTo: .title3)
+        .weight(.bold)
 }

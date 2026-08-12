@@ -28,6 +28,25 @@ final class AppServices {
     private(set) var tagStore: (any WellbeingTagStore)?
     private(set) var checkInStore: (any CheckInStore)?
 
+    /// Everything the settings tab reads. `nil` until `start()` has opened the store —
+    /// which is also the only state in which the tab is not on screen.
+    private(set) var settings: SettingsDependencies?
+
+    /// The sensor logs. Opened by `BarosenseApp` because the ingest controllers need them
+    /// at launch, and handed here so an erase reaches them too — a "delete my data" that
+    /// only knew about the profile store would leave the barometer history behind.
+    private let healthLog: any HealthSampleStore
+    private let pressureLog: any PressureSampleStore
+    private let healthAccess: any HealthAccessReporting
+
+    init(healthLog: any HealthSampleStore,
+         pressureLog: any PressureSampleStore,
+         healthAccess: any HealthAccessReporting = HealthKitAccessReporter()) {
+        self.healthLog = healthLog
+        self.pressureLog = pressureLog
+        self.healthAccess = healthAccess
+    }
+
     /// Opens the store, seeds the tag vocabulary, and reports whether onboarding still
     /// has to run. Safe to call again after a failure.
     func start() async {
@@ -55,6 +74,12 @@ final class AppServices {
             self.profileStore = profileStore
             self.tagStore = tagStore
             self.checkInStore = checkInStore
+            self.settings = SettingsDependencies(profileStore: profileStore,
+                                                 tagStore: tagStore,
+                                                 checkInStore: checkInStore,
+                                                 healthLog: healthLog,
+                                                 pressureLog: pressureLog,
+                                                 healthAccess: healthAccess)
             phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
             phase = .unavailable
@@ -64,6 +89,18 @@ final class AppServices {
     func onboardingFinished() {
         phase = .ready
     }
+
+    /// Puts the user back at the start after "delete my data".
+    ///
+    /// Re-seeds first. The erase removed the vocabulary along with everything else, and
+    /// the tag step is the one answer onboarding insists on — dropping into a flow with
+    /// nothing to choose would strand them on step two.
+    func restartOnboarding() async {
+        if let tagStore {
+            try? await tagStore.insertIfAbsent(WellbeingTag.seeds)
+        }
+        phase = .onboarding
+    }
 }
 
 /// Chooses between onboarding and the app proper.
@@ -72,7 +109,18 @@ struct AppRootView: View {
     let ingest: HealthIngestController
     let pressure: PressureCollectionController
 
-    @State private var services = AppServices()
+    @State private var services: AppServices
+    @State private var languages = LanguageController()
+
+    init(ingest: HealthIngestController,
+         pressure: PressureCollectionController,
+         healthLog: any HealthSampleStore,
+         pressureLog: any PressureSampleStore) {
+        self.ingest = ingest
+        self.pressure = pressure
+        _services = State(initialValue: AppServices(healthLog: healthLog,
+                                                    pressureLog: pressureLog))
+    }
 
     var body: some View {
         Group {
@@ -101,10 +149,19 @@ struct AppRootView: View {
                     RootView(ingest: ingest,
                              pressure: pressure,
                              checkInStore: checkInStore,
-                             tagStore: tagStore)
+                             tagStore: tagStore,
+                             settings: services.settings,
+                             languages: languages,
+                             onDataErased: { await services.restartOnboarding() })
                 }
             }
         }
+        // The language row in Settings takes effect here and nowhere else: SwiftUI resolves
+        // every `LocalizedStringKey` in the tree against this locale, so a change repaints
+        // the whole app in the new language without a relaunch. iOS's own idea of the app
+        // language moves separately, at the next launch — see
+        // `UserDefaultsLanguagePreferenceStore`.
+        .environment(\.locale, languages.locale)
         .task { await services.start() }
     }
 }

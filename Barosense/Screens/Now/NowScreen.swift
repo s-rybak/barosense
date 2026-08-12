@@ -45,7 +45,7 @@ struct NowScreen: View {
                     HealthMetricsRow(snapshot: model.snapshot)
 
                     if model.showsEmptyNote {
-                        Text("Поки немає даних з Health")
+                        Text("No Health data yet")
                             .font(Typography.cardNote)
                             .foregroundStyle(Palette.inkSubtle)
                     }

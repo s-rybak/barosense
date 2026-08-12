@@ -25,6 +25,14 @@ protocol WellbeingTagStore: Sendable {
     /// Retires a tag, leaving the row in place. An unknown `id` is not an error.
     func archive(id: WellbeingTag.ID) async throws
 
+    /// Removes every tag, archived rows included.
+    ///
+    /// The one hard delete on this protocol, and it exists for exactly one caller:
+    /// "delete my data". Everywhere else a tag is archived rather than removed, because a
+    /// hard delete orphans the check-ins pointing at it — but an erase is removing those
+    /// check-ins too, so there is nothing left to orphan.
+    func deleteAllTags() async throws
+
     /// Inserts every tag whose `id` is not already stored and leaves stored rows exactly
     /// as they are.
     ///
