@@ -41,17 +41,16 @@ struct OnboardingStepScaffold<Content: View>: View {
 
     @ViewBuilder let content: () -> Content
 
+    /// The way one step back, put here by `OnboardingFlow` rather than passed down through
+    /// six step views. `nil` on the opening step and on every screen outside the flow that
+    /// borrows this scaffold — the check-in sheet has no step behind it.
+    @Environment(\.onboardingBack) private var back
+
     private typealias Metrics = ScaffoldMetrics
 
     var body: some View {
         VStack(spacing: 0) {
-            if let completedSteps {
-                OnboardingProgressBar(completedSteps: completedSteps,
-                                      stepCount: stepCount,
-                                      palette: palette)
-                    .padding(.horizontal, Metrics.horizontalInset)
-                    .padding(.top, 18)
-            }
+            header
 
             ScrollView {
                 content()
@@ -104,6 +103,76 @@ struct OnboardingStepScaffold<Content: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.background.ignoresSafeArea())
+    }
+
+    /// The way back and the progress bar, on one row.
+    ///
+    /// One row rather than a control floating over the content, because the bar was already
+    /// the top of every step and a chevron above it would push the heading down a second
+    /// time. The bar gives up the width of the control and keeps its position.
+    @ViewBuilder
+    private var header: some View {
+        if back != nil || completedSteps != nil {
+            HStack(spacing: 12) {
+                if let back {
+                    backButton(back)
+                }
+
+                if let completedSteps {
+                    OnboardingProgressBar(completedSteps: completedSteps,
+                                          stepCount: stepCount,
+                                          palette: palette)
+                } else {
+                    // The closing step draws no bar. Without this the chevron would centre
+                    // itself across the row instead of sitting at the margin.
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(.horizontal, Metrics.horizontalInset)
+            .padding(.top, 18)
+        }
+    }
+
+    private func backButton(_ back: @escaping OnboardingBack) -> some View {
+        Button(action: back) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(palette.body)
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        // A 44 pt target pulled back out of the layout: the row it sits in is a 4 pt bar, and
+        // letting the target set the height would push every heading in the flow down by half
+        // the control. Same trade the "+ Add" row on the check-in sheet makes.
+        .padding(.vertical, -10)
+        .padding(.leading, -12)
+        .accessibilityLabel(Text("Back"))
+    }
+}
+
+// MARK: - Going back
+
+/// The onboarding flow's way one step back.
+///
+/// Carried in the environment rather than as a parameter on `OnboardingStepScaffold`: the six
+/// step views each build their own scaffold, so a parameter would have to be threaded through
+/// all six for a control none of them owns. The flow sets it once, and a screen that borrows
+/// this scaffold without being part of the flow gets `nil` by default.
+/// `@MainActor @Sendable` because an environment value has to be safe to hand across
+/// isolation even though every read of this one happens in a `body`. The closure it carries
+/// touches the flow's model, which is main-actor isolated, so the annotation costs nothing at
+/// the call site and is what lets the default value be a shared constant.
+typealias OnboardingBack = @MainActor @Sendable () -> Void
+
+private struct OnboardingBackAction: EnvironmentKey {
+    static let defaultValue: OnboardingBack? = nil
+}
+
+extension EnvironmentValues {
+    var onboardingBack: OnboardingBack? {
+        get { self[OnboardingBackAction.self] }
+        set { self[OnboardingBackAction.self] = newValue }
     }
 }
 
@@ -383,6 +452,36 @@ struct FieldSurface<Content: View>: View {
     }
 }
 
+extension View {
+
+    /// Draws `text` over this field while it is empty, in the app's own placeholder ink.
+    ///
+    /// Used instead of `TextField`'s built-in prompt, which iOS renders in
+    /// `UIColor.placeholderText` — 30% of a near-black under the light appearance and 30% of a
+    /// near-white under the dark one. Every surface in `Palette` is a fixed light hex, so that
+    /// prompt lands at about **1.7:1** on `Palette.controlFill` in the light appearance, and
+    /// near-white on white in the dark one. Drawing it here puts it on `Palette.placeholder`
+    /// like every other quiet label on the same screen — **3.0:1**, the value the design picked
+    /// — and takes it off the system's palette entirely.
+    ///
+    /// Behind the field rather than in front of it, so a tap still reaches the field and the
+    /// caret still draws over the text.
+    func fieldPlaceholder(_ text: LocalizedStringKey, isVisible: Bool) -> some View {
+        ZStack(alignment: .leading) {
+            if isVisible {
+                Text(text)
+                    .font(Typography.fieldText)
+                    .foregroundStyle(Palette.placeholder)
+                    // The field itself already carries this wording as its accessibility
+                    // label; leaving this visible to VoiceOver reads it out twice.
+                    .accessibilityHidden(true)
+            }
+
+            self
+        }
+    }
+}
+
 // MARK: - Layout
 
 /// Lays subviews out in a row and wraps to the next line when the next one will not fit.
@@ -421,7 +520,7 @@ struct FlowLayout: Layout {
             }
 
             for index in row.indices {
-                let size = subviews[index].sizeThatFits(.unspecified)
+                let size = size(of: subviews[index], within: bounds.width)
                 subviews[index].place(
                     at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
                     proposal: ProposedViewSize(size)
@@ -430,6 +529,21 @@ struct FlowLayout: Layout {
             }
             y += row.height + verticalSpacing
         }
+    }
+
+    /// What a subview asks for, never wider than the line it has to fit on.
+    ///
+    /// Measured unconstrained first, which is what keeps a chip hugging its label. Only a
+    /// subview that comes back wider than the whole line is measured a second time against
+    /// that width — a tag the user typed as one long unbroken word, whose ideal width is the
+    /// width of the word. Placed at its ideal size it is drawn straight off the edge of the
+    /// card, past the edge of the screen; proposed the line width it wraps inside its own
+    /// pill instead. Found on device with a 42-character tag.
+    private func size(of subview: LayoutSubviews.Element, within maxWidth: CGFloat) -> CGSize {
+        let ideal = subview.sizeThatFits(.unspecified)
+        guard ideal.width > maxWidth else { return ideal }
+
+        return subview.sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
     }
 
     private struct Row {
@@ -443,13 +557,13 @@ struct FlowLayout: Layout {
         var current = Row()
 
         for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
+            let size = size(of: subviews[index], within: maxWidth)
             let widthWithSpacing = current.indices.isEmpty
                 ? size.width
                 : current.width + horizontalSpacing + size.width
 
-            // A subview wider than the whole line still gets its own line rather than
-            // being dropped — it overflows visibly instead of disappearing.
+            // A subview that fills the whole line gets a line of its own rather than being
+            // dropped. It can no longer be wider than one — see `size(of:within:)`.
             if !current.indices.isEmpty, widthWithSpacing > maxWidth {
                 rows.append(current)
                 current = Row()

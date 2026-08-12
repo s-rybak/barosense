@@ -52,3 +52,38 @@ extension WellbeingTag {
         case user(UUID)
     }
 }
+
+// MARK: - Naming
+
+extension WellbeingTag {
+
+    /// Longest name this app stores, in characters.
+    ///
+    /// A bound at all because `name` is free text that is drawn as a chip in a wrapping row:
+    /// unbounded, one long unbroken word grows its own pill until it is the widest thing on the
+    /// check-in sheet. 48 is measured against that row rather than picked round — at the default
+    /// type size a Cyrillic name of this length wraps onto a second line inside its pill and no
+    /// further, and it leaves room for the multi-word names people actually write.
+    ///
+    /// Counted in `Character`s, so a name is cut where a reader would say it is: a Swift
+    /// `Character` is a grapheme cluster, and cutting by UTF-8 or by unicode scalar could
+    /// separate a combining mark from the letter it belongs to.
+    static let maximumNameLength = 48
+
+    /// `raw` as this app will store it — trimmed at both ends and cut to `maximumNameLength`.
+    /// `nil` when nothing is left, which is not a name.
+    ///
+    /// In `Shared/` rather than on the field that types into it, because two screens now write
+    /// into one vocabulary — the check-in sheet and Edit Profile — and a bound enforced by one
+    /// of them is not a bound. Same reason `isNamed(_:)` is one rule rather than two.
+    static func storedName(from raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard trimmed.count > maximumNameLength else { return trimmed }
+
+        // Trimmed again: a cut that lands mid-word can leave a trailing space, and a stored
+        // name ending in one would not match itself when the user types it back.
+        return String(trimmed.prefix(maximumNameLength))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

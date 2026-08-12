@@ -119,4 +119,61 @@ final class WellbeingTagTests: XCTestCase {
         XCTAssertFalse(fatigue.isNamed("Headache")) // barosense:copy-allow default wellbeing tag
         XCTAssertFalse(fatigue.isNamed(""))
     }
+
+    // MARK: - Bounding a typed name
+
+    // Both add-tag fields go through `storedName`, so this is what either of them stores.
+
+    func testAnOrdinaryNameIsStoredAsTyped() {
+        XCTAssertEqual(WellbeingTag.storedName(from: "Тиск у скронях"), "Тиск у скронях")
+    }
+
+    func testSurroundingWhitespaceIsRemoved() {
+        XCTAssertEqual(WellbeingTag.storedName(from: "  Втома\n"), "Втома")
+    }
+
+    func testAWhitespaceOnlyNameIsNotAName() {
+        XCTAssertNil(WellbeingTag.storedName(from: ""))
+        XCTAssertNil(WellbeingTag.storedName(from: "   \n "))
+    }
+
+    func testALongUnbrokenWordIsCutToTheBound() {
+        // The case this exists for: one word long enough to draw its chip off the edge of the
+        // check-in sheet.
+        let typed = "Ааппппевееошуошошщуок122345566777888888888888888888888888"
+        let stored = WellbeingTag.storedName(from: typed)
+
+        XCTAssertEqual(stored?.count, WellbeingTag.maximumNameLength)
+        XCTAssertEqual(stored, String(typed.prefix(WellbeingTag.maximumNameLength)))
+    }
+
+    func testANameExactlyAtTheBoundIsKeptWhole() {
+        let typed = String(repeating: "а", count: WellbeingTag.maximumNameLength)
+
+        XCTAssertEqual(WellbeingTag.storedName(from: typed), typed)
+    }
+
+    func testACutThatLandsOnASpaceDoesNotStoreATrailingOne() {
+        // A stored name ending in a space would not match itself when the user typed it back.
+        let typed = String(repeating: "а", count: WellbeingTag.maximumNameLength - 1) + " далі"
+        let stored = WellbeingTag.storedName(from: typed)
+
+        XCTAssertEqual(stored, String(repeating: "а", count: WellbeingTag.maximumNameLength - 1))
+    }
+
+    func testTheBoundIsCountedInCharactersNotScalars() {
+        // A grapheme cluster is one character to a reader, and cutting by scalar would leave
+        // the combining mark of the letter it was cut from at the end of the name.
+        let typed = String(repeating: "й", count: WellbeingTag.maximumNameLength + 10)
+            .decomposedStringWithCanonicalMapping
+        let stored = WellbeingTag.storedName(from: typed)
+
+        XCTAssertEqual(stored?.count, WellbeingTag.maximumNameLength)
+    }
+
+    func testTheBoundAdmitsTheNamesPeopleActuallyWrite() {
+        // Guards the bound from being tightened to something a real multi-word tag would hit.
+        XCTAssertGreaterThanOrEqual(WellbeingTag.maximumNameLength,
+                                    "Тиск у скронях після поганого сну".count)
+    }
 }

@@ -101,9 +101,14 @@ struct AddTagSheet: View {
 
     private var field: some View {
         FieldSurface {
-            TextField("What you noticed", text: $typedName)
+            // Prompt drawn rather than handed to `TextField` — see `fieldPlaceholder`. It
+            // wraps the field, so it goes on last: `.focused` and `.onSubmit` have to reach
+            // the field itself and would be applied to the wrapper from any earlier position.
+            // The prompt is hidden from VoiceOver there, hence the label here.
+            TextField("", text: $typedName)
                 .font(Typography.fieldText)
                 .foregroundStyle(Palette.heading)
+                .accessibilityLabel(Text("Tag name"))
                 .textInputAutocapitalization(.sentences)
                 // Off, as on the medication fields: this is one word in the user's own
                 // vocabulary, and Ukrainian autocorrect rewrites it while it is still being
@@ -117,6 +122,16 @@ struct AddTagSheet: View {
                 .focused($isFocused)
                 .submitLabel(.done)
                 .onSubmit(commit)
+                // Cut where the vocabulary is bounded, not at some number this sheet knows on
+                // its own — see `WellbeingTag.maximumNameLength`. Enforced as the user types
+                // rather than on commit, so a name that will not fit stops growing under the
+                // caret instead of coming back shortened after the sheet has closed.
+                .onChange(of: typedName) { _, typed in
+                    guard typed.count > WellbeingTag.maximumNameLength else { return }
+
+                    typedName = String(typed.prefix(WellbeingTag.maximumNameLength))
+                }
+                .fieldPlaceholder("What you noticed", isVisible: typedName.isEmpty)
         }
         // An empty `TextField` claims only the width its (absent) text needs, so without this a
         // tap on the rest of the box lands on the surface and does not focus the field. Same

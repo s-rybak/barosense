@@ -695,8 +695,10 @@ final class LogModel {
     }
 
     private func commit(tagNamed rawName: String) async {
-        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
+        // Trimmed and bounded in `Shared/`, not here: Edit Profile writes into the same
+        // vocabulary and has to arrive at the same string for the same input, or the two
+        // screens would disagree about which names are already taken.
+        guard let name = WellbeingTag.storedName(from: rawName) else { return }
 
         failure = nil
 

@@ -5,9 +5,10 @@ import SwiftUI
 /// Names mirror the Figma variable names so a design change traces to one constant here.
 /// Raw hex appears only in this file — nowhere else in the iOS target.
 ///
-/// The design is a single warm light theme; there is no dark variant in Figma yet, so the
-/// root view pins the app to the light scheme rather than letting the system invert
-/// half of these.
+/// The design is a single warm light theme; there is no dark variant in Figma yet, so the app
+/// is pinned to the light appearance rather than letting the system invert the few colours it
+/// owns onto these fixed ones. That pin is `INFOPLIST_KEY_UIUserInterfaceStyle` in
+/// `project.yml`, which reaches the UIKit-backed controls a SwiftUI modifier would not.
 enum Palette {
 
     /// `color/grey/96` (Spring Wood) — app background and tab-bar surface.

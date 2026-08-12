@@ -168,9 +168,13 @@ private struct HistorySummaryCard: View {
                     .font(Typography.cardNote)
                     .foregroundStyle(Palette.inkSubtle)
             } else {
+                // Each figure centred over the caption it belongs to, rather than both pushed
+                // to the left of a column that is wider than either. The three columns are
+                // equal thirds and the captions are not — left-aligned, the figures sit at
+                // three arbitrary points across the card instead of marking out its columns.
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(stats) { stat in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(spacing: 4) {
                             Text("\(stat.value)")
                                 .font(Typography.metricValue)
                                 .foregroundStyle(Palette.inkStrong)
@@ -181,8 +185,9 @@ private struct HistorySummaryCard: View {
                                 .foregroundStyle(Palette.inkSubtle)
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.8)
+                                .multilineTextAlignment(.center)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .combine)
                     }
                 }

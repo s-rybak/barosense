@@ -130,11 +130,15 @@ final class EditProfileModel {
     /// with a message — the user typed something they already have, and the useful outcome
     /// is simply that nothing changes.
     func commitNewTag() {
-        let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Trimmed and bounded in `Shared/`, so this field and the check-in sheet's own
+        // add-tag field turn the same typing into the same stored name — including the cut
+        // at `WellbeingTag.maximumNameLength`, which this one is an alert and cannot show
+        // happening as the user types.
+        let stored = WellbeingTag.storedName(from: newTagName)
         isAddingTag = false
         newTagName = ""
 
-        guard !name.isEmpty else { return }
+        guard let name = stored else { return }
         // Matched through `isNamed`, not on `name`: a seeded tag stores its base-language
         // default, so on a Ukrainian build typing the word shown on the chip would otherwise
         // miss the row it names and add a second tag meaning the same thing. The check-in

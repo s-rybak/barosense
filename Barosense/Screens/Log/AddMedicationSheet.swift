@@ -396,9 +396,14 @@ struct AddMedicationSheet: View {
                        text: Binding<String>,
                        field: Field) -> some View {
         FieldSurface {
-            TextField(placeholder, text: text)
+            // Prompt drawn rather than handed to `TextField` — see `fieldPlaceholder`. It
+            // wraps the field, so it goes on last, after `.focused` and `.onSubmit` have
+            // reached the field itself. The prompt is hidden from VoiceOver there, hence the
+            // label here.
+            TextField("", text: text)
                 .font(Typography.fieldText)
                 .foregroundStyle(Palette.heading)
+                .accessibilityLabel(Text(placeholder))
                 // Both fields take letters *and* digits, stated rather than left to the
                 // system: a medication is "Ібупрофен", a dose is "400 мг" or "two", and
                 // neither is a number. Spelled out so no inherited or heuristic keyboard
@@ -423,6 +428,7 @@ struct AddMedicationSheet: View {
                         commit()
                     }
                 }
+                .fieldPlaceholder(placeholder, isVisible: text.wrappedValue.isEmpty)
         }
         // An empty `TextField` only claims the width its (absent) text needs, so without
         // this a tap on the right two-thirds of the box lands on the surface and focus stays

@@ -42,10 +42,12 @@ struct HistoryCalendarCard: View {
         static let rowSpacing: CGFloat = 6
         static let cellHeight: CGFloat = 32
         static let arrowSide: CGFloat = 30
-        /// Shorter than `WheelColumn.standardHeight`: this wheel sits *above* a six-row grid
-        /// rather than at the bottom of a sheet, and the card still has to fit a small screen
-        /// with both open.
-        static let wheelHeight: CGFloat = 132
+        /// `WheelColumn.standardHeight`, not a shorter figure trimmed to leave the grid below
+        /// more room. A wheel is laid out in whole rows: at 132 pt the row above and the row
+        /// below the selection were each cut in half by the frame, and a half-height month
+        /// name behind the picker's own fade reads as a rendering fault rather than as the
+        /// next month along. The card is inside a `ScrollView`; 28 pt is cheaper than that.
+        static let wheelHeight = WheelColumn<Int>.standardHeight
         static let reveal = Animation.snappy(duration: 0.24)
     }
 

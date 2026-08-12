@@ -25,7 +25,12 @@ struct WheelColumn<Value: Hashable>: View {
 
     /// Three rows at the wheel's natural row height: the selected one and a neighbour either
     /// side, which is what makes it read as something that scrolls rather than a boxed label.
-    static var standardHeight: CGFloat { 160 }
+    /// A frame shorter than this cuts the two neighbours in half.
+    ///
+    /// `nonisolated` so a caller can size a layout constant from it. `View` conformance puts
+    /// this type on the main actor, and a `Metrics` enum reading it would otherwise be
+    /// initialising a nonisolated constant from an isolated one.
+    nonisolated static var standardHeight: CGFloat { 160 }
 
     var body: some View {
         Picker(selection: $selection) {
