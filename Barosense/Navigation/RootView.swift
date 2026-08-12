@@ -68,7 +68,14 @@ struct RootView: View {
                       pressure: pressure,
                       checkIns: checkInStore,
                       checkInRevision: checkInRevision)
-        case .history, .insights, .settings:
+        case .history:
+            // Re-identified on `checkInRevision` so a check-in written from the sheet appears
+            // in the grid. Unlike the chart, this screen has no state worth preserving across
+            // that — the month and period reset to today, which is where a user who has just
+            // logged something is looking anyway.
+            HistoryScreen(checkInStore: checkInStore, tagStore: tagStore)
+                .id(checkInRevision)
+        case .insights, .settings:
             PlaceholderScreen(tab: selection)
         }
     }
