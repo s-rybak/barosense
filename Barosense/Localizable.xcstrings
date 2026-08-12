@@ -511,6 +511,22 @@
         }
       }
     },
+    "Add tag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add tag"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додати тег"
+          }
+        }
+      }
+    },
     "Add to check-in" : {
       "localizations" : {
         "uk" : {
@@ -827,6 +843,22 @@
         }
       }
     },
+    "Choose month and year" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose month and year"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обрати місяць і рік"
+          }
+        }
+      }
+    },
     "Close" : {
       "localizations" : {
         "uk" : {
@@ -977,6 +1009,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Поточний атмосферний тиск і як він змінювався сьогодні."
+          }
+        }
+      }
+    },
+    "Current month" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current month"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поточний місяць"
           }
         }
       }
@@ -1527,6 +1575,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Продовжити редагування"
+          }
+        }
+      }
+    },
+    "Kept in your list for next time." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kept in your list for next time."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Залишиться у твоєму списку на наступний раз."
           }
         }
       }
@@ -2591,6 +2655,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Тег"
+          }
+        }
+      }
+    },
+    "Tag name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag name"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Назва тегу"
+          }
+        }
+      }
+    },
+    "That tag could not be added to your list. Check that the device has free space and try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That tag could not be added to your list. Check that the device has free space and try again."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося додати тег до списку. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
           }
         }
       }

@@ -202,6 +202,61 @@ final class CheckInHistoryTests: XCTestCase {
         XCTAssertEqual(first.map(\.count), [1, 1, 1, 1])
     }
 
+    // MARK: - Month picker
+
+    func testTheYearWheelEndsWithTheYearContainingToday() {
+        let years = CheckInHistory.offeredYears(notAfter: date(2026, 5, 17), calendar: calendar)
+
+        XCTAssertEqual(years.last, 2026)
+        XCTAssertEqual(years.count, CheckInHistory.pickerYearSpan)
+        XCTAssertEqual(years, years.sorted(), "oldest first — the wheel reads downwards in time")
+    }
+
+    func testTheMonthWheelStopsAtTheCurrentMonthInTheCurrentYear() {
+        // The same rule the › arrow follows: a month that cannot hold a check-in yet is not
+        // offered at all, rather than offered and then silently corrected.
+        let months = CheckInHistory.selectableMonths(in: 2026,
+                                                     notAfter: date(2026, 5, 17),
+                                                     calendar: calendar)
+
+        XCTAssertEqual(months, Array(1...5))
+    }
+
+    func testTheMonthWheelOffersAWholeEarlierYear() {
+        let months = CheckInHistory.selectableMonths(in: 2025,
+                                                     notAfter: date(2026, 5, 17),
+                                                     calendar: calendar)
+
+        XCTAssertEqual(months, Array(1...12))
+    }
+
+    func testPickingAMonthLandsOnItsFirstInstant() {
+        let picked = CheckInHistory.month(3, of: 2025, notAfter: date(2026, 5, 17), calendar: calendar)
+
+        XCTAssertEqual(picked, date(2025, 3, 1, hour: 0))
+    }
+
+    func testPickingAFutureMonthIsClampedToTheCurrentOne() {
+        // Reachable from the wheels: moving the *year* forward while a later month is selected
+        // asks for December 2026 in May 2026. It has to land on May rather than in the future,
+        // and it has to land somewhere visible so the wheel can snap to where the grid went.
+        let picked = CheckInHistory.month(12, of: 2026,
+                                          notAfter: date(2026, 5, 17),
+                                          calendar: calendar)
+
+        XCTAssertEqual(picked, date(2026, 5, 1, hour: 0))
+    }
+
+    func testPickingTheCurrentMonthIsNotClampedPastItself() {
+        // What the "Now" button does. Clamping is `min`, so an off-by-one here would send the
+        // button to the previous month.
+        let picked = CheckInHistory.month(5, of: 2026,
+                                          notAfter: date(2026, 5, 17),
+                                          calendar: calendar)
+
+        XCTAssertEqual(picked, date(2026, 5, 1, hour: 0))
+    }
+
     // MARK: - Helpers
 
     private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 9) -> Date {

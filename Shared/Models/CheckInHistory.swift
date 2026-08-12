@@ -131,6 +131,65 @@ enum CheckInHistory {
         return calendar.date(byAdding: .month, value: offset, to: start) ?? start
     }
 
+    // MARK: - Month picker
+
+    /// How many years the History month picker offers, the year containing today included.
+    ///
+    /// A fixed span rather than one derived from the data: `CheckInStore` has no cheap "oldest
+    /// check-in" query, and reading the whole table to populate a wheel would scan every row the
+    /// user has ever written. No check-in can predate the install, so five years is longer than
+    /// any install can be and short enough that the wheel is not mostly dead years. Derive it
+    /// from the oldest stored check-in once the store can answer that without a full scan.
+    static let pickerYearSpan = 5
+
+    /// The years the picker offers, oldest first, ending with the year containing `limit`.
+    static func offeredYears(notAfter limit: Date, calendar: Calendar = .current) -> [Int] {
+        let last = calendar.component(.year, from: limit)
+        return Array((last - pickerYearSpan + 1)...last)
+    }
+
+    /// The months selectable in `year`: every month of that year, or those up to and including
+    /// the month containing `limit` when `year` is that month's year.
+    ///
+    /// Trimmed rather than clamped after the fact, so a month that cannot hold a check-in yet is
+    /// not on the wheel at all — the same rule the ‹ › arrows follow, for the same reason: a grid
+    /// of empty future cells reads as data loss rather than as "not yet".
+    static func selectableMonths(in year: Int,
+                                 notAfter limit: Date,
+                                 calendar: Calendar = .current) -> [Int] {
+        guard year >= calendar.component(.year, from: limit) else {
+            return monthNumbers(of: year, calendar: calendar)
+        }
+
+        return Array(1...calendar.component(.month, from: limit))
+    }
+
+    /// The start of `month` in `year`, never later than the month containing `limit`.
+    ///
+    /// Components the calendar will not resolve fall back to the limit rather than to some
+    /// guessed month: landing on the current month is a visible, correctable outcome.
+    static func month(_ month: Int,
+                      of year: Int,
+                      notAfter limit: Date,
+                      calendar: Calendar = .current) -> Date {
+        let latest = startOfMonth(containing: limit, calendar: calendar)
+        guard let picked = calendar.date(from: DateComponents(year: year, month: month)) else {
+            return latest
+        }
+
+        return min(picked, latest)
+    }
+
+    /// Every month number of `year`, asked of the calendar rather than assumed to be 1–12 —
+    /// not every calendar has twelve months in every year.
+    private static func monthNumbers(of year: Int, calendar: Calendar) -> [Int] {
+        guard let start = calendar.date(from: DateComponents(year: year, month: 1)),
+              let range = calendar.range(of: .month, in: .year, for: start)
+        else { return Array(1...12) }
+
+        return Array(range)
+    }
+
     // MARK: - Grid
 
     /// The grid for the month containing `date`.

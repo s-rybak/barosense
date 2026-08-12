@@ -69,8 +69,9 @@ struct HistoryScreen: View {
                     HistoryCalendarCard(grid: model.grid,
                                         days: model.summary.days,
                                         calendar: model.calendar,
-                                        canGoForward: model.canGoForward,
-                                        move: model.move(byMonths:))
+                                        currentMonth: model.currentMonth,
+                                        move: model.move(byMonths:),
+                                        select: model.show(month:of:))
 
                     medicationsLink
                 }
@@ -259,16 +260,27 @@ final class HistoryModel {
         CheckInHistory.grid(forMonthContaining: anchor, calendar: calendar)
     }
 
-    /// Stops at the month containing today. The future holds no check-ins, and a grid of empty
-    /// cells is indistinguishable from a store that failed to open.
-    var canGoForward: Bool {
-        anchor < CheckInHistory.startOfMonth(containing: now(), calendar: calendar)
+    /// Start of the month containing today, and the limit on everything that moves the grid.
+    /// The future holds no check-ins, and a grid of empty cells is indistinguishable from a
+    /// store that failed to open.
+    ///
+    /// Read from the clock on each access rather than fixed at init: the screen outlives
+    /// midnight and, at the turn of a month, a stale limit would keep the new month unreachable.
+    var currentMonth: Date {
+        CheckInHistory.startOfMonth(containing: now(), calendar: calendar)
     }
 
     func move(byMonths step: Int) {
-        let next = CheckInHistory.month(offsetBy: step, from: anchor, calendar: calendar)
-        let limit = CheckInHistory.startOfMonth(containing: now(), calendar: calendar)
-        anchor = min(next, limit)
+        anchor = min(CheckInHistory.month(offsetBy: step, from: anchor, calendar: calendar),
+                     currentMonth)
+    }
+
+    /// Jump to a month outright — the calendar card's two wheels, and its "Now".
+    ///
+    /// Clamped by the same rule `move(byMonths:)` follows, in the one place that knows it, so a
+    /// year picked while a later month is selected cannot land the grid in the future.
+    func show(month: Int, of year: Int) {
+        anchor = CheckInHistory.month(month, of: year, notAfter: now(), calendar: calendar)
     }
 
     /// The window in words: one month by name, a range of months, or "all time".

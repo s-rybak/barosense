@@ -436,12 +436,8 @@ struct AddMedicationSheet: View {
 
 // MARK: - Time wheel
 
-/// The hour and minute wheel, built from `Picker` rather than `DatePicker(.wheel)`.
-///
-/// `DatePicker` under `.wheel` is a `UIDatePicker` behind the style: it takes its digit colour
-/// from the trait collection and ignores `foregroundStyle`, so on this sheet's light surface it
-/// rendered washed out with no supported way to pull it onto `Palette`. A `Picker`'s rows are
-/// ordinary `Text`, which carry the same ink as every other control on the form.
+/// The hour and minute wheel, built from `WheelColumn` rather than `DatePicker(.wheel)` — see
+/// that type for why the system picker could not be styled onto `Palette`.
 ///
 /// The cost is the 12/24-hour question `DatePicker` answered for free. It is asked of the
 /// locale's own format template, the same source a formatted time would resolve through, so a
@@ -449,10 +445,6 @@ struct AddMedicationSheet: View {
 private struct TimeWheel: View {
 
     @Binding var date: Date
-
-    /// Three rows at the wheel's natural row height: the selected one and a neighbour either
-    /// side, which is what makes it read as something that scrolls rather than a boxed label.
-    private static let height: CGFloat = 160
 
     private var calendar: Calendar { Calendar.current }
 
@@ -471,42 +463,22 @@ private struct TimeWheel: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            wheel(selection: hourSelection, values: hourValues) {
+            WheelColumn(selection: hourSelection, values: hourValues) {
                 Text(verbatim: String(format: "%02d", $0))
             }
 
-            wheel(selection: minuteSelection, values: Array(0...59)) {
+            WheelColumn(selection: minuteSelection, values: Array(0...59)) {
                 Text(verbatim: String(format: "%02d", $0))
             }
 
             if usesPeriod {
-                wheel(selection: periodSelection, values: [false, true]) {
+                WheelColumn(selection: periodSelection, values: [false, true]) {
                     Text(verbatim: $0 ? pmSymbol : amSymbol)
                 }
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: Self.height)
-    }
-
-    /// One column. The rows are styled here rather than by the caller so the three columns
-    /// cannot drift apart — the reason `ChoiceBackground` exists one file over.
-    private func wheel<Value: Hashable>(selection: Binding<Value>,
-                                        values: [Value],
-                                        label: @escaping (Value) -> Text) -> some View {
-        Picker(selection: selection) {
-            ForEach(values, id: \.self) { value in
-                label(value)
-                    .font(Typography.fieldText)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.heading)
-                    .tag(value)
-            }
-        } label: {
-            EmptyView()
-        }
-        .pickerStyle(.wheel)
-        .labelsHidden()
+        .frame(height: WheelColumn<Int>.standardHeight)
     }
 
     // MARK: Selections

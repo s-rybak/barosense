@@ -32,6 +32,7 @@ struct LogScreen: View {
 
     @State private var model: LogModel
     @State private var isAddingMedication = false
+    @State private var isAddingTag = false
 
     /// Gap between the blocks of the form — 26 pt in the frame, between every pair.
     private static let sectionSpacing: CGFloat = 26
@@ -66,9 +67,9 @@ struct LogScreen: View {
                 medicationSection
 
                 // Same handling as the onboarding commit failure, deliberately: it is the
-                // same kind of event — the one write the screen exists for did not happen.
-                if model.failure != nil {
-                    Text("Your check-in could not be saved. Check that the device has free space and try again.")
+                // same kind of event — a write the screen was asked for did not happen.
+                if let failure = model.failure {
+                    Text(failure.message)
                         .font(Typography.fieldUnit)
                         .foregroundStyle(Palette.markerWarm)
                 }
@@ -78,6 +79,9 @@ struct LogScreen: View {
         .task { await model.load() }
         .sheet(isPresented: $isAddingMedication) {
             AddMedicationSheet(history: model.medicationHistory, add: model.add(medication:))
+        }
+        .sheet(isPresented: $isAddingTag) {
+            AddTagSheet { name in model.addTag(named: name) }
         }
     }
 
@@ -93,14 +97,17 @@ struct LogScreen: View {
 
     // MARK: - Tags
 
-    /// Only rendered once the vocabulary is in. An empty `FlowLayout` under a heading reads
-    /// as "you have no tags", which is never true — onboarding insists on at least one.
-    @ViewBuilder
+    /// The vocabulary, plus the way to grow it.
+    ///
+    /// The heading and its "+ Add" are drawn even before the vocabulary is in, and even if it
+    /// comes back empty. An empty `FlowLayout` under a bare heading used to read as "you have
+    /// no tags" with nothing to do about it; a user who archived everything during onboarding
+    /// now has the way back on the same row.
     private var tagsSection: some View {
-        if !model.offeredTags.isEmpty {
-            VStack(alignment: .leading, spacing: Self.labelSpacing) {
-                SectionLabel(title: "What you noticed")
+        VStack(alignment: .leading, spacing: Self.labelSpacing) {
+            SectionHeader(title: "What you noticed") { isAddingTag = true }
 
+            if !model.offeredTags.isEmpty {
                 FlowLayout {
                     ForEach(model.offeredTags) { tag in
                         ChoiceChip(text: tag.label,
@@ -118,31 +125,50 @@ struct LogScreen: View {
 
     private var medicationSection: some View {
         VStack(alignment: .leading, spacing: Self.labelSpacing) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionLabel(title: "Medication taken")
-
-                Spacer(minLength: 12)
-
-                Button {
-                    isAddingMedication = true
-                } label: {
-                    Text("+ Add")
-                        .font(Typography.tertiaryAction)
-                        .foregroundStyle(Palette.markerCool)
-                        // Padding rather than a frame: the text is short and the tap target
-                        // has to reach 44 pt without pushing the label off its baseline.
-                        .padding(.vertical, 12)
-                        .padding(.leading, 12)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                // Pulled back out of the layout so the enlarged target does not push the
-                // label off the row's baseline.
-                .padding(.vertical, -12)
-            }
+            SectionHeader(title: "Medication taken") { isAddingMedication = true }
 
             MedicationList(entries: model.medications,
                            remove: model.remove(medication:))
+        }
+    }
+}
+
+// MARK: - Section header
+
+/// A section's label with the "+ Add" that opens its sheet.
+///
+/// One type for both blocks of the form: the tag row and the medication row make the user the
+/// same offer, and two copies of a 44 pt target pulled back out of a baseline-aligned row is
+/// exactly the kind of thing that drifts a point at a time.
+private struct SectionHeader: View {
+
+    let title: LocalizedStringKey
+    let add: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            SectionLabel(title: title)
+
+            Spacer(minLength: 12)
+
+            Button(action: add) {
+                Text("+ Add")
+                    .font(Typography.tertiaryAction)
+                    .foregroundStyle(Palette.markerCool)
+                    // Padding rather than a frame: the text is short and the tap target has
+                    // to reach 44 pt without pushing the label off its baseline.
+                    .padding(.vertical, 12)
+                    .padding(.leading, 12)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            // Pulled back out of the layout so the enlarged target does not push the label
+            // off the row's baseline.
+            .padding(.vertical, -12)
+            // "+ Add" beside two different section labels is two identical buttons to
+            // VoiceOver; the label says which one this is.
+            .accessibilityLabel(Text("Add"))
+            .accessibilityHint(Text(title))
         }
     }
 }
@@ -524,12 +550,30 @@ private struct MedicationRow: View {
 
 // MARK: - Model
 
-/// What went wrong writing a check-in.
+/// What went wrong on the check-in sheet.
+///
+/// Both cases leave the form exactly as the user left it: a check-in is a minute of someone's
+/// attention and must not be thrown away because the disk was full.
 enum CheckInFailure: Error {
-    /// The row could not be written. The form keeps everything the user entered so they can
-    /// retry — a check-in is a minute of someone's attention and must not be thrown away
-    /// because the disk was full.
+
+    /// The check-in row could not be written.
     case couldNotSave
+
+    /// A new tag could not be added to the vocabulary. The check-in itself is unaffected and
+    /// still saves — it simply cannot carry a tag the store never accepted.
+    case couldNotSaveTag
+
+    /// Names the write that failed and what to do, without guessing at a cause the app cannot
+    /// see. Both storage failures reach the user the same way, so the wording differs only in
+    /// which write it was.
+    var message: LocalizedStringKey {
+        switch self {
+        case .couldNotSave:
+            "Your check-in could not be saved. Check that the device has free space and try again."
+        case .couldNotSaveTag:
+            "That tag could not be added to your list. Check that the device has free space and try again."
+        }
+    }
 }
 
 /// State behind the check-in sheet.
@@ -565,6 +609,15 @@ final class LogModel {
     /// onboarding, and the seeds are only where it started.
     private(set) var offeredTags: [WellbeingTag] = []
 
+    /// Every tag the store holds, archived rows included.
+    ///
+    /// Kept so a name typed into `AddTagSheet` can be matched against the *whole* vocabulary
+    /// rather than the offered half of it. A user who turned "Dizziness" off during onboarding
+    /// and types it again here means that tag, not a second one under the same word — and two
+    /// rows sharing a name would split every count the History card and the model are built
+    /// on, with nothing on screen to show why.
+    private var knownTags: [WellbeingTag] = []
+
     private(set) var isSaving = false
 
     private(set) var failure: CheckInFailure?
@@ -593,11 +646,15 @@ final class LogModel {
     var canSave: Bool { !isSaving }
 
     func load() async {
-        guard offeredTags.isEmpty else { return }
+        guard knownTags.isEmpty else { return }
 
         // A vocabulary that will not load costs the tag section and nothing else — the
         // intensity is what makes the check-in, so the form stays usable.
-        offeredTags = Self.inSeedOrder((try? await tagStore.activeTags()) ?? [])
+        //
+        // Read whole rather than through `activeTags()`: the archived rows never reach the
+        // chips, but `addTag(named:)` has to be able to see them.
+        knownTags = (try? await tagStore.allTags()) ?? []
+        refreshOfferedTags()
 
         // Same rule: a history that will not load costs the chips and nothing else. The
         // medication sheet still takes free text.
@@ -627,6 +684,71 @@ final class LogModel {
         } else {
             selectedTagIDs.insert(id)
         }
+    }
+
+    /// Adds a word the user typed to their vocabulary and selects it for this check-in.
+    ///
+    /// Fire-and-forget from the sheet, like `save()`: the sheet has already dismissed by the
+    /// time the store answers, and the result lands on this form rather than on the sheet.
+    func addTag(named name: String) {
+        Task { await commit(tagNamed: name) }
+    }
+
+    private func commit(tagNamed rawName: String) async {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        failure = nil
+
+        let tag = Self.unarchived(existingTag(named: name) ?? WellbeingTag(id: .user(UUID()),
+                                                                           name: name))
+
+        // Stored before it is offered, and this ordering is load-bearing: a check-in may only
+        // carry a tag identity the vocabulary can resolve. A chip selected against a row that
+        // was never written would come back on the History card as "Other", with nothing left
+        // anywhere to say what the user had meant.
+        do {
+            try await tagStore.save(tag)
+        } catch {
+            failure = .couldNotSaveTag
+            return
+        }
+
+        knownTags.removeAll { $0.id == tag.id }
+        knownTags.append(tag)
+        refreshOfferedTags()
+
+        // Selected on the way in. The user typed it because it applies to *this* check-in, and
+        // making them then tap the chip they have just created is a step with no decision in it.
+        selectedTagIDs.insert(tag.id)
+    }
+
+    /// The tag the user already has under this name, archived rows included.
+    ///
+    /// Matched on what they *read* rather than on the stored `name`: a seeded tag keeps its
+    /// base-language default until it is renamed, so on a Ukrainian build the word on the chip
+    /// and the word in the row are two different strings. See `WellbeingTag.isNamed(_:)`, which
+    /// is also what the same field in Edit Profile matches on — two writers into one vocabulary
+    /// have to agree on what counts as a duplicate.
+    ///
+    /// Case-insensitive, so "втома" and "Втома" are one tag. Not whitespace- or
+    /// punctuation-folded beyond the trim above: past that point the app would be deciding that
+    /// two words the user wrote differently mean the same thing.
+    private func existingTag(named name: String) -> WellbeingTag? {
+        knownTags.first { $0.isNamed(name) }
+    }
+
+    /// The same tag, not archived. Typing the name of something they retired is the user asking
+    /// for it back — the alternative is a duplicate row, or a dead end on a vocabulary screen
+    /// this app does not have yet.
+    private static func unarchived(_ tag: WellbeingTag) -> WellbeingTag {
+        guard tag.isArchived else { return tag }
+
+        return WellbeingTag(id: tag.id, name: tag.name, isArchived: false)
+    }
+
+    private func refreshOfferedTags() {
+        offeredTags = Self.inSeedOrder(knownTags.filter { !$0.isArchived })
     }
 
     /// Appended rather than merged. Two entries with the same name are two entries: the user
