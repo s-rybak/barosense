@@ -17,7 +17,7 @@ the code change.
 | Check-in capture | **shipped, iPhone only** — a sheet from the tab bar's raised centre action (`Barosense/Screens/Log/`). One row per check-in: a point on the 1–10 intensity scale, any number of tags, any number of medication entries (free text, never interpreted; each carries its own `takenAt`, which may be hours before the check-in). **No free-text note is captured any more** — the field was removed from the form; `CheckIn.note` still exists, is still stored, and is now always `nil` on anything the app writes. The intensity **opens at 5** and needs no interaction, so a saved check-in that was never adjusted records a 5 — watch the recorded distribution for a spike at exactly 5 before trusting the base rate. Written straight to `SwiftDataCheckInStore`; no edit or delete UI yet, and the watch still cannot log one. The medication sheet (`AddMedicationSheet`) offers back names and doses from the last 90 days of the user's own entries — recall only, nothing shipped or inferred |
 | Check-in review | **shipped, iPhone only** — the History destination (`Barosense/Screens/History/`): a period picker (month / 3M / year / all), a card counting check-ins, the two most-used tags and medication entries in that window, and a month grid whose cells carry the day's **peak** intensity. Under it a row to "My medications", which groups the same entries by name (`MedicationSummary`). Read-only: nothing on either screen edits or deletes a check-in, and neither surface relates a medication to how the user felt |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
-| Model | not trained; health and barometer raw samples are now accumulateable on disk |
+| Model | not trained; health and barometer raw samples are now accumulateable on disk. **Nothing on screen is model output.** The Now screen's two meter cards are `WeatherTriggerIndex` (§7 baseline #2, made visible) and `TrainingDataProgress` (rows on disk against §4's blend point) — both display-only, both explained under §2.1. The ⓘ on the second opens `TrainingProgressSheet`, which states in words that the bar counts check-ins and not accuracy |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
 | HealthKit read set | **3 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis`, via `Shared/Health/HealthKitDataReader.swift`. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
 | Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per authorised type + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
@@ -198,6 +198,28 @@ chart caption; the model consumes `pressureDeltaHPaPer3h` as a continuous value,
 collapsing it to three states throws away the resolution the model needs. Nothing in
 `Shared/Features/` may read that type. Its ±1.0 hPa threshold and 1 h minimum span are
 *provisional* and chosen from reasoning, not data.
+
+`WeatherTriggerIndex` (`Shared/Pressure/WeatherTriggerIndex.swift`) is **display only**, for
+the third time and the same reason. It is the Now screen's "Weather Trigger Index" card:
+`|Δ hPa|` across the trailing 6 h, mapped linearly onto 0–1 between a noise floor of 2.0 hPa
+(twice `PressureTrend.significantChangeHPa`, so the card and the chart caption agree about
+where weather starts) and a *provisional* full scale of 6.0 hPa. Gated on
+`pressureCoverage6h`'s own 50% minimum, counted in hourly cells; below it the value is `nil`
+and the card says why rather than drawing a zero. The delta is raw first-to-last and is never
+extrapolated to a full window. It is **unsigned**, which is precisely why the model must not
+read it — `pressureDeltaHPaPer6h` is signed and continuous, and this throws both away.
+
+It is baseline #2 of §7 rendered for the user. That is deliberate: with no trained model, the
+only figure the app can honestly put on that card is the rule the model will have to beat. It
+carries §3's altitude exposure in full — a one-way climb reads as weather — and there is no
+de-trending, because there is no altitude reference. Same exposure `PressureTrend` already
+ships with, now on a second surface.
+
+`TrainingDataProgress` (`Shared/Models/TrainingDataProgress.swift`) is **display only** and
+holds no feature either: check-ins on the device counted against
+`targetCheckInCount = 40`, which is where §4's `w(n) = n / (n + k)` at `k = 30` first passes a
+half. Both constants are *provisional* and move together — a change to `k` that leaves the
+target at 40 makes the card's explainer wrong.
 
 ### 2.2 WeatherKit — forward-looking, the reason an *advance* warning is possible
 
