@@ -2,8 +2,8 @@ import Foundation
 
 /// How much of the history a personal model needs is on the device.
 ///
-/// A count against a target, and nothing else. It says nothing about how well anything
-/// predicts: there is no trained model yet (`.claude/context/ml-spec.md` — the model row reads
+/// A count against a target, and nothing else. It makes no claim about the quality of any
+/// forecast: there is no trained model yet (`.claude/context/ml-spec.md` — the model row reads
 /// *not trained*), so the only progress bar this app can honestly draw is one over the data a
 /// model would be fitted on. The card's own label calls it training progress because that is
 /// what the design calls it; the explainer behind the card is where the distinction gets made.

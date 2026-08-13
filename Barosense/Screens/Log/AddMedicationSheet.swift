@@ -452,20 +452,30 @@ private struct TimeWheel: View {
 
     @Binding var date: Date
 
-    private var calendar: Calendar { Calendar.current }
+    /// The app's language and calendar rather than `.current`, which is still whatever the
+    /// app launched in — see `LanguageController`. It is the period column that shows this:
+    /// after a switch to Ukrainian, `.current` would still spell the two rows "AM" / "PM".
+    @Environment(\.locale) private var locale
+    @Environment(\.calendar) private var calendar
 
     /// Whether the reader writes "9:41 PM" rather than "21:41". Asked of the format the locale
     /// resolves for a bare time rather than inferred from the region.
     private var usesPeriod: Bool {
-        DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?
+        DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale)?
             .contains("a") ?? false
     }
 
     /// The locale's own symbols, not "AM"/"PM" literals: those strings belong to the reader's
     /// locale rather than to this app's copy.
-    private var amSymbol: String { DateFormatter().amSymbol }
+    private var amSymbol: String { periodSymbols.amSymbol }
 
-    private var pmSymbol: String { DateFormatter().pmSymbol }
+    private var pmSymbol: String { periodSymbols.pmSymbol }
+
+    private var periodSymbols: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        return formatter
+    }
 
     var body: some View {
         HStack(spacing: 0) {

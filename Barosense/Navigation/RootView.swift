@@ -88,12 +88,20 @@ struct RootView: View {
                       checkIns: checkInStore,
                       checkInRevision: checkInRevision)
         case .history:
+            // The calendar is handed over rather than read from the environment: this
+            // screen's model is built in `init`, before an environment exists, and the
+            // calendar is what names its months and its weekday column.
+            //
             // Re-identified on `checkInRevision` so a check-in written from the sheet appears
             // in the grid. Unlike the chart, this screen has no state worth preserving across
             // that — the month and period reset to today, which is where a user who has just
-            // logged something is looking anyway.
-            HistoryScreen(checkInStore: checkInStore, tagStore: tagStore)
-                .id(checkInRevision)
+            // logged something is looking anyway. The language is in the identity for the
+            // same reason: switching it has to rebuild the model around the new calendar,
+            // or the grid keeps last month's name in the old language.
+            HistoryScreen(checkInStore: checkInStore,
+                          tagStore: tagStore,
+                          calendar: languages.calendar)
+                .id("\(checkInRevision)-\(languages.language.rawValue)")
         case .settings:
             if let settings {
                 SettingsScreen(dependencies: settings,

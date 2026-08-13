@@ -257,22 +257,28 @@ struct HistoryCalendarCard: View {
         Binding(get: { shownYear }, set: { select(shownMonth, $0) })
     }
 
+    /// The language the calendar speaks — the app's, not the device's. See
+    /// `LanguageController.calendar`: the month and weekday symbols below come out of it,
+    /// and a bare `.formatted()` beside them would resolve through `Locale.current` and
+    /// print the launch language instead.
+    private var locale: Locale { calendar.locale ?? .current }
+
     /// "Травень", not "травня" — the standalone form, for the same reason `monthTitle` asks for
     /// it: a wheel row names the month rather than dating something within it.
     private func monthName(_ month: Int) -> String {
         let symbols = calendar.standaloneMonthSymbols
         guard symbols.indices.contains(month - 1) else { return String(month) }
 
-        return symbols[month - 1].localizedCapitalized
+        return symbols[month - 1].capitalized(with: locale)
     }
 
     /// "Травень 2026". Month and year are formatted separately and joined rather than asked
     /// for as one style: several languages — Ukrainian among them — decline the month name
     /// when it is followed by a day, and only the standalone form is a heading.
     private var monthTitle: String {
-        let month = grid.month.formatted(.dateTime.month(.wide)).localizedCapitalized
-        let year = grid.month.formatted(.dateTime.year())
-        return "\(month) \(year)"
+        let month = grid.month.formatted(.dateTime.month(.wide).locale(locale))
+        let year = grid.month.formatted(.dateTime.year().locale(locale))
+        return "\(month.capitalized(with: locale)) \(year)"
     }
 
     /// Ukrainian gives П В С Ч П С Н here, starting wherever `Calendar.firstWeekday` says.
@@ -303,8 +309,11 @@ private struct DayCell: View {
         static let maximumFill: Double = 0.92
     }
 
+    /// As `HistoryCalendarCard`: the app's language, carried on the calendar.
+    private var locale: Locale { calendar.locale ?? .current }
+
     var body: some View {
-        Text(verbatim: date.formatted(.dateTime.day()))
+        Text(verbatim: date.formatted(.dateTime.day().locale(locale)))
             .font(Typography.choiceLabelCompact)
             .foregroundStyle(numeralColour)
             .monospacedDigit()
@@ -346,7 +355,7 @@ private struct DayCell: View {
     /// The date, then what was recorded — never a colour name. VoiceOver users get the figures
     /// the fill encodes, which is the only way this grid is readable without it.
     private var accessibilityLabel: Text {
-        let day = date.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        let day = date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(locale))
 
         guard let entry = self.day else {
             return Text("\(day). Nothing recorded")

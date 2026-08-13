@@ -29,8 +29,34 @@ final class LanguageController {
     /// device's preference order.
     var language: AppLanguage { selection.resolved() }
 
-    /// What to put in the environment. Every `Text` in the app resolves against this.
-    var locale: Locale { language.locale }
+    /// What to put in the environment. Every `Text`, date and number in the app resolves
+    /// against this.
+    ///
+    /// The device's own locale with its language subtag swapped, rather than
+    /// `AppLanguage.locale`. That one is region-less by design — `Locale("uk")` — and a
+    /// region-less Ukrainian locale does not mean "Ukrainian words, everything else as the
+    /// reader has it": it means Ukraine's conventions, so a reader in the United States who
+    /// only wanted the words to change would also get Monday-first weeks, a 24-hour clock
+    /// and a comma for the decimal point. Keeping the region and moving only the language
+    /// is what that property's own comment describes.
+    var locale: Locale {
+        var components = Locale.Components(locale: .current)
+        components.languageComponents.languageCode = Locale.LanguageCode(language.languageCode)
+        return Locale(components: components)
+    }
+
+    /// `Calendar.current`, speaking the app's language.
+    ///
+    /// Needed because `Calendar` carries a locale of its own, and that locale — not the
+    /// SwiftUI environment — is what supplies `standaloneMonthSymbols`, the weekday symbols
+    /// and `firstWeekday`. `Calendar.current` takes the *device's*, so without this the
+    /// History grid keeps the month name and the day letters of the language the app
+    /// launched in, beside a screen that has already repainted in the chosen one.
+    var calendar: Calendar {
+        var calendar = Calendar.current
+        calendar.locale = locale
+        return calendar
+    }
 
     func select(_ selection: LanguageSelection) {
         guard selection != self.selection else { return }

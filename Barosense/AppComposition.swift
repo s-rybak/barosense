@@ -161,7 +161,13 @@ struct AppRootView: View {
         // the whole app in the new language without a relaunch. iOS's own idea of the app
         // language moves separately, at the next launch — see
         // `UserDefaultsLanguagePreferenceStore`.
+        //
+        // The calendar goes in beside it because a locale alone does not carry month names,
+        // weekday letters or the first day of the week — a `Calendar` does, out of its own
+        // `locale`, and `Calendar.current` takes the device's. Views that format a date read
+        // both back out of the environment rather than reaching for `.current`.
         .environment(\.locale, languages.locale)
+        .environment(\.calendar, languages.calendar)
         .task { await services.start() }
     }
 }

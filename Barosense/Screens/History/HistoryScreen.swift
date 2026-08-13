@@ -299,9 +299,9 @@ final class HistoryModel {
         let last = window.upperBound.addingTimeInterval(-1)
 
         guard !calendar.isDate(start, equalTo: last, toGranularity: .month) else {
-            return Text(verbatim: Self.monthAndYear(start))
+            return Text(verbatim: monthAndYear(start))
         }
-        return Text(verbatim: "\(Self.shortMonthAndYear(start)) – \(Self.shortMonthAndYear(last))")
+        return Text(verbatim: "\(shortMonthAndYear(start)) – \(shortMonthAndYear(last))")
     }
 
     /// Up to two tags by use, then how much was taken — the three figures the design draws.
@@ -335,14 +335,26 @@ final class HistoryModel {
         summary = CheckInHistory.summary(of: checkIns, calendar: calendar)
     }
 
-    private static func monthAndYear(_ date: Date) -> String {
-        let month = date.formatted(.dateTime.month(.wide)).localizedCapitalized
-        return "\(month) \(date.formatted(.dateTime.year()))"
+    /// The language the calendar speaks, which is the app's rather than the device's — see
+    /// `LanguageController.calendar`.
+    ///
+    /// Every date on this screen is formatted against it. A bare `.formatted()` resolves
+    /// through `Locale.current`, which is still the language the app *launched* in: a
+    /// switch in Settings would repaint "19 entries" and leave "Серпень 2026" beside it.
+    private var locale: Locale { calendar.locale ?? .current }
+
+    private func monthAndYear(_ date: Date) -> String {
+        let month = date.formatted(.dateTime.month(.wide).locale(locale))
+        return "\(month.capitalized(with: locale)) \(year(of: date))"
     }
 
-    private static func shortMonthAndYear(_ date: Date) -> String {
-        let month = date.formatted(.dateTime.month(.abbreviated)).localizedCapitalized
-        return "\(month) \(date.formatted(.dateTime.year()))"
+    private func shortMonthAndYear(_ date: Date) -> String {
+        let month = date.formatted(.dateTime.month(.abbreviated).locale(locale))
+        return "\(month.capitalized(with: locale)) \(year(of: date))"
+    }
+
+    private func year(of date: Date) -> String {
+        date.formatted(.dateTime.year().locale(locale))
     }
 
     private static func statID(for id: WellbeingTag.ID) -> String {

@@ -405,6 +405,11 @@ private struct MedicationRow: View {
     /// gestures — the resting position is `isOpen`, not this.
     @State private var drag: CGFloat = 0
 
+    /// The app's language and calendar, which are not `.current` — those are still whatever
+    /// the app launched in. See `LanguageController`.
+    @Environment(\.locale) private var locale
+    @Environment(\.calendar) private var calendar
+
     /// Read by `MedicationList` for its separator inset and its empty row, so the three stay
     /// aligned from one set of numbers.
     enum Metrics {
@@ -541,10 +546,13 @@ private struct MedicationRow: View {
     /// Tuesday would draw the identical row. The day is added only when it is not today, so the
     /// ordinary case keeps the short row the frame draws.
     private var taken: String {
-        let time = entry.takenAt.formatted(date: .omitted, time: .shortened)
-        guard !Calendar.current.isDateInToday(entry.takenAt) else { return time }
+        let time = entry.takenAt.formatted(
+            Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
+        )
+        guard !calendar.isDateInToday(entry.takenAt) else { return time }
 
-        return "\(entry.takenAt.formatted(.dateTime.day().month(.abbreviated))), \(time)"
+        let day = entry.takenAt.formatted(.dateTime.day().month(.abbreviated).locale(locale))
+        return "\(day), \(time)"
     }
 }
 

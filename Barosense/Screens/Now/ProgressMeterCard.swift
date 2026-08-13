@@ -36,6 +36,11 @@ struct ProgressMeterCard: View {
     /// absent rather than dimmed.
     var explain: (() -> Void)?
 
+    /// The app's language, which is not `Locale.current` — that one is still whatever the app
+    /// launched in. `48%` and `48 %` are different strings, and the card must not print one
+    /// language's spacing beside the other's words.
+    @Environment(\.locale) private var locale
+
     private enum Metrics {
         static let cornerRadius: CGFloat = 20
         static let borderWidth: CGFloat = 1
@@ -149,14 +154,18 @@ struct ProgressMeterCard: View {
     private var figure: String {
         guard let value else { return "—" }
 
-        return value.formatted(.percent.precision(.fractionLength(0)))
+        return percentage(value)
     }
 
     /// Spoken rather than drawn: VoiceOver reads an em dash as nothing at all.
     private var accessibilityValue: Text {
         guard let value else { return Text("No data") }
 
-        return Text(verbatim: value.formatted(.percent.precision(.fractionLength(0))))
+        return Text(verbatim: percentage(value))
+    }
+
+    private func percentage(_ value: Double) -> String {
+        value.formatted(.percent.precision(.fractionLength(0)).locale(locale))
     }
 }
 

@@ -131,6 +131,10 @@ private struct MedicationSummaryRow: View {
 
     let summary: MedicationSummary
 
+    /// The app's language, which is not `Locale.current` — that one is still whatever the
+    /// app launched in. See `LanguageController.locale`.
+    @Environment(\.locale) private var locale
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -179,7 +183,7 @@ private struct MedicationSummaryRow: View {
     }
 
     private var lastTaken: String {
-        summary.lastTakenAt.formatted(.dateTime.day().month(.abbreviated))
+        summary.lastTakenAt.formatted(.dateTime.day().month(.abbreviated).locale(locale))
     }
 }
 
