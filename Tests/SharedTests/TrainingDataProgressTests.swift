@@ -50,10 +50,10 @@ final class TrainingDataProgressTests: XCTestCase {
         // ml-spec §4 blends personal and prior with `w(n) = n / (n + k)`, k = 30. The target is
         // the count at which `w` first passes a half — the point the explainer sheet describes.
         // If the target moves without that reasoning moving with it, this fails.
-        let k = 30.0
+        let blendK = 30.0
         let n = Double(TrainingDataProgress.targetCheckInCount)
 
-        XCTAssertGreaterThan(n / (n + k), 0.5)
-        XCTAssertLessThan((n - 15) / (n - 15 + k), 0.5)
+        XCTAssertGreaterThan(n / (n + blendK), 0.5)
+        XCTAssertLessThan((n - 15) / (n - 15 + blendK), 0.5)
     }
 }

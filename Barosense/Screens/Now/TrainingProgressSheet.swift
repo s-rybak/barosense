@@ -148,8 +148,15 @@ struct TrainingProgressSheet: View {
 
     /// Two numbers in one string rather than two `Text`s joined with `+`: the separator is
     /// copy, and `Text` concatenation is deprecated on this deployment target.
+    ///
+    /// Both counts are bound to locals first only to keep the line inside the budget. The
+    /// literal is the `Localizable.xcstrings` key — reflowing *it* would mint a new key and
+    /// drop the translation, so the expressions around it are what shorten.
     private var footer: some View {
-        Text("About \(TrainingDataProgress.targetCheckInCount) entries before your own history leads · \(progress.checkInCount) so far")
+        let target = TrainingDataProgress.targetCheckInCount
+        let recorded = progress.checkInCount
+
+        return Text("About \(target) entries before your own history leads · \(recorded) so far")
             .font(Typography.cardNote)
             .foregroundStyle(Palette.inkSubtle)
             .frame(maxWidth: .infinity, alignment: .leading)
