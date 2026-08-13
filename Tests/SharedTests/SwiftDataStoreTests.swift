@@ -210,6 +210,23 @@ final class SwiftDataStoreTests: XCTestCase {
         XCTAssertEqual(read, [checkIn])
     }
 
+    func testAnUnboundedWindowReturnsEveryStoredCheckIn() async throws {
+        // The Now screen's training bar counts every row on the device, so it asks for a window
+        // with no meaningful lower bound. `Date.distantPast` is the obvious way to write that
+        // and it is the one this has to prove, because a predicate that quietly matches nothing
+        // renders as a bar at 0% on a device with a year of history — wrong, and indistinguishable
+        // from a store that failed to open.
+        let store = try makeCheckInStore()
+        for hoursAgo in [0.0, 26.0, 900.0] {
+            try await store.save(CheckIn(timestamp: referenceDate.addingTimeInterval(-hoursAgo * 3600),
+                                         intensity: CheckInIntensity(clamping: 4)))
+        }
+
+        let all = try await store.checkIns(in: Date.distantPast..<referenceDate.addingTimeInterval(1))
+
+        XCTAssertEqual(all.count, 3)
+    }
+
     func testCheckInWithoutTagsMedicationOrNoteRoundTrips() async throws {
         let store = try makeCheckInStore()
         let checkIn = CheckIn(timestamp: referenceDate, intensity: CheckInIntensity(clamping: 1))

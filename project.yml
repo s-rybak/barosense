@@ -45,6 +45,15 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # One warm light theme, which is all Figma has — see Palette. Every surface in it is
+        # a fixed hex, so under the dark appearance only the handful of system-drawn things
+        # invert and they invert *onto* those fixed light surfaces: a TextField prompt drawn
+        # by the system goes near-white on white, and the keyboard and the system share sheets
+        # arrive dark against them. Pinned here rather than with `.preferredColorScheme` on
+        # the root view, because the offenders are UIKit-backed (UIPickerView, the keyboard)
+        # and this is the one switch they all read. Remove it the day Figma ships a dark
+        # palette, not before.
+        INFOPLIST_KEY_UIUserInterfaceStyle: Light
         # Purpose strings. Keep them non-medical: tracking / personal patterns only.
         # Motion is requested on iOS only — the phone owns the barometer.
         INFOPLIST_KEY_NSMotionUsageDescription: >-

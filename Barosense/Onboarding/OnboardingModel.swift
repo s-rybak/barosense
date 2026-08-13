@@ -24,6 +24,11 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     var next: OnboardingStep? {
         OnboardingStep(rawValue: rawValue + 1)
     }
+
+    /// The step before this one, and `nil` on the opening step.
+    var previous: OnboardingStep? {
+        OnboardingStep(rawValue: rawValue - 1)
+    }
 }
 
 /// What went wrong while writing what onboarding collected.
@@ -163,6 +168,18 @@ final class OnboardingModel {
         }
     }
 
+    /// Whether there is a step behind this one to go back to.
+    ///
+    /// False on the opening step, and false while the closing commit is in flight: a move off
+    /// `.ready` mid-write would leave the user on an earlier step while `onFinished` fired
+    /// under them and the flow was torn down.
+    var canGoBack: Bool { step.previous != nil && !isSaving }
+
+    /// Which way the last move went, so the step that arrives slides in from the side it is
+    /// coming from. A back that pushed the new step in from the right would read as another
+    /// step forward.
+    private(set) var isMovingBack = false
+
     /// Advances one step, or finishes if there is nowhere left to go.
     func advance() {
         guard canLeaveCurrentStep else { return }
@@ -171,8 +188,27 @@ final class OnboardingModel {
             Task { await finish() }
             return
         }
+        isMovingBack = false
         withAnimation(.easeInOut(duration: 0.25)) {
             step = next
+        }
+    }
+
+    /// Goes one step back, keeping every answer.
+    ///
+    /// Nothing is cleared and nothing is re-validated on the way: the point of the control is
+    /// that an answer picked by mistake can be changed, and a step that reset itself on the way
+    /// back would take the other answers on it down with the one being fixed.
+    ///
+    /// `canLeaveCurrentStep` deliberately does not apply. It guards what may be *committed*,
+    /// and a user who cannot get past the tag step because they turned every tag off must not
+    /// also be unable to back out of it.
+    func goBack() {
+        guard canGoBack, let previous = step.previous else { return }
+
+        isMovingBack = true
+        withAnimation(.easeInOut(duration: 0.25)) {
+            step = previous
         }
     }
 

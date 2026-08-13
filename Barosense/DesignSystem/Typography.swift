@@ -144,6 +144,20 @@ enum Typography {
         .custom("Manrope-Bold", size: 12, relativeTo: .caption)
         .weight(.bold)
 
+    // MARK: - Now meters
+
+    /// `Manrope/Medium 12` — what a meter card's bar measures, printed beside its figure.
+    ///
+    /// Same face and size as `settingsCaption`, kept separate for the reason the three 11 pt
+    /// captions above are separate from each other: it names a measurement rather than
+    /// supporting a row, and retuning the settings list must not resize the Now screen.
+    ///
+    /// No Figma node cited: the two meter cards were handed over as images rather than from
+    /// the library, so the size is read off the frame and not from a named text style.
+    static let meterLabel = Font
+        .custom("Manrope-Medium", size: 12, relativeTo: .caption)
+        .weight(.medium)
+
     // MARK: - Check-in sheet (Figma `7:330`)
 
     /// `Manrope/Medium 13` — the quiet noun that names a block of the form.

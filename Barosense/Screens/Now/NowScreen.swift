@@ -2,13 +2,25 @@ import SwiftUI
 
 /// The Now destination (Figma `7:632`).
 ///
-/// The pressure chart and the Health card row are built, in the design's own order. The rest
-/// of the screen it draws — the risk card above the chart, the two progress cards below the
-/// row — is still `PlaceholderScreen` territory and lands separately; this file grows a
-/// section at a time.
+/// The pressure chart, the Health card row and the two meter cards under it, in the design's
+/// own order. The risk card above the chart is still `PlaceholderScreen` territory and lands
+/// separately — it is the one block on this screen that needs the model to exist first.
+///
+/// ## What the two meters are, and are not
+///
+/// Neither is a forecast. There is no trained model (`.claude/context/ml-spec.md`), so:
+///
+/// - **Weather Trigger Index** reports how far barometric pressure has moved in six hours —
+///   the pipeline's own trivial baseline, read off rows the phone already has. A statement
+///   about the weather, never about the user.
+/// - **Model training progress** counts check-ins against the point where a personal model
+///   would outweigh the population prior. The ⓘ opens `TrainingProgressSheet`, which is where
+///   the difference between "48% of the data" and "48% accurate" gets stated in words.
 struct NowScreen: View {
 
     @State private var model: HealthMetricsViewModel
+    @State private var meters: NowMetersModel
+    @State private var isExplainingProgress = false
 
     private let pressure: PressureCollectionController
     private let checkIns: any CheckInStore
@@ -29,6 +41,7 @@ struct NowScreen: View {
          checkIns: any CheckInStore,
          checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
+        _meters = State(initialValue: NowMetersModel(pressure: pressure, checkIns: checkIns))
         self.pressure = pressure
         self.checkIns = checkIns
         self.checkInRevision = checkInRevision
@@ -50,14 +63,99 @@ struct NowScreen: View {
                             .foregroundStyle(Palette.inkSubtle)
                     }
                 }
+
+                ProgressMeterCard(title: "Weather Trigger Index",
+                                  value: meters.trigger?.value,
+                                  tint: Palette.markerWarm,
+                                  unavailableNote: meters.triggerUnavailableNote)
+
+                ProgressMeterCard(title: "Model training progress",
+                                  value: meters.training.fraction,
+                                  tint: Palette.markerCool,
+                                  explain: { isExplainingProgress = true })
             }
             .padding(.horizontal, Self.horizontalMargin)
             .padding(.top, Self.horizontalMargin)
+            .padding(.bottom, Self.cardSpacing)
         }
         // `.task` rather than `.onAppear`: the read is async and gets cancelled with the
         // view instead of outliving it.
         .task { await model.load() }
-        .refreshable { await model.reload() }
+        // Keyed, so a check-in written from the sheet moves the training bar without the
+        // screen being rebuilt — a rebuild would also reset the range picked on the chart.
+        .task(id: checkInRevision) { await meters.load() }
+        // A barometer reading that lands while this screen is open moves the index. The chart
+        // watches the same signal, for the same reason: a timer would tick whether or not
+        // anything changed.
+        .onChange(of: pressure.lastUpdateAt) { _, _ in
+            Task { await meters.load() }
+        }
+        .refreshable {
+            await model.reload()
+            await meters.load()
+        }
+        .sheet(isPresented: $isExplainingProgress) {
+            TrainingProgressSheet(progress: meters.training)
+        }
+    }
+}
+
+/// State behind the two meter cards.
+///
+/// Holds no arithmetic. What the index means is `WeatherTriggerIndex.make`, and what the bar
+/// measures is `TrainingDataProgress` — both in `Shared/`, where a test reaches them without a
+/// screen or a sensor.
+@MainActor
+@Observable
+final class NowMetersModel {
+
+    /// `nil` until the first read finishes, and again whenever the log is too thin to support
+    /// a figure. `hasLoaded` separates the two for the card's note.
+    private(set) var trigger: WeatherTriggerIndex?
+
+    private(set) var training = TrainingDataProgress(checkInCount: 0)
+
+    private(set) var hasLoaded = false
+
+    private let pressure: PressureCollectionController
+    private let checkIns: any CheckInStore
+    private let now: () -> Date
+
+    init(pressure: PressureCollectionController,
+         checkIns: any CheckInStore,
+         now: @escaping () -> Date = Date.init) {
+        self.pressure = pressure
+        self.checkIns = checkIns
+        self.now = now
+    }
+
+    /// Why the index card has no figure, or `nil` while it does.
+    ///
+    /// Three different absences, and the user can act on exactly one of them. A device with no
+    /// barometer will never fill this card and has to say so instead of looking like it is
+    /// still loading; a thin log fills itself as the phone gets used; and the moment before the
+    /// first read returns is not an absence at all, so it stays blank.
+    var triggerUnavailableNote: LocalizedStringKey? {
+        guard trigger == nil, hasLoaded else { return nil }
+        guard pressure.isBarometerAvailable else { return "This device has no barometer" }
+
+        return "Not enough pressure readings in the last few hours"
+    }
+
+    func load() async {
+        let instant = now()
+
+        let samples = await pressure.samples(trailing: WeatherTriggerIndex.windowSeconds)
+        trigger = WeatherTriggerIndex.make(from: samples, asOf: instant)
+
+        // Every stored check-in, counted. `CheckInStore` reads a range and has no count of its
+        // own, so this pulls the rows to count them — acceptable at this table's size (a few a
+        // day against a five-year horizon) and worth replacing with a `count(in:)` on the
+        // protocol before anything else needs the same figure.
+        let recorded = (try? await checkIns.checkIns(in: Date.distantPast..<instant)) ?? []
+        training = TrainingDataProgress(checkInCount: recorded.count)
+
+        hasLoaded = true
     }
 }
 

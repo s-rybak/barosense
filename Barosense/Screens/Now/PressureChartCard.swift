@@ -252,6 +252,10 @@ private struct PressureChartPlot: View {
 
     let series: PressureSeries
 
+    /// The app's language, which is not `Locale.current` — that one is still whatever the app
+    /// launched in. See `LanguageController.locale`.
+    @Environment(\.locale) private var locale
+
     /// Above this many points *per screenful* the dots become a smear and the line reads
     /// better alone. The design draws roughly seven of them, which is a six-hour window at
     /// the target cadence.
@@ -309,8 +313,8 @@ private struct PressureChartPlot: View {
             // check-in is the user's own entry and a few a day is the whole density, so the
             // smear the `maximumVisiblePoints` gate guards against cannot happen here.
             ForEach(series.checkIns) { marker in
-                PointMark(x: .value("Час", marker.timestamp),
-                          y: .value("Тиск", marker.hectopascals))
+                PointMark(x: .value("Time", marker.timestamp),
+                          y: .value("Pressure", marker.hectopascals))
                 .symbol {
                     CheckInDot(colour: Palette.intensity(marker.intensity))
                 }
@@ -373,7 +377,9 @@ private struct PressureChartPlot: View {
             return Text("No data")
         }
         let span = Duration.seconds(last.timestamp.timeIntervalSince(first.timestamp))
-        let formattedSpan = span.formatted(.units(allowed: [.days, .hours], width: .wide))
+        let formattedSpan = span.formatted(
+            .units(allowed: [.days, .hours], width: .wide).locale(locale)
+        )
         return Text("Readings: \(count) · \(formattedSpan)")
     }
 }

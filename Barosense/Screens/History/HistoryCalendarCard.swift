@@ -13,6 +13,10 @@ import SwiftUI
 /// **Colour is never the only channel** (`Palette.intensity`). The numeral stays in every
 /// cell, the fill's opacity carries the same value as its hue so the grid still reads in
 /// greyscale, and each recorded day exposes its actual figures to VoiceOver.
+///
+/// The navigation — ‹ ›, the month/year wheels behind the title, "Now", the weekday row and the
+/// cell layout — is `MonthCalendar`, shared with the day picker on the medication sheet. This
+/// type is the card around it and the fill inside each cell, which is all that is History's own.
 struct HistoryCalendarCard: View {
 
     let grid: MonthGrid
@@ -22,55 +26,33 @@ struct HistoryCalendarCard: View {
 
     let calendar: Calendar
 
-    /// Blocked past the month containing today: a grid of empty future cells reads as data
-    /// loss rather than as "not yet".
-    let canGoForward: Bool
+    /// Start of the month containing today. Nothing after it is reachable — a grid of empty
+    /// future cells reads as data loss rather than as "not yet" — so this bounds the ›
+    /// arrow and the picker alike, and says whether "Now" has anywhere to go.
+    let currentMonth: Date
 
     /// Signed month step, run by the ‹ › buttons.
     let move: (Int) -> Void
+
+    /// Jump straight to a month, run by the two wheels behind the title.
+    let select: (_ month: Int, _ year: Int) -> Void
 
     private enum Metrics {
         static let cornerRadius: CGFloat = 20
         static let borderWidth: CGFloat = 1
         static let padding: CGFloat = 17
-        static let headerSpacing: CGFloat = 14
-        static let columnSpacing: CGFloat = 4
-        static let rowSpacing: CGFloat = 6
-        static let cellHeight: CGFloat = 32
-        static let arrowSide: CGFloat = 30
-    }
-
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: Metrics.columnSpacing),
-              count: grid.weekdays.count)
     }
 
     var body: some View {
-        VStack(spacing: Metrics.headerSpacing) {
-            header
-
-            LazyVGrid(columns: columns, spacing: Metrics.rowSpacing) {
-                ForEach(grid.weekdays, id: \.self) { weekday in
-                    Text(verbatim: symbol(for: weekday))
-                        .font(Typography.captionEmphasis)
-                        .foregroundStyle(Palette.inkSubtle)
-                        .frame(maxWidth: .infinity)
-                }
-
-                // Indexed because half the cells are padding and share the `nil` value, so
-                // there is nothing in the element itself to identify it by.
-                ForEach(Array(grid.cells.enumerated()), id: \.offset) { _, date in
-                    if let date {
-                        DayCell(date: date,
-                                day: days[calendar.startOfDay(for: date)],
-                                isToday: calendar.isDateInToday(date),
-                                calendar: calendar)
-                        .frame(height: Metrics.cellHeight)
-                    } else {
-                        Color.clear.frame(height: Metrics.cellHeight)
-                    }
-                }
-            }
+        MonthCalendar(grid: grid,
+                      calendar: calendar,
+                      currentMonth: currentMonth,
+                      move: move,
+                      select: select) { date in
+            DayCell(date: date,
+                    day: days[calendar.startOfDay(for: date)],
+                    isToday: calendar.isDateInToday(date),
+                    calendar: calendar)
         }
         .padding(Metrics.padding)
         .frame(maxWidth: .infinity)
@@ -82,57 +64,6 @@ struct HistoryCalendarCard: View {
             RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
                 .strokeBorder(Palette.cardBorder, lineWidth: Metrics.borderWidth)
         }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: 0) {
-            arrow(step: -1, systemName: "chevron.left", label: "Previous month")
-                .accessibilitySortPriority(1)
-
-            Text(verbatim: monthTitle)
-                .font(Typography.cardTitle)
-                .foregroundStyle(Palette.heading)
-                .frame(maxWidth: .infinity)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilitySortPriority(2)
-
-            arrow(step: 1, systemName: "chevron.right", label: "Next month")
-                .disabled(!canGoForward)
-                .opacity(canGoForward ? 1 : 0.35)
-                .accessibilitySortPriority(0)
-        }
-    }
-
-    private func arrow(step: Int, systemName: String, label: LocalizedStringKey) -> some View {
-        Button {
-            move(step)
-        } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Palette.bodyText)
-                .frame(width: Metrics.arrowSide, height: Metrics.arrowSide)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(label))
-    }
-
-    /// "Травень 2026". Month and year are formatted separately and joined rather than asked
-    /// for as one style: several languages — Ukrainian among them — decline the month name
-    /// when it is followed by a day, and only the standalone form is a heading.
-    private var monthTitle: String {
-        let month = grid.month.formatted(.dateTime.month(.wide)).localizedCapitalized
-        let year = grid.month.formatted(.dateTime.year())
-        return "\(month) \(year)"
-    }
-
-    /// Ukrainian gives П В С Ч П С Н here, starting wherever `Calendar.firstWeekday` says.
-    private func symbol(for weekday: Int) -> String {
-        let symbols = calendar.veryShortStandaloneWeekdaySymbols
-        guard symbols.indices.contains(weekday - 1) else { return "" }
-        return symbols[weekday - 1]
     }
 }
 
@@ -156,8 +87,11 @@ private struct DayCell: View {
         static let maximumFill: Double = 0.92
     }
 
+    /// As `HistoryCalendarCard`: the app's language, carried on the calendar.
+    private var locale: Locale { calendar.locale ?? .current }
+
     var body: some View {
-        Text(verbatim: date.formatted(.dateTime.day()))
+        Text(verbatim: date.formatted(.dateTime.day().locale(locale)))
             .font(Typography.choiceLabelCompact)
             .foregroundStyle(numeralColour)
             .monospacedDigit()
@@ -199,7 +133,7 @@ private struct DayCell: View {
     /// The date, then what was recorded — never a colour name. VoiceOver users get the figures
     /// the fill encodes, which is the only way this grid is readable without it.
     private var accessibilityLabel: Text {
-        let day = date.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        let day = date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(locale))
 
         guard let entry = self.day else {
             return Text("\(day). Nothing recorded")
@@ -230,8 +164,9 @@ private struct DayCell: View {
     return HistoryCalendarCard(grid: CheckInHistory.grid(forMonthContaining: now, calendar: calendar),
                                days: days,
                                calendar: calendar,
-                               canGoForward: false,
-                               move: { _ in })
+                               currentMonth: start,
+                               move: { _ in },
+                               select: { _, _ in })
         .padding(20)
         .background(Palette.surface)
 }

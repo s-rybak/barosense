@@ -46,6 +46,73 @@ final class AppLanguageResolutionTests: XCTestCase {
     }
 }
 
+/// What the app actually formats dates and numbers against once a language is picked.
+///
+/// The SwiftUI environment carries `LocalizedStringKey` lookups, and nothing else: a
+/// `.formatted()` call resolves through `Locale.current` and a `Calendar` names its months out
+/// of its own `locale`. Both of those are still whatever the app *launched* in, which is how a
+/// screen ends up reading "Серпень 2026 · 19 entries". These pin the two properties that fix it.
+@MainActor
+final class LanguageControllerFormattingTests: XCTestCase {
+
+    private var defaults: UserDefaults!
+    private var suiteName: String!
+
+    override func setUpWithError() throws {
+        suiteName = "barosense.tests.\(UUID().uuidString)"
+        defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
+    private func controller(pinnedTo language: AppLanguage) -> LanguageController {
+        let store = UserDefaultsLanguagePreferenceStore(defaults: defaults)
+        let controller = LanguageController(store: store)
+        controller.select(.fixed(language))
+        return controller
+    }
+
+    func testTheFormattingLocaleSpeaksThePickedLanguage() {
+        XCTAssertEqual(controller(pinnedTo: .ukrainian).locale.language.languageCode?.identifier,
+                       "uk")
+        XCTAssertEqual(controller(pinnedTo: .english).locale.language.languageCode?.identifier,
+                       "en")
+    }
+
+    /// The user picked a language, not a country. Pinning `Locale("uk")` outright would also
+    /// hand a reader in the United States Ukraine's week, clock and decimal separator.
+    func testThePickedLanguageKeepsTheDevicesRegion() {
+        XCTAssertEqual(controller(pinnedTo: .ukrainian).locale.region, Locale.current.region)
+        XCTAssertEqual(controller(pinnedTo: .english).locale.region, Locale.current.region)
+    }
+
+    /// The regression itself. `Calendar` names its months and its weekday column out of the
+    /// locale it carries, and `Calendar.current` carries the device's — so without this the
+    /// History grid keeps the month name of the language the app launched in.
+    func testTheCalendarNamesItsMonthsInThePickedLanguage() {
+        let ukrainian = controller(pinnedTo: .ukrainian).calendar
+        let english = controller(pinnedTo: .english).calendar
+
+        XCTAssertEqual(ukrainian.locale?.language.languageCode?.identifier, "uk")
+        XCTAssertEqual(english.locale?.language.languageCode?.identifier, "en")
+        XCTAssertNotEqual(ukrainian.standaloneMonthSymbols, english.standaloneMonthSymbols)
+        XCTAssertNotEqual(ukrainian.veryShortStandaloneWeekdaySymbols,
+                          english.veryShortStandaloneWeekdaySymbols)
+    }
+
+    /// Only the language moves. The calendar system and the time zone are the device's, and a
+    /// language switch that changed either would re-date every check-in on screen.
+    func testOnlyTheLanguageMovesOnTheCalendar() {
+        let calendar = controller(pinnedTo: .ukrainian).calendar
+
+        XCTAssertEqual(calendar.identifier, Calendar.current.identifier)
+        XCTAssertEqual(calendar.timeZone, Calendar.current.timeZone)
+    }
+}
+
 /// The stored preference, including the `AppleLanguages` override iOS itself reads.
 final class LanguagePreferenceStoreTests: XCTestCase {
 

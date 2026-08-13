@@ -458,6 +458,57 @@
         }
       }
     },
+    "About %lld entries before your own history leads · %lld so far" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About %lld entries before your own history leads · %lld so far"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Близько %lld записів, щоб модель спиралась на твої дані · наразі %lld"
+          }
+        }
+      }
+    },
+    "Add the tags and what you took, not just the intensity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add the tags and what you took, not just the intensity"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додавай позначки й ліки, а не тільки силу відчуття"
+          }
+        }
+      }
+    },
+    "Atmospheric pressure and how fast it is changing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atmospheric pressure and how fast it is changing"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Атмосферний тиск і швидкість його зміни"
+          }
+        }
+      }
+    },
     "A–Z" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -507,6 +558,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Додати ліки"
+          }
+        }
+      }
+    },
+    "Add tag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add tag"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додати тег"
           }
         }
       }
@@ -827,6 +894,22 @@
         }
       }
     },
+    "Choose month and year" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose month and year"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обрати місяць і рік"
+          }
+        }
+      }
+    },
     "Close" : {
       "localizations" : {
         "uk" : {
@@ -977,6 +1060,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Поточний атмосферний тиск і як він змінювався сьогодні."
+          }
+        }
+      }
+    },
+    "Current month" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current month"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поточний місяць"
           }
         }
       }
@@ -1499,6 +1598,23 @@
         }
       }
     },
+    "Keep Apple Health connected, for sleep and heart rate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Apple Health connected, for sleep and heart rate"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тримай Apple Health підключеним — для сну й пульсу"
+          }
+        }
+      }
+    },
     "Keep at least one — a check-in needs something to tag." : {
       "localizations" : {
         "en" : {
@@ -1527,6 +1643,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Продовжити редагування"
+          }
+        }
+      }
+    },
+    "Kept in your list for next time." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kept in your list for next time."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Залишиться у твоєму списку на наступний раз."
           }
         }
       }
@@ -1612,6 +1744,23 @@
         }
       }
     },
+    "Log a check-in on ordinary days too, not only on bad ones" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log a check-in on ordinary days too, not only on bad ones"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записуй стан і у звичайні дні, не тільки в погані"
+          }
+        }
+      }
+    },
     "Log how you feel" : {
       "localizations" : {
         "en" : {
@@ -1672,6 +1821,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Прийняті ліки"
+          }
+        }
+      }
+    },
+    "Model training progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model training progress"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прогрес навчання моделі"
           }
         }
       }
@@ -1819,6 +1985,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Поки немає даних з Health"
+          }
+        }
+      }
+    },
+    "Not enough pressure readings in the last few hours" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough pressure readings in the last few hours"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Замало вимірювань тиску за останні години"
           }
         }
       }
@@ -2483,6 +2666,23 @@
         }
       }
     },
+    "Sleep, resting heart rate and blood oxygen from Apple Health" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep, resting heart rate and blood oxygen from Apple Health"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сон, пульс у спокої та кисень у крові з Apple Health"
+          }
+        }
+      }
+    },
     "Some data is still on this device" : {
       "localizations" : {
         "en" : {
@@ -2595,6 +2795,38 @@
         }
       }
     },
+    "Tag name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag name"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Назва тегу"
+          }
+        }
+      }
+    },
+    "That tag could not be added to your list. Check that the device has free space and try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That tag could not be added to your list. Check that the device has free space and try again."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося додати тег до списку. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
+          }
+        }
+      }
+    },
     "The model learns from your data alone. For a sharper forecast it needs 90 days of tracking at 3 check-ins a day." : {
       "localizations" : {
         "en" : {
@@ -2607,6 +2839,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Модель навчається саме на твоїх даних. Для кращого прогнозу потрібно 90 днів спостережень по 3 логи в день."
+          }
+        }
+      }
+    },
+    "The model will look for links between pressure, weather and how you feel. The more entries you add, the more it leans on your own history instead of general patterns." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The model will look for links between pressure, weather and how you feel. The more entries you add, the more it leans on your own history instead of general patterns."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Модель шукатиме зв’язок між тиском, погодою і твоїм самопочуттям. Що більше записів — то більше вона спиратиметься на твою власну історію, а не на загальні закономірності."
           }
         }
       }
@@ -2685,6 +2934,23 @@
         }
       }
     },
+    "To learn faster" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To learn faster"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Щоб модель навчалась швидше"
+          }
+        }
+      }
+    },
     "Try again" : {
       "localizations" : {
         "en" : {
@@ -2697,6 +2963,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Спробувати ще раз"
+          }
+        }
+      }
+    },
+    "Weather Trigger Index" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weather Trigger Index"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Індекс змін погоди"
           }
         }
       }
@@ -2745,6 +3028,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Що ти хочеш позначати в чек-іні?"
+          }
+        }
+      }
+    },
+    "What it learns from" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What it learns from"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На чому навчається"
+          }
+        }
+      }
+    },
+    "What this measures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What this measures"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Що це показує"
           }
         }
       }
@@ -2895,6 +3212,23 @@
         }
       }
     },
+    "Your check-ins, the tags on them and what you took" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your check-ins, the tags on them and what you took"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твої записи стану, позначки на них і прийняті ліки"
+          }
+        }
+      }
+    },
     "Your medications" : {
       "localizations" : {
         "uk" : {
@@ -2968,14 +3302,6 @@
           }
         }
       }
-    },
-    "Тиск" : {
-      "comment" : "Label for the y-axis in the pressure chart.",
-      "isCommentAutoGenerated" : true
-    },
-    "Час" : {
-      "comment" : "Label for the X axis.",
-      "isCommentAutoGenerated" : true
     }
   },
   "version" : "1.1"
