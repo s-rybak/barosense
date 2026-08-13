@@ -542,15 +542,19 @@ private struct TimeWheel: View {
 
 /// The month calendar behind the "Other day" chip.
 ///
-/// `DatePicker` here where `TimeWheel` had to be hand-built: the objection to `DatePicker` under
-/// `.wheel` was that its digits ignore `foregroundStyle` and washed out on this surface. The
-/// `.graphical` style has no such problem — it takes the accent from `tint` and draws its
-/// numerals in the system label colour, which is the ink this sheet already uses. Rebuilding a
-/// month grid by hand to gain nothing would only be a second calendar to keep in step with
-/// `HistoryCalendarCard`.
+/// `MonthCalendar`, the same component the History grid is built from, rather than the
+/// `DatePicker(.graphical)` this shipped with. The system picker was chosen on the grounds that
+/// rebuilding a month grid by hand would gain nothing — that was wrong, and three things it gave
+/// up are visible on screen. It draws its own header, so the month title, the ‹ › arrows and the
+/// wheels behind them look and behave differently here than four taps away on History. It has no
+/// way back to the current month once the user has paged away from it. And it resolves its own
+/// locale rather than reading the environment, so after a language switch it kept naming its
+/// month and its weekday column in whatever language the app launched in — the bug
+/// `LanguageController.calendar` exists to fix, reintroduced by a control that does not read it.
 ///
-/// `.date` only. The hour and minute are the other chip's job, and offering them twice is two
-/// controls that can disagree about the same entry.
+/// Days only. The hour and minute are the other chip's job, and offering them twice is two
+/// controls that can disagree about the same entry — which is also why picking a day keeps the
+/// time of day the binding already carried instead of resetting it to midnight.
 private struct DayCalendar: View {
 
     @Binding var date: Date
@@ -559,14 +563,139 @@ private struct DayCalendar: View {
     /// sheet agree on "now" even if the sheet has been open for a while.
     let latest: Date
 
+    /// The app's calendar, which is where the month names, the weekday letters and the first day
+    /// of the week come from — see `LanguageController.calendar`.
+    @Environment(\.calendar) private var calendar
+
+    /// The month on screen, once the user has moved it. `nil` until then, so the grid opens on
+    /// whatever day is selected rather than on a month captured when the sheet was built.
+    @State private var browsedMonth: Date?
+
+    private var shownMonth: Date {
+        browsedMonth ?? CheckInHistory.startOfMonth(containing: date, calendar: calendar)
+    }
+
+    /// The last reachable month: the one holding `latest`. A dose cannot have been taken after
+    /// the moment the user is writing it down, so later months are not offered at all.
+    private var currentMonth: Date {
+        CheckInHistory.startOfMonth(containing: latest, calendar: calendar)
+    }
+
     var body: some View {
-        DatePicker("Day taken", selection: $date, in: ...latest, displayedComponents: .date)
-            .datePickerStyle(.graphical)
-            .labelsHidden()
-            // The same ink a selected chip is filled with, so the chosen day and the chip that
-            // revealed it read as one selection.
-            .tint(Palette.ink)
-            .frame(maxWidth: .infinity)
+        MonthCalendar(grid: CheckInHistory.grid(forMonthContaining: shownMonth,
+                                                calendar: calendar),
+                      calendar: calendar,
+                      currentMonth: currentMonth,
+                      move: step,
+                      select: jump) { day in
+            DayPickerCell(date: day,
+                          isSelected: calendar.isDate(day, inSameDayAs: date),
+                          isToday: calendar.isDateInToday(day),
+                          isReachable: day <= latest,
+                          calendar: calendar) {
+                pick(day)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Navigation
+
+    /// The ‹ › arrows. Clamped on the way forward as well as being disabled there, so the two
+    /// cannot disagree about which month is last.
+    private func step(_ offset: Int) {
+        let moved = CheckInHistory.month(offsetBy: offset, from: shownMonth, calendar: calendar)
+        browsedMonth = min(moved, currentMonth)
+    }
+
+    /// The wheels and "Now". `CheckInHistory.month(_:of:notAfter:)` does the clamping.
+    private func jump(month: Int, year: Int) {
+        browsedMonth = CheckInHistory.month(month, of: year, notAfter: latest, calendar: calendar)
+    }
+
+    // MARK: - Selection
+
+    /// Moves the day and keeps the clock reading.
+    ///
+    /// The binding carries a whole instant, and only its date components belong to this control:
+    /// a dose the user placed at 09:00 stays at 09:00 when they move it to yesterday. Clamped to
+    /// `latest` for the one case that can still overshoot — a time of day carried in from
+    /// yesterday evening, dropped onto today.
+    private func pick(_ day: Date) {
+        let clock = calendar.dateComponents([.hour, .minute, .second], from: date)
+        var parts = calendar.dateComponents([.year, .month, .day], from: day)
+        parts.hour = clock.hour
+        parts.minute = clock.minute
+        parts.second = clock.second
+
+        guard let picked = calendar.date(from: parts) else { return }
+
+        date = min(picked, latest)
+    }
+}
+
+/// One day of `DayCalendar`: a button that says whether it is the chosen day, whether it is
+/// today, and whether it can be chosen at all.
+///
+/// Deliberately not `HistoryCalendarCard`'s `DayCell`. That one reports what was recorded on a
+/// day and is not tappable; this one is a control. They share the grid, not the cell — see
+/// `MonthCalendar`.
+private struct DayPickerCell: View {
+
+    let date: Date
+    let isSelected: Bool
+    let isToday: Bool
+
+    /// `false` for a day after the moment the entry is being written. Drawn dim and refuses the
+    /// tap, rather than being blanked: a gap in the grid reads as a calendar fault.
+    let isReachable: Bool
+
+    let calendar: Calendar
+    let select: () -> Void
+
+    private enum Metrics {
+        static let radius: CGFloat = 9
+        static let todayRing: CGFloat = 1.5
+    }
+
+    /// As `MonthCalendar`: the app's language, carried on the calendar.
+    private var locale: Locale { calendar.locale ?? .current }
+
+    var body: some View {
+        Button(action: select) {
+            Text(verbatim: date.formatted(.dateTime.day().locale(locale)))
+                .font(Typography.choiceLabelCompact)
+                .foregroundStyle(numeralColour)
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background {
+                    RoundedRectangle(cornerRadius: Metrics.radius, style: .continuous)
+                        // The same ink a selected chip is filled with, so the chosen day and
+                        // the chip that revealed it read as one selection.
+                        .fill(isSelected ? Palette.ink : .clear)
+                }
+                .overlay {
+                    // Today's ring, dropped once today *is* the selection — a ring in
+                    // `Palette.ink` around a fill in `Palette.ink` is invisible anyway, and
+                    // drawing it costs the numeral nothing to leave out.
+                    if isToday, !isSelected {
+                        RoundedRectangle(cornerRadius: Metrics.radius, style: .continuous)
+                            .strokeBorder(Palette.ink, lineWidth: Metrics.todayRing)
+                    }
+                }
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isReachable)
+        .accessibilityLabel(Text(verbatim: date.formatted(
+            .dateTime.weekday(.wide).day().month(.wide).locale(locale)
+        )))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private var numeralColour: Color {
+        if isSelected { return Palette.onInk }
+        return isReachable ? Palette.heading : Palette.placeholder
     }
 }
 
