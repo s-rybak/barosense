@@ -13,13 +13,16 @@ struct SettingsDependencies: Sendable {
     let healthAccess: any HealthAccessReporting
     let eraser: BarosenseDataEraser
 
+    /// Read by the report screen and by nothing else in this tab.
+    ///
+    /// Both were already required by the initialiser for the eraser's sake; they became stored
+    /// properties when the report arrived, because that screen summarises the same window of
+    /// check-ins and barometer readings the erase would remove.
+    let checkInStore: any CheckInStore
+    let pressureLog: any PressureSampleStore
+
     /// Builds the eraser from the same store instances the screens read, so an erase
     /// cannot miss a store the settings screen is showing.
-    ///
-    /// `checkInStore` is the exception and is required anyway: no settings screen displays
-    /// a check-in, so it is not stored above — but it holds the notes and medication
-    /// entries "delete my data" is mostly about, and taking it here is what stops the erase
-    /// being assembled without it.
     init(profileStore: any UserProfileStore,
          tagStore: any WellbeingTagStore,
          checkInStore: any CheckInStore,
@@ -28,7 +31,9 @@ struct SettingsDependencies: Sendable {
          healthAccess: any HealthAccessReporting) {
         self.profileStore = profileStore
         self.tagStore = tagStore
+        self.checkInStore = checkInStore
         self.healthLog = healthLog
+        self.pressureLog = pressureLog
         self.healthAccess = healthAccess
         self.eraser = BarosenseDataEraser(profileStore: profileStore,
                                           checkInStore: checkInStore,

@@ -3,6 +3,7 @@ import SwiftUI
 /// Where a settings row leads.
 enum SettingsRoute: Hashable {
     case editProfile
+    case report
     case language
     case contact
 }
@@ -83,6 +84,7 @@ struct SettingsScreen: View {
 
                 profileCard
                 preferencesCard
+                reportCard
                 contactCard
                 destructiveActions
             }
@@ -192,6 +194,17 @@ struct SettingsScreen: View {
         }
     }
 
+    /// The way to a shareable document. On its own card rather than beside Language: it is the
+    /// one row here that produces a file and hands it to somebody else, and grouping it with
+    /// two preferences would bury that.
+    private var reportCard: some View {
+        SettingsCard {
+            SettingsNavigationRow(title: ReportScreenCopy.settingsRow) {
+                path.append(.report)
+            }
+        }
+    }
+
     private var contactCard: some View {
         SettingsCard {
             SettingsNavigationRow(title: "Contact us") {
@@ -291,6 +304,11 @@ struct SettingsScreen: View {
                                   path.removeAll()
                                   model.confirmEraseEverything()
                               })
+
+        case .report:
+            ReportScreen(dependencies: dependencies,
+                         languages: languages,
+                         back: { path.removeLast() })
 
         case .language:
             LanguageScreen(languages: languages, back: { path.removeLast() })
