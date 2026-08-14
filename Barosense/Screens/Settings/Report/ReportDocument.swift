@@ -438,7 +438,7 @@ private struct ReportSourcesBlock: View {
 
             Spacer(minLength: 8)
 
-            Text("\(source.count)")
+            Text("\(source.rowCount)")
                 .font(Typography.settingsRowValue)
                 .foregroundStyle(Palette.bodyText)
                 .monospacedDigit()

@@ -161,15 +161,19 @@ extension ReportSource.Kind {
 /// Three paragraphs, each answering a different question a reader could reasonably have: what
 /// this is, what the numbers in it are, and what they may now do with the file.
 ///
-/// ## Why the forbidden words are in here
+/// ## Why the barred words are in here
 ///
-/// `.claude/skills/appstore_compliance/SKILL.md` bars "medical" and "diagnosis" from every
-/// product surface, and the same checklist *requires* a plain-language statement that the app
-/// is not medical advice. The two meet here: the rule exists to stop the app making a claim,
-/// and these sentences are the negation of that claim. `scripts/ci/check-copy-vocabulary.sh`
-/// exempts any line carrying "not medical", which is why each sentence that names one of those
-/// words keeps it on the same physical line as that phrase. Do not re-wrap these literals
-/// without re-reading that script.
+/// `.claude/skills/appstore_compliance/SKILL.md` bars a list of claim words from every product
+/// surface, and the same checklist *requires* a plain-language statement that the app is
+/// not medical advice — a sentence that cannot be written without two of them. The two meet
+/// here: the rule exists to stop the app making a claim, and these sentences negate one.
+///
+/// `scripts/ci/check-copy-vocabulary.sh` exempts any line carrying "not medical", which is why
+/// every sentence naming one of those words keeps it on the same physical line as that phrase.
+/// That applies to this comment as much as to the copy — the guard reads comments too, and this
+/// paragraph tripped it twice while being written: once by naming both words in a line that
+/// negated neither, once by letting a re-wrap split the exempting phrase across two lines.
+/// Do not re-wrap any of this without re-reading that script.
 enum ReportDisclaimerCopy {
 
     static var heading: LocalizedStringKey { "This report is not medical advice" }

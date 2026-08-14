@@ -210,7 +210,7 @@ final class ReportBuilderTests: XCTestCase {
         XCTAssertEqual(report.sources.map(\.kind), ReportSource.Kind.allCases)
         XCTAssertEqual(report.sources.first { $0.kind == .checkIns }?.isPresent, true)
         XCTAssertEqual(report.sources.first { $0.kind == .barometer }?.isPresent, false)
-        XCTAssertEqual(report.sources.first { $0.kind == .appleHealth }?.count, 0)
+        XCTAssertEqual(report.sources.first { $0.kind == .appleHealth }?.rowCount, 0)
     }
 
     // MARK: - Profile
@@ -233,11 +233,11 @@ final class ReportBuilderTests: XCTestCase {
                                   window: ReportPeriod.oneMonth.window(endingOn: generatedAt,
                                                                        calendar: calendar),
                                   generatedAt: generatedAt,
-                                  profile: profile,
-                                  checkIns: checkIns,
-                                  pressureSamples: pressure,
-                                  healthReadingCount: healthReadingCount,
-                                  tagsByID: vocabulary,
+                                  from: ReportInput(profile: profile,
+                                                    checkIns: checkIns,
+                                                    pressureSamples: pressure,
+                                                    healthReadingCount: healthReadingCount,
+                                                    tagsByID: vocabulary),
                                   calendar: calendar)
     }
 

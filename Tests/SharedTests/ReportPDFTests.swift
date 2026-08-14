@@ -160,16 +160,17 @@ final class ReportPDFTests: XCTestCase {
                            note: note)
         }
 
-        return ReportBuilder.make(period: .twelveMonths,
-                                  window: ReportPeriod.twelveMonths.window(endingOn: generatedAt,
-                                                                           calendar: calendar),
-                                  generatedAt: generatedAt,
-                                  profile: nil,
-                                  checkIns: checkIns,
-                                  pressureSamples: [],
-                                  healthReadingCount: 0,
-                                  tagsByID: Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) }),
-                                  calendar: calendar)
+        return ReportBuilder.make(
+            period: .twelveMonths,
+            window: ReportPeriod.twelveMonths.window(endingOn: generatedAt, calendar: calendar),
+            generatedAt: generatedAt,
+            from: ReportInput(profile: nil,
+                              checkIns: checkIns,
+                              pressureSamples: [],
+                              healthReadingCount: 0,
+                              tagsByID: Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })),
+            calendar: calendar
+        )
     }
 
     // MARK: - Rendering
@@ -227,13 +228,13 @@ final class ReportPDFTests: XCTestCase {
                                   window: ReportPeriod.oneMonth.window(endingOn: generatedAt,
                                                                        calendar: calendar),
                                   generatedAt: generatedAt,
-                                  profile: UserProfile(displayName: "Олена",
-                                                       ageYears: 34,
-                                                       gender: .female),
-                                  checkIns: checkIns,
-                                  pressureSamples: pressure(),
-                                  healthReadingCount: 128,
-                                  tagsByID: [tag.id: tag],
+                                  from: ReportInput(profile: UserProfile(displayName: "Олена",
+                                                                         ageYears: 34,
+                                                                         gender: .female),
+                                                    checkIns: checkIns,
+                                                    pressureSamples: pressure(),
+                                                    healthReadingCount: 128,
+                                                    tagsByID: [tag.id: tag]),
                                   calendar: calendar)
     }
 

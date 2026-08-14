@@ -84,15 +84,17 @@ final class ReportModel {
             let vocabulary = try await Dictionary(tags.map { ($0.id, $0) },
                                                   uniquingKeysWith: { first, _ in first })
 
-            report = try await ReportBuilder.make(period: period,
-                                                  window: window,
-                                                  generatedAt: generatedAt,
-                                                  profile: profile,
-                                                  checkIns: checkIns,
-                                                  pressureSamples: pressure,
-                                                  healthReadingCount: healthCount,
-                                                  tagsByID: vocabulary,
-                                                  calendar: calendar)
+            let input = try await ReportInput(profile: profile,
+                                              checkIns: checkIns,
+                                              pressureSamples: pressure,
+                                              healthReadingCount: healthCount,
+                                              tagsByID: vocabulary)
+
+            report = ReportBuilder.make(period: period,
+                                        window: window,
+                                        generatedAt: generatedAt,
+                                        from: input,
+                                        calendar: calendar)
             phase = .ready
         } catch {
             phase = .failed

@@ -275,11 +275,15 @@ struct ReportSource: Hashable, Sendable, Identifiable {
     let kind: Kind
 
     /// Rows found in the window.
-    let count: Int
+    ///
+    /// Named for what it counts rather than plain `count`: a bare `count` compared against zero
+    /// is what `empty_count` exists to catch, and the rule is right to be blunt about it even
+    /// where — as here — the value is an `Int` with no `isEmpty` to prefer.
+    let rowCount: Int
 
     var id: String { kind.rawValue }
 
     /// Whether the block draws this line as present. A source with nothing in it is still
     /// listed — leaving it out would hide exactly the fact the block exists to report.
-    var isPresent: Bool { count > 0 }
+    var isPresent: Bool { rowCount > 0 }
 }

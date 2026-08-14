@@ -10,35 +10,49 @@ import Foundation
 /// Every function takes the `Calendar` it should work in. Day boundaries decide which entries
 /// land on which line of the chart, and a builder reaching for `.current` would pass under one
 /// time zone and fail under another.
+/// What the stores gave back for one window, as one value.
+///
+/// A named type rather than five more parameters on `ReportBuilder.make`, which is the same
+/// call `function_parameter_count` objects to and the same reason: five positional values of
+/// four different shapes are five chances to hand them over in the wrong order, and only the
+/// two array ones would be caught by the compiler.
+struct ReportInput: Sendable {
+
+    let profile: UserProfile?
+
+    /// The window's contents as the stores returned them. Anything outside is filtered out by
+    /// the builder anyway, so a caller that read a slightly wider range does not corrupt the
+    /// totals.
+    let checkIns: [CheckIn]
+    let pressureSamples: [PressureSample]
+
+    /// A count rather than the samples. The document prints how much Health data backed the
+    /// period and nothing else about it.
+    let healthReadingCount: Int
+
+    /// Archived tags included. A check-in from March can hold a tag retired in April, and the
+    /// document still has to be able to name it.
+    let tagsByID: [WellbeingTag.ID: WellbeingTag]
+}
+
 enum ReportBuilder {
 
     /// Assembles the report.
     ///
-    /// `checkIns` and `pressureSamples` are expected to be the window's contents as the stores
-    /// returned them; anything outside is filtered out here anyway, so a caller that reads a
-    /// slightly wider range does not corrupt the totals.
-    ///
-    /// `healthReadingCount` is a count rather than the samples themselves. The document prints
-    /// how much Health data backed the period and nothing else about it, and reading a year of
-    /// sleep intervals into memory to produce one integer is a cost with no reader.
-    ///
-    /// `tagsByID` should carry archived tags too. A check-in from March can hold a tag retired
-    /// in April, and the document still has to be able to name it.
+    /// `window` is passed in rather than derived from `period` even though the two agree: the
+    /// caller queried its stores with it, and a builder that recomputed its own could describe
+    /// a window the rows did not come from.
     static func make(period: ReportPeriod,
                      window: Range<Date>,
                      generatedAt: Date,
-                     profile: UserProfile?,
-                     checkIns: [CheckIn],
-                     pressureSamples: [PressureSample],
-                     healthReadingCount: Int,
-                     tagsByID: [WellbeingTag.ID: WellbeingTag],
+                     from input: ReportInput,
                      calendar: Calendar = .current) -> WellbeingReport {
 
-        let inWindow = checkIns
+        let inWindow = input.checkIns
             .filter { window.contains($0.timestamp) }
             .sorted { $0.timestamp < $1.timestamp }
 
-        let pressureInWindow = pressureSamples.filter { window.contains($0.timestamp) }
+        let pressureInWindow = input.pressureSamples.filter { window.contains($0.timestamp) }
         let medicationEntries = inWindow.flatMap(\.medications)
 
         let totals = ReportTotals(
@@ -46,7 +60,7 @@ enum ReportBuilder {
             daysWithEntries: Set(inWindow.map { calendar.startOfDay(for: $0.timestamp) }).count,
             medicationEntryCount: medicationEntries.count,
             pressureReadingCount: pressureInWindow.count,
-            healthReadingCount: healthReadingCount
+            healthReadingCount: input.healthReadingCount
         )
 
         return WellbeingReport(
@@ -55,20 +69,20 @@ enum ReportBuilder {
             // The upper bound is the start of the day *after* the last one covered.
             lastCoveredDay: lastCoveredDay(of: window, calendar: calendar),
             generatedAt: generatedAt,
-            profile: ReportProfile(displayName: profile?.displayName,
-                                   ageYears: profile?.ageYears,
-                                   gender: profile?.gender),
+            profile: ReportProfile(displayName: input.profile?.displayName,
+                                   ageYears: input.profile?.ageYears,
+                                   gender: input.profile?.gender),
             totals: totals,
             intensity: ReportIntensityDigest(checkIns: inWindow),
             trace: trace(window: window,
                          checkIns: inWindow,
                          pressureSamples: pressureInWindow,
                          calendar: calendar),
-            tags: tagCounts(in: inWindow, tagsByID: tagsByID),
+            tags: tagCounts(in: inWindow, tagsByID: input.tagsByID),
             medications: MedicationHistory.summaries(in: medicationEntries),
             // Newest first: a reader opening the log wants the most recent day at the top,
             // which is the opposite of the ascending order every feature-facing read uses.
-            entries: inWindow.reversed().map { entry($0, tagsByID: tagsByID) },
+            entries: inWindow.reversed().map { entry($0, tagsByID: input.tagsByID) },
             sources: sources(totals: totals)
         )
     }
@@ -183,10 +197,10 @@ enum ReportBuilder {
     static func sources(totals: ReportTotals) -> [ReportSource] {
         ReportSource.Kind.allCases.map { kind in
             switch kind {
-            case .checkIns: ReportSource(kind: kind, count: totals.checkInCount)
-            case .medications: ReportSource(kind: kind, count: totals.medicationEntryCount)
-            case .barometer: ReportSource(kind: kind, count: totals.pressureReadingCount)
-            case .appleHealth: ReportSource(kind: kind, count: totals.healthReadingCount)
+            case .checkIns: ReportSource(kind: kind, rowCount: totals.checkInCount)
+            case .medications: ReportSource(kind: kind, rowCount: totals.medicationEntryCount)
+            case .barometer: ReportSource(kind: kind, rowCount: totals.pressureReadingCount)
+            case .appleHealth: ReportSource(kind: kind, rowCount: totals.healthReadingCount)
             }
         }
     }
