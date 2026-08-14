@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct BarosenseApp: App {
@@ -17,7 +18,21 @@ struct BarosenseApp: App {
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
 
+    /// Where a tapped notification asks to go, and the delegate that records it.
+    ///
+    /// Both are held here for the same reason the ingest observers are started here: iOS
+    /// delivers a tap that launched the app as soon as launching finishes, so the delegate has
+    /// to be in place before that. `UNUserNotificationCenter.delegate` is also a weak reference,
+    /// which makes holding the responder the difference between it working and it being
+    /// deallocated on the next line.
+    private let router = NotificationRouter()
+    private let notificationResponder: NotificationResponder
+
     init() {
+        let responder = NotificationResponder(router: router)
+        UNUserNotificationCenter.current().delegate = responder
+        notificationResponder = responder
+
         let log: any HealthSampleStore
         do {
             log = try SwiftDataHealthSampleStore.makePersistent()
@@ -81,7 +96,8 @@ struct BarosenseApp: App {
             AppRootView(ingest: ingest,
                         pressure: pressure,
                         healthLog: healthLog,
-                        pressureLog: pressureLog)
+                        pressureLog: pressureLog,
+                        router: router)
                 // The earliest point at which `.backgroundTask` below has registered the
                 // identifier. Submitting before that raises an uncatchable ObjC exception.
                 .task { pressure.armBackgroundRefresh() }

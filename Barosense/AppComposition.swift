@@ -28,6 +28,10 @@ final class AppServices {
     private(set) var tagStore: (any WellbeingTagStore)?
     private(set) var checkInStore: (any CheckInStore)?
 
+    /// Drives the check-in reminder. `nil` until `start()` has opened the store, which is also
+    /// the only state in which there is nothing worth reminding anybody about.
+    private(set) var reminders: CheckInReminderController?
+
     /// Everything the settings tab reads. `nil` until `start()` has opened the store —
     /// which is also the only state in which the tab is not on screen.
     private(set) var settings: SettingsDependencies?
@@ -64,6 +68,17 @@ final class AppServices {
             // Same container as the tag vocabulary a check-in points at, so the two cannot
             // be opened separately and disagree about which tags exist.
             let checkInStore = SwiftDataCheckInStore(modelContainer: container)
+            // Same container again, for the reason the check-ins are on it: the reminder is
+            // planned off the check-in table, and two containers could be opened separately
+            // and disagree about which rows exist.
+            let notificationLog = SwiftDataNotificationStore(modelContainer: container)
+            // One preference and one deliverer, shared by the controller that plans reminders
+            // and the settings switch that governs it. Two instances would agree here anyway —
+            // both read the same `UserDefaults` and the same notification centre — but this is
+            // the file that decides which implementation is real, and a shared instance is what
+            // makes that decision visible in one place instead of twice by coincidence.
+            let reminderPreferences = UserDefaultsReminderPreferenceStore()
+            let notifications = UserNotificationCenterDeliverer()
 
             // Seeding runs at every launch by contract — `insertIfAbsent` leaves renamed
             // and archived rows alone, and writes nothing when there is nothing new.
@@ -74,11 +89,18 @@ final class AppServices {
             self.profileStore = profileStore
             self.tagStore = tagStore
             self.checkInStore = checkInStore
+            self.reminders = CheckInReminderController(checkIns: checkInStore,
+                                                       store: notificationLog,
+                                                       deliverer: notifications,
+                                                       preferences: reminderPreferences)
             self.settings = SettingsDependencies(profileStore: profileStore,
                                                  tagStore: tagStore,
                                                  checkInStore: checkInStore,
                                                  healthLog: healthLog,
                                                  pressureLog: pressureLog,
+                                                 notificationLog: notificationLog,
+                                                 notifications: notifications,
+                                                 reminderPreferences: reminderPreferences,
                                                  healthAccess: healthAccess)
             phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
@@ -109,15 +131,21 @@ struct AppRootView: View {
     let ingest: HealthIngestController
     let pressure: PressureCollectionController
 
+    /// Threaded through rather than built here: it has to outlive this view and exist before it,
+    /// because a tap can be delivered while the window is still being built.
+    let router: NotificationRouter
+
     @State private var services: AppServices
     @State private var languages = LanguageController()
 
     init(ingest: HealthIngestController,
          pressure: PressureCollectionController,
          healthLog: any HealthSampleStore,
-         pressureLog: any PressureSampleStore) {
+         pressureLog: any PressureSampleStore,
+         router: NotificationRouter) {
         self.ingest = ingest
         self.pressure = pressure
+        self.router = router
         _services = State(initialValue: AppServices(healthLog: healthLog,
                                                     pressureLog: pressureLog))
     }
@@ -150,8 +178,10 @@ struct AppRootView: View {
                              pressure: pressure,
                              checkInStore: checkInStore,
                              tagStore: tagStore,
+                             reminders: services.reminders,
                              settings: services.settings,
                              languages: languages,
+                             router: router,
                              onDataErased: { await services.restartOnboarding() })
                 }
             }

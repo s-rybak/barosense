@@ -10,13 +10,23 @@ struct RootView: View {
 
     /// `nil` only while the store is still opening, which is a state this view is never
     /// shown in. Optional rather than force-unwrapped at the composition root.
+    let reminders: CheckInReminderController?
     let settings: SettingsDependencies?
     let languages: LanguageController
+
+    /// Where a tapped notification wants to go. Owned by `BarosenseApp`, because a tap can be
+    /// delivered before this view exists.
+    let router: NotificationRouter
+
     let onDataErased: () async -> Void
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .now
     @State private var isLoggingCheckIn = false
+
+    /// Raised once per install, before anything asks iOS for permission to notify. See
+    /// `CheckInReminderPrimer`.
+    @State private var isShowingReminderPrimer = false
 
     /// Bumped when a check-in is written, and handed to the chart as a reload trigger.
     ///
@@ -56,6 +66,10 @@ struct RootView: View {
             LogScreen(checkInStore: checkInStore, tagStore: tagStore) {
                 isLoggingCheckIn = false
                 checkInRevision += 1
+                // Today's reminder is no longer wanted — the user has just done the thing it
+                // would have asked for. The planner drops the slot and the dispatcher
+                // withdraws the row it was scheduled under.
+                refreshReminders()
                 // Onto the chart the new dot is already on. The one place the app moves the
                 // user itself, and it is the point of the whole flow.
                 selection = .now
@@ -69,7 +83,43 @@ struct RootView: View {
                 // Cheap to call on every activation: the recorder's fifteen-minute floor
                 // decides whether the sensor runs at all.
                 pressure.sceneDidBecomeActive()
+                // Nothing wakes the app for this — the system holds the scheduled
+                // notifications and fires them on its own. Activation is simply where the
+                // next week's worth is brought back in step, and on a day when nothing has
+                // changed the pass makes no cross-process calls at all.
+                refreshReminders()
             }
+        }
+        // A reminder already handed to the system carries the words it was rendered with, and
+        // iOS does not re-resolve them when the app's language changes. Everything on screen
+        // repaints through the environment; the next week of notifications only does if
+        // something withdraws and reissues them, which is what this pass does.
+        .onChange(of: languages.language) { _, _ in
+            refreshReminders()
+        }
+        // The reminder is explained here rather than at the end of onboarding: this is the
+        // first moment the app has anything to remind anybody about, and a permission screen
+        // between "finish setup" and seeing the app is one more thing to get past.
+        .sheet(isPresented: $isShowingReminderPrimer) {
+            CheckInReminderPrimer(onAccept: acceptReminderPrimer,
+                                  onDecline: declineReminderPrimer)
+        }
+        .task {
+            guard let reminders, await reminders.shouldOfferPrimer() else { return }
+
+            isShowingReminderPrimer = true
+        }
+        // A tapped notification, which may have arrived before this view existed — see
+        // `NotificationRouter`. Read on appearance as well as on change, because a tap that
+        // launched the app is recorded while the window is still being built.
+        .onChange(of: router.pending, initial: true) { _, route in
+            guard route == .checkIn else { return }
+
+            router.clear()
+            // The reminder asked the user to check in. Opening the app on the tab they last
+            // used and leaving them to find the button is the version of this that wastes the
+            // notification.
+            isLoggingCheckIn = true
         }
         // Follow the system appearance; introduce a dark palette when the design system defines one.
     }
@@ -107,11 +157,48 @@ struct RootView: View {
                 SettingsScreen(dependencies: settings,
                                languages: languages,
                                isDetailPresented: $isSettingsDetailPresented,
-                               onDataErased: onDataErased)
+                               onDataErased: onDataErased,
+                               onRemindersChanged: reconcileReminders)
             }
         case .insights:
             PlaceholderScreen(tab: selection)
         }
+    }
+
+    /// Re-plans the check-in reminder against the app's own language and calendar.
+    ///
+    /// Both are passed rather than left to `Locale.current`, for the reason every date on screen
+    /// is: a reminder scheduled today fires days from now, and it has to speak the language the
+    /// user picked in Settings — see `LanguageController`.
+    private func refreshReminders() {
+        Task { await reconcileReminders() }
+    }
+
+    /// The awaitable form, for the one caller that has to know when the pass has finished: the
+    /// reminder switch in Settings reloads its count afterwards, and a fire-and-forget pass
+    /// would leave it reading the number from before the switch was touched.
+    private func reconcileReminders() async {
+        guard let reminders else { return }
+
+        await reminders.refresh(language: languages.language, calendar: languages.calendar)
+    }
+
+    /// The primer's "turn these on". Raises the system prompt and, if it is granted, plans the
+    /// first week straight away rather than at the next launch.
+    private func acceptReminderPrimer() {
+        isShowingReminderPrimer = false
+
+        Task {
+            guard let reminders else { return }
+
+            await reminders.acceptPrimer(language: languages.language,
+                                         calendar: languages.calendar)
+        }
+    }
+
+    private func declineReminderPrimer() {
+        isShowingReminderPrimer = false
+        reminders?.declinePrimer()
     }
 
     /// The bar's binding, with the raised centre action intercepted.
@@ -144,7 +231,14 @@ struct RootView: View {
                 display: NoOpPressureDisplayLink()),
              checkInStore: InMemoryCheckInStore(),
              tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+             // No notification centre in a preview: `NoOpNotificationDeliverer` reports itself
+             // unauthorised, so nothing is scheduled and no permission prompt appears.
+             reminders: CheckInReminderController(checkIns: InMemoryCheckInStore(),
+                                                  store: InMemoryNotificationStore(),
+                                                  deliverer: NoOpNotificationDeliverer(),
+                                                  preferences: InMemoryReminderPreferenceStore()),
              settings: .preview,
              languages: LanguageController(),
+             router: NotificationRouter(),
              onDataErased: {})
 }

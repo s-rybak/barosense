@@ -1,141 +1,87 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "" : {
-
-    },
-    "%@ hPa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ hPa"
+  "sourceLanguage": "en",
+  "strings": {
+    "": {},
+    "%@ hPa": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hPa"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ гПа"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ гПа"
           }
         }
       }
     },
-    "%@. Nothing recorded" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@. Nothing recorded"
+    "%@. Nothing recorded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@. Nothing recorded"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@. Нічого не записано"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@. Нічого не записано"
           }
         }
       }
     },
-    "%lld check-ins" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld check-in"
+    "%lld": {},
+    "%lld check-ins": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld check-in"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld check-ins"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld check-ins"
                 }
               }
             }
           }
         },
-        "uk" : {
-          "variations" : {
-            "plural" : {
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld записи"
+        "uk": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld записи"
                 }
               },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld записів"
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld записів"
                 }
               },
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld запис"
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld запис"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld записів"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld entries" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld entry"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld entries"
-                }
-              }
-            }
-          }
-        },
-        "uk" : {
-          "variations" : {
-            "plural" : {
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld записи"
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld записів"
-                }
-              },
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld запис"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld записів"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld записів"
                 }
               }
             }
@@ -143,69 +89,52 @@
         }
       }
     },
-    "%lld of %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld of %2$lld"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld з %2$lld"
-          }
-        }
-      }
-    },
-    "%lld times" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld time"
+    "%lld entries": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld entry"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld times"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld entries"
                 }
               }
             }
           }
         },
-        "uk" : {
-          "variations" : {
-            "plural" : {
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld рази"
+        "uk": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld записи"
                 }
               },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld разів"
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld записів"
                 }
               },
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld раз"
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld запис"
                 }
               },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld разів"
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld записів"
                 }
               }
             }
@@ -213,3096 +142,3408 @@
         }
       }
     },
-    "%lldh %lldm" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lldh %lldm"
+    "%lld of %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld з %2$lld"
+          }
+        }
+      }
+    },
+    "%lld times": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld time"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld times"
+                }
+              }
+            }
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lldг %2$lldх"
+        "uk": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld рази"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld разів"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld раз"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld разів"
+                }
+              }
+            }
           }
         }
       }
     },
-    "→ steady" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "→ steady"
+    "%lldh %lldm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldh %lldm"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "→ стабільно"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lldг %2$lldх"
           }
         }
       }
     },
-    "↗ rising" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "↗ rising"
+    "+ Add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Add"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "↗ росте"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Додати"
           }
         }
       }
     },
-    "↘ falling" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "↘ falling"
+    "+ New medication": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Новий засіб"
           }
+        }
+      }
+    },
+    "+ Other dose": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Інша доза"
+          }
+        }
+      }
+    },
+    "1h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1h"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1год"
+          }
+        }
+      }
+    },
+    "1–6 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1–6 h"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1–6 год"
+          }
+        }
+      }
+    },
+    "3M": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3M"
+          }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "↘ падає"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3М"
           }
         }
       }
     },
-    "+ Add" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+ Add"
+    "3h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3h"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+ Додати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3год"
           }
         }
       }
     },
-    "+ New medication" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+ Новий засіб"
+    "6h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6h"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6год"
           }
         }
       }
     },
-    "+ Other dose" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+ Інша доза"
+    "6–24 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6–24 h"
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6–24 год"
+          }
         }
       }
     },
-    "< 1 h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "< 1 h"
+    "< 1 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "< 1 h"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "< 1 год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "< 1 год"
           }
         }
       }
     },
-    "> 24 h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "> 24 h"
+    "> 24 h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "> 24 h"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "> 24 год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "> 24 год"
           }
         }
       }
     },
-    "1–6 h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1–6 h"
+    "A quick check-in takes a few seconds.": {
+      "comment": "Body of the check-in reminder notification. Says what answering costs and promises nothing about what it will show.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A quick check-in takes a few seconds."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1–6 год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Швидкий чек-ін — це кілька секунд."
           }
         }
       }
     },
-    "1h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1h"
+    "A reminder to check in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A reminder to check in"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нагадування зробити чек-ін"
           }
         }
       }
     },
-    "3h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3h"
+    "A short check-in: how you feel right now.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A short check-in: how you feel right now."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Короткий чек-ін: як ти почуваєшся зараз."
           }
         }
       }
     },
-    "3M" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3M"
+    "About %lld entries before your own history leads · %lld so far": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About %lld entries before your own history leads · %lld so far"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3М"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Близько %lld записів, щоб модель спиралась на твої дані · наразі %lld"
           }
         }
       }
     },
-    "6–24 h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6–24 h"
+    "Activity and blood oxygen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activity and blood oxygen"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6–24 год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Активність та рівень кисню у крові"
           }
         }
       }
     },
-    "6h" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6h"
+    "Add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "6год"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додати"
+          }
+        }
+      }
+    },
+    "Add medication": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додати ліки"
           }
         }
       }
     },
-    "A short check-in: how you feel right now." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A short check-in: how you feel right now."
+    "Add tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add tag"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Короткий чек-ін: як ти почуваєшся зараз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додати тег"
           }
         }
       }
     },
-    "About %lld entries before your own history leads · %lld so far" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "About %lld entries before your own history leads · %lld so far"
+    "Add the tags and what you took, not just the intensity": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the tags and what you took, not just the intensity"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Близько %lld записів, щоб модель спиралась на твої дані · наразі %lld"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додавай позначки й ліки, а не тільки силу відчуття"
+          }
+        }
+      }
+    },
+    "Add to check-in": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додати до запису"
           }
         }
       }
     },
-    "Add the tags and what you took, not just the intensity" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add the tags and what you took, not just the intensity"
+    "Age": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Age"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Додавай позначки й ліки, а не тільки силу відчуття"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вік"
           }
         }
       }
     },
-    "Atmospheric pressure and how fast it is changing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Atmospheric pressure and how fast it is changing"
+    "Agree and continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agree and continue"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Атмосферний тиск і швидкість його зміни"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Погоджуюсь і продовжую"
           }
         }
       }
     },
-    "A–Z" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "А–Я"
+    "All": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все"
           }
         }
       }
     },
-    "Activity and blood oxygen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activity and blood oxygen"
+    "All time": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All time"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Активність та рівень кисню у крові"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Весь час"
           }
         }
       }
     },
-    "Add" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add"
+    "App version": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App version"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Додати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версія застосунку"
           }
         }
       }
     },
-    "Add medication" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Додати ліки"
+    "Apple Health": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Health"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Health"
           }
         }
       }
     },
-    "Add tag" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add tag"
+    "Asks how you're feeling, at the time of day you usually check in.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asks how you're feeling, at the time of day you usually check in."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Додати тег"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Питає, як ти почуваєшся, — у той час, коли ти зазвичай робиш чек-ін."
           }
         }
       }
     },
-    "Add to check-in" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Додати до запису"
+    "At the hour your own check-ins cluster around": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the hour your own check-ins cluster around"
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У час, коли зазвичай з'являються твої чек-іни"
+          }
         }
       }
     },
-    "Age" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Age"
+    "Atmospheric pressure and how fast it is changing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atmospheric pressure and how fast it is changing"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вік"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Атмосферний тиск і швидкість його зміни"
           }
         }
       }
     },
-    "Agree and continue" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Agree and continue"
+    "Automatic tracking of sleep, heart rate and activity — no typing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic tracking of sleep, heart rate and activity — no typing"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Погоджуюсь і продовжую"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматичний трекінг сну, серцевого ритму та активності — без ручного вводу"
+          }
+        }
+      }
+    },
+    "A–Z": {
+      "extractionState": "manual",
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "А–Я"
           }
         }
       }
     },
-    "All" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All"
+    "Back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Все"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назад"
           }
         }
       }
     },
-    "All time" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All time"
+    "Barosense can ask how you're feeling at the time of day you already tend to check in.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense can ask how you're feeling at the time of day you already tend to check in."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Весь час"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense може питати, як ти почуваєшся, — у той час, коли ти зазвичай робиш чек-ін."
           }
         }
       }
     },
-    "App version" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App version"
+    "Barosense can read only part of your Health data. Open Health to check what it may read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense can read only part of your Health data. Open Health to check what it may read."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Версія застосунку"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense зчитує з Health лише частину даних. Відкрий Health, щоб перевірити доступ."
           }
         }
       }
     },
-    "Apple Health" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Health"
+    "Barosense can't open its data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense can't open its data"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Health"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense не може відкрити свої дані"
           }
         }
       }
     },
-    "Automatic tracking of sleep, heart rate and activity — no typing" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatic tracking of sleep, heart rate and activity — no typing"
+    "Barosense can't read anything from Health. Open Health to check what it may read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense can't read anything from Health. Open Health to check what it may read."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматичний трекінг сну, серцевого ритму та активності — без ручного вводу"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense не зчитує з Health нічого. Відкрий Health, щоб перевірити доступ."
           }
         }
       }
     },
-    "Back" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back"
+    "Barosense could not empty every store. Try again — nothing was sent anywhere.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense could not empty every store. Try again — nothing was sent anywhere."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Назад"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense не зміг очистити всі сховища. Спробуй ще раз — нічого нікуди не надсилалося."
           }
         }
       }
     },
-    "Barosense can read only part of your Health data. Open Health to check what it may read." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense can read only part of your Health data. Open Health to check what it may read."
+    "Barosense hasn't built a personal model from your history yet. This will clear what it has learned once your forecast is running.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense hasn't built a personal model from your history yet. This will clear what it has learned once your forecast is running."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense зчитує з Health лише частину даних. Відкрий Health, щоб перевірити доступ."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense ще не побудував персональну модель з твоєї історії. Це очистить накопичене, коли запрацює твій прогноз."
           }
         }
       }
     },
-    "Barosense can't open its data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense can't open its data"
+    "Barosense looks at how barometric pressure lines up with how you feel, using your own data. It is not medical advice and does not replace talking to a doctor — these are personal observations only.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense looks at how barometric pressure lines up with how you feel, using your own data. It is not medical advice and does not replace talking to a doctor — these are personal observations only."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense не може відкрити свої дані"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barosense аналізує зв'язок між тиском і самопочуттям на основі твоїх даних. Це не медична порада і не замінює консультацію лікаря — лише персональні спостереження."
           }
         }
       }
     },
-    "Barosense can't read anything from Health. Open Health to check what it may read." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense can't read anything from Health. Open Health to check what it may read."
+    "Before you start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before you start"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense не зчитує з Health нічого. Відкрий Health, щоб перевірити доступ."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перш ніж почати"
           }
         }
       }
     },
-    "Barosense could not empty every store. Try again — nothing was sent anywhere." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense could not empty every store. Try again — nothing was sent anywhere."
+    "Cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense не зміг очистити всі сховища. Спробуй ще раз — нічого нікуди не надсилалося."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скасувати"
           }
         }
       }
     },
-    "Barosense hasn't built a personal model from your history yet. This will clear what it has learned once your forecast is running." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense hasn't built a personal model from your history yet. This will clear what it has learned once your forecast is running."
+    "Change photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change photo"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense ще не побудував персональну модель з твоєї історії. Це очистить накопичене, коли запрацює твій прогноз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Змінити фото"
           }
         }
       }
     },
-    "Barosense looks at how barometric pressure lines up with how you feel, using your own data. It is not medical advice and does not replace talking to a doctor — these are personal observations only." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense looks at how barometric pressure lines up with how you feel, using your own data. It is not medical advice and does not replace talking to a doctor — these are personal observations only."
+    "Check-in reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in reminder"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barosense аналізує зв'язок між тиском і самопочуттям на основі твоїх даних. Це не медична порада і не замінює консультацію лікаря — лише персональні спостереження."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нагадування про чек-ін"
           }
         }
       }
     },
-    "Before you start" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Before you start"
+    "Choose at least one — you can add and rename these later.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose at least one — you can add and rename these later."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Перш ніж почати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обери хоча б один — потім їх можна додавати й перейменовувати."
           }
         }
       }
     },
-    "Cancel" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cancel"
+    "Choose everything that applies": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose everything that applies"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Скасувати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обери все, що підходить"
           }
         }
       }
     },
-    "Change photo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change photo"
+    "Choose month and year": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose month and year"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Змінити фото"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обрати місяць і рік"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрити"
           }
         }
       }
     },
-    "Choose at least one — you can add and rename these later." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose at least one — you can add and rename these later."
+    "Coloured dots are your check-ins": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coloured dots are your check-ins"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обери хоча б один — потім їх можна додавати й перейменовувати."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кольорові крапки — твої записи"
           }
         }
       }
     },
-    "Choose everything that applies" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose everything that applies"
+    "Connect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обери все, що підходить"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підключити"
           }
         }
       }
     },
-    "Choose month and year" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose month and year"
+    "Connect Apple Health": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Apple Health"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обрати місяць і рік"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Підключи Apple Health"
           }
         }
       }
     },
-    "Close" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Закрити"
+    "Contact details are not final yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact details are not final yet."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контактні дані ще не остаточні."
           }
         }
       }
     },
-    "Coloured dots are your check-ins" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coloured dots are your check-ins"
+    "Contact us": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact us"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Кольорові крапки — ваші записи"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зв’язатися з нами"
           }
         }
       }
     },
-    "Connect" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect"
+    "Continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Підключити"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продовжити"
           }
         }
       }
     },
-    "Connect Apple Health" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect Apple Health"
+    "Couldn't save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Підключи Apple Health"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося зберегти"
           }
         }
       }
     },
-    "Contact details are not final yet." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contact details are not final yet."
+    "Couldn't use that photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't use that photo"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Контактні дані ще не остаточні."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося використати це фото"
           }
         }
       }
     },
-    "Contact us" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contact us"
+    "Current barometric pressure and how it has moved today.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current barometric pressure and how it has moved today."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Зв’язатися з нами"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поточний атмосферний тиск і як він змінювався сьогодні."
           }
         }
       }
     },
-    "Continue" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continue"
+    "Current month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current month"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Продовжити"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поточний місяць"
           }
         }
       }
     },
-    "Couldn't save" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't save"
+    "Current pressure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current pressure"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не вдалося зберегти"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поточний тиск"
           }
         }
       }
     },
-    "Couldn't use that photo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't use that photo"
+    "Day": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не вдалося використати це фото"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "День"
+          }
+        }
+      }
+    },
+    "Day taken": {
+      "extractionState": "manual",
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "День прийому"
           }
         }
       }
     },
-    "Current barometric pressure and how it has moved today." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current barometric pressure and how it has moved today."
+    "Delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поточний атмосферний тиск і як він змінювався сьогодні."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видалити"
           }
         }
       }
     },
-    "Current month" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current month"
+    "Delete my data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete my data"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поточний місяць"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видалити мої дані"
           }
         }
       }
     },
-    "Current pressure" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current pressure"
+    "Delete my data?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete my data?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поточний тиск"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видалити мої дані?"
           }
         }
       }
     },
-    "Day" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Day"
+    "Deleting your data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleting your data"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "День"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видаляємо твої дані"
           }
         }
       }
     },
-    "Day taken" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "День прийому"
+    "Discard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відхилити"
           }
         }
       }
     },
-    "Delete" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete"
+    "Discard changes?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard changes?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Видалити"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відхилити зміни?"
           }
         }
       }
     },
-    "Delete my data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete my data"
+    "Disrupted sleep": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disrupted sleep"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Видалити мої дані"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порушення сну"
           }
         }
       }
     },
-    "Delete my data?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete my data?"
+    "Dizziness": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dizziness"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Видалити мої дані?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запаморочення"
           }
         }
       }
     },
-    "Deleting your data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deleting your data"
+    "Done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Видаляємо твої дані"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        }
+      }
+    },
+    "Dose": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дозування"
           }
         }
       }
     },
-    "Discard" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discard"
+    "Dose (optional)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dose (optional)"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Відхилити"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дозування (необов’язково)"
           }
         }
       }
     },
-    "Discard changes?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discard changes?"
+    "Doses taken": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doses taken"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Відхилити зміни?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прийоми ліків"
           }
         }
       }
     },
-    "Disrupted sleep" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Disrupted sleep"
+    "Edit profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit profile"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Порушення сну"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редагувати профіль"
           }
         }
       }
     },
-    "Dizziness" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dizziness"
+    "Email": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Запаморочення"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пошта"
           }
         }
       }
     },
-    "Done" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done"
+    "Enter an age between %lld and %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an age between %lld and %lld"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Готово"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вкажи вік від %1$lld до %2$lld"
           }
         }
       }
     },
-    "Dose" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Дозування"
+    "Every day": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every day"
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Щодня"
+          }
         }
       }
     },
-    "Dose (optional)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dose (optional)"
+    "Fatigue": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fatigue"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Дозування (необов’язково)"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Втома"
           }
         }
       }
     },
-    "Doses taken" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Doses taken"
+    "Fills in sleep, resting heart rate and blood oxygen for you.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fills in sleep, resting heart rate and blood oxygen for you."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Прийоми ліків"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматично заповнює сон, пульс у спокої та кисень у крові."
           }
         }
       }
     },
-    "Edit profile" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit profile"
+    "Headache": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headache"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Редагувати профіль"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Головний біль"
           }
         }
       }
     },
-    "Email" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Email"
+    "Health data isn't available on this device.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health data isn't available on this device."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пошта"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На цьому пристрої дані Health недоступні."
           }
         }
       }
     },
-    "Enter an age between %lld and %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter an age between %lld and %lld"
+    "Heart rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart rate"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вкажи вік від %1$lld до %2$lld"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пульс"
           }
         }
       }
     },
-    "Every day" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Every day"
+    "History": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Щодня"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Історія"
           }
         }
       }
     },
-    "Fatigue" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fatigue"
+    "How are you feeling?": {
+      "comment": "Title of the check-in reminder notification, placed at the time of day the user usually logs.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How are you feeling?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Втома"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Як ти почуваєшся?"
           }
         }
       }
     },
-    "Fills in sleep, resting heart rate and blood oxygen for you." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fills in sleep, resting heart rate and blood oxygen for you."
+    "How long does it usually last?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How long does it usually last?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматично заповнює сон, пульс у спокої та кисень у крові."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Типова тривалість епізоду?"
           }
         }
       }
     },
-    "Headache" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Headache"
+    "How long it lasts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How long it lasts"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Головний біль"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тривалість"
           }
         }
       }
     },
-    "Health data isn't available on this device." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Health data isn't available on this device."
+    "How often": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How often"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "На цьому пристрої дані Health недоступні."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частота"
           }
         }
       }
     },
-    "Heart rate" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heart rate"
+    "How often does this happen?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How often does this happen?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пульс"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Як часто це трапляється?"
           }
         }
       }
     },
-    "History" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "History"
+    "I understand and accept the Terms of Use and Privacy Policy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I understand and accept the Terms of Use and Privacy Policy"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Історія"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я розумію та приймаю Умови використання і Політику конфіденційності"
           }
         }
       }
     },
-    "How long does it usually last?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How long does it usually last?"
+    "Insights": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insights"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Типова тривалість епізоду?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Інсайти"
           }
         }
       }
     },
-    "How long it lasts" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How long it lasts"
+    "Intensity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intensity"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Тривалість"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Інтенсивність"
           }
         }
       }
     },
-    "How often" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How often"
+    "Joint pain": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Joint pain"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Частота"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Біль у суглобах"
           }
         }
       }
     },
-    "How often does this happen?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How often does this happen?"
+    "Keep Apple Health connected, for sleep and heart rate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Apple Health connected, for sleep and heart rate"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Як часто це трапляється?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тримай Apple Health підключеним — для сну й пульсу"
           }
         }
       }
     },
-    "I understand and accept the Terms of Use and Privacy Policy" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I understand and accept the Terms of Use and Privacy Policy"
+    "Keep at least one — a check-in needs something to tag.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep at least one — a check-in needs something to tag."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Я розумію та приймаю Умови використання і Політику конфіденційності"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Залиш хоча б один — чек-іну потрібна позначка."
           }
         }
       }
     },
-    "Insights" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Insights"
+    "Keep editing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep editing"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Інсайти"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продовжити редагування"
           }
         }
       }
     },
-    "Intensity" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Intensity"
+    "Kept in your list for next time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept in your list for next time."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Інтенсивність"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Залишиться у твоєму списку на наступний раз."
           }
         }
       }
     },
-    "Joint pain" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Joint pain"
+    "Language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Біль у суглобах"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мова"
           }
         }
       }
     },
-    "Keep Apple Health connected, for sleep and heart rate" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep Apple Health connected, for sleep and heart rate"
+    "Last taken %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last taken %@"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Тримай Apple Health підключеним — для сну й пульсу"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Востаннє %@"
           }
         }
       }
     },
-    "Keep at least one — a check-in needs something to tag." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep at least one — a check-in needs something to tag."
+    "Less often": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Less often"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Залиш хоча б один — чек-іну потрібна позначка."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рідше"
           }
         }
       }
     },
-    "Keep editing" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep editing"
+    "Let's get to know each other": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Let's get to know each other"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Продовжити редагування"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Давай познайомимось"
           }
         }
       }
     },
-    "Kept in your list for next time." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kept in your list for next time."
+    "Log": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Залишиться у твоєму списку на наступний раз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чек-ін"
           }
         }
       }
     },
-    "Language" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Language"
+    "Log a check-in on ordinary days too, not only on bad ones": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log a check-in on ordinary days too, not only on bad ones"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Мова"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записуй стан і у звичайні дні, не тільки в погані"
           }
         }
       }
     },
-    "Last taken %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last taken %@"
+    "Log how you feel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log how you feel"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Востаннє %@"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записати стан"
           }
         }
       }
     },
-    "Less often" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Less often"
+    "Man": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Man"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Рідше"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чоловік"
           }
         }
       }
     },
-    "Let's get to know each other" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Let's get to know each other"
+    "Medication name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medication name"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Давай познайомимось"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назва ліків"
           }
         }
       }
     },
-    "Log" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log"
+    "Medication taken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medication taken"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Чек-ін"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прийняті ліки"
           }
         }
       }
     },
-    "Log a check-in on ordinary days too, not only on bad ones" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log a check-in on ordinary days too, not only on bad ones"
+    "Model training progress": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model training progress"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Записуй стан і у звичайні дні, не тільки в погані"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прогрес навчання моделі"
           }
         }
       }
     },
-    "Log how you feel" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log how you feel"
+    "Month": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Month"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Записати стан"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Місяць"
           }
         }
       }
     },
-    "Man" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Man"
+    "Mood swings": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mood swings"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Чоловік"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перепади настрою"
           }
         }
       }
     },
-    "Medication name" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medication name"
+    "My medications": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My medications"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Назва ліків"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мої ліки"
           }
         }
       }
     },
-    "Medication taken" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medication taken"
+    "Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Прийняті ліки"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ім'я"
           }
         }
       }
     },
-    "Model training progress" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Model training progress"
+    "Never more than %lld notifications a day": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never more than %lld notifications a day"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Прогрес навчання моделі"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не більше %lld сповіщень на день"
           }
         }
       }
     },
-    "Month" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Month"
+    "New tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New tag"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Місяць"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новий тег"
           }
         }
       }
     },
-    "Mood swings" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mood swings"
+    "Next": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Перепади настрою"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Далі"
           }
         }
       }
     },
-    "My medications" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "My medications"
+    "Next month": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next month"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Мої ліки"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наступний місяць"
           }
         }
       }
     },
-    "Name" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
+    "No Health data yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Health data yet"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ім'я"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поки немає даних з Health"
           }
         }
       }
     },
-    "New tag" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New tag"
+    "No data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No data"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Новий тег"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Немає даних"
           }
         }
       }
     },
-    "Next" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next"
+    "Not enough pressure readings in the last few hours": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough pressure readings in the last few hours"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Далі"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Замало вимірювань тиску за останні години"
           }
         }
       }
     },
-    "Next month" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next month"
+    "Not now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Наступний місяць"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не зараз"
           }
         }
       }
     },
-    "No data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No data"
+    "Nothing added yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing added yet"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Немає даних"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поки нічого не додано"
           }
         }
       }
     },
-    "No Health data yet" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Health data yet"
+    "Nothing read in the last 7 days. Open Health to check what Barosense may read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing read in the last 7 days. Open Health to check what Barosense may read."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поки немає даних з Health"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За останні 7 днів нічого не зчитано. Відкрий Health, щоб перевірити доступ Barosense."
           }
         }
       }
     },
-    "Not enough pressure readings in the last few hours" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not enough pressure readings in the last few hours"
+    "Nothing recorded in this period": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing recorded in this period"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Замало вимірювань тиску за останні години"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За цей період нічого не записано"
           }
         }
       }
     },
-    "Nothing added yet" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing added yet"
+    "Nothing recorded in this range — try a wider one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing recorded in this range — try a wider one"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поки нічого не додано"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За цей проміжок вимірів немає — обери ширший"
           }
         }
       }
     },
-    "Nothing read in the last 7 days. Open Health to check what Barosense may read." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing read in the last 7 days. Open Health to check what Barosense may read."
+    "Nothing to reset yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to reset yet"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "За останні 7 днів нічого не зчитано. Відкрий Health, щоб перевірити доступ Barosense."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поки немає чого скидати"
           }
         }
       }
     },
-    "Nothing recorded in this period" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing recorded in this period"
+    "Notifications are turned off for Barosense in iOS Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are turned off for Barosense in iOS Settings."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "За цей період нічого не записано"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сповіщення для Barosense вимкнені в Налаштуваннях iOS."
           }
         }
       }
     },
-    "Nothing recorded in this range — try a wider one" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing recorded in this range — try a wider one"
+    "Notifications today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications today"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "За цей проміжок вимірів немає — обери ширший"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сповіщень сьогодні"
           }
         }
       }
     },
-    "Nothing to reset yet" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing to reset yet"
+    "Notifications, stored data, and what Barosense may read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications, stored data, and what Barosense may read."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поки немає чого скидати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сповіщення, збережені дані та доступ Barosense."
           }
         }
       }
     },
-    "Notifications, stored data, and what Barosense may read." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notifications, stored data, and what Barosense may read."
+    "Now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сповіщення, збережені дані та доступ Barosense."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зараз"
           }
         }
       }
     },
-    "now" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "now"
+    "OK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "зараз"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
           }
         }
       }
     },
-    "Now" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Now"
+    "Off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Зараз"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вимкнено"
           }
         }
       }
     },
-    "Off" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Off"
+    "Off at any time, in Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off at any time, in Settings"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вимкнено"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вимкнути можна будь-коли в налаштуваннях"
           }
         }
       }
     },
-    "OK" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OK"
+    "On": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OK"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увімкнено"
           }
         }
       }
     },
-    "On" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On"
+    "Once a week": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once a week"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Увімкнено"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раз на тиждень"
           }
         }
       }
     },
-    "Once a week" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Once a week"
+    "Other": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Раз на тиждень"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Інше"
+          }
+        }
+      }
+    },
+    "Other day": {
+      "extractionState": "manual",
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Інший день"
+          }
+        }
+      }
+    },
+    "Other time": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Інший час"
           }
         }
       }
     },
-    "Other" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Other"
+    "Peak intensity %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peak intensity %lld"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Інше"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найвища інтенсивність %lld"
           }
         }
       }
     },
-    "Other day" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Інший день"
+    "Personal details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal details"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Особисті дані"
           }
         }
       }
     },
-    "Other time" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Інший час"
+    "Personal patterns that build up as you keep checking in.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal patterns that build up as you keep checking in."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Особисті закономірності, що накопичуються з твоїми чек-інами."
           }
         }
       }
     },
-    "Peak intensity %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Peak intensity %lld"
+    "Pick a different one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a different one."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Найвища інтенсивність %lld"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обери інше."
           }
         }
       }
     },
-    "Personal details" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personal details"
+    "Pressure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pressure"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Особисті дані"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тиск"
           }
         }
       }
     },
-    "Personal patterns that build up as you keep checking in." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personal patterns that build up as you keep checking in."
+    "Pressure chart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pressure chart"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Особисті закономірності, що накопичуються з твоїми чек-інами."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Графік тиску"
           }
         }
       }
     },
-    "Pick a different one." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pick a different one."
+    "Pressure forecast with push notifications": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pressure forecast with push notifications"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обери інше."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прогноз тиску з push-сповіщеннями"
           }
         }
       }
     },
-    "Pressure" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressure"
+    "Previous month": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous month"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Тиск"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попередній місяць"
           }
         }
       }
     },
-    "Pressure chart" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressure chart"
+    "Questions, a problem, or something that looks wrong — we read everything that comes in.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questions, a problem, or something that looks wrong — we read everything that comes in."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Графік тиску"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Питання, проблема чи щось виглядає не так — ми читаємо все, що надходить."
           }
         }
       }
     },
-    "Pressure forecast with push notifications" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressure forecast with push notifications"
+    "Readings appear once the first samples land": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Readings appear once the first samples land"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Прогноз тиску з push-сповіщеннями"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дані з’являться після перших вимірів"
           }
         }
       }
     },
-    "Previous month" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Previous month"
+    "Readings: %lld · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Readings: %lld · %@"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Попередній місяць"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вимірів: %1$lld · %2$@"
           }
         }
       }
     },
-    "Questions, a problem, or something that looks wrong — we read everything that comes in." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questions, a problem, or something that looks wrong — we read everything that comes in."
+    "Recent": {
+      "extractionState": "manual",
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нещодавні"
           }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Питання, проблема чи щось виглядає не так — ми читаємо все, що надходить."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прибрати"
           }
         }
       }
     },
-    "Readings appear once the first samples land" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Readings appear once the first samples land"
+    "Removes this tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removes this tag"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Дані з’являться після перших вимірів"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прибирає цей тег"
           }
         }
       }
     },
-    "Readings: %lld · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Readings: %lld · %@"
+    "Reset learned data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset learned data"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вимірів: %1$lld · %2$@"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скинути дані ML моделі"
           }
         }
       }
     },
-    "Recent" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нещодавні"
+    "Reset what Barosense has learned": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset what Barosense has learned"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скинути те, чого навчився Barosense"
           }
         }
       }
     },
-    "Remove" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove"
+    "Response time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Response time"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Прибрати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Час відповіді"
           }
         }
       }
     },
-    "Removes this tag" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Removes this tag"
+    "Restart the app. If this keeps happening, free up some space on your device.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart the app. If this keeps happening, free up some space on your device."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Прибирає цей тег"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапусти застосунок. Якщо це повторюється, звільни трохи місця на пристрої."
           }
         }
       }
     },
-    "Reset learned data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset learned data"
+    "Save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Скинути дані ML моделі"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зберегти"
           }
         }
       }
     },
-    "Reset what Barosense has learned" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset what Barosense has learned"
+    "Save check-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save check-in"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Скинути те, чого навчився Barosense"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зберегти запис"
           }
         }
       }
     },
-    "Response time" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Response time"
+    "Series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Час відповіді"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ряд"
           }
         }
       }
     },
-    "Restart the app. If this keeps happening, free up some space on your device." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restart the app. If this keeps happening, free up some space on your device."
+    "Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Перезапусти застосунок. Якщо це повторюється, звільни трохи місця на пристрої."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Налаштування"
           }
         }
       }
     },
-    "Save" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save"
+    "Several times a week": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Several times a week"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Зберегти"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кілька разів на тиждень"
           }
         }
       }
     },
-    "Save check-in" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save check-in"
+    "Severe headache": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Severe headache"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Зберегти запис"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сильний головний біль"
           }
         }
       }
     },
-    "Series" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Series"
+    "Skip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ряд"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустити"
           }
         }
       }
     },
-    "Settings" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings"
+    "Sleep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Налаштування"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сон"
           }
         }
       }
     },
-    "Several times a week" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Several times a week"
+    "Sleep and heart rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep and heart rate"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Кілька разів на тиждень"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сон та частота серцевих скорочень"
           }
         }
       }
     },
-    "Severe headache" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Severe headache"
+    "Sleep, resting heart rate and blood oxygen from Apple Health": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep, resting heart rate and blood oxygen from Apple Health"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сильний головний біль"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сон, пульс у спокої та кисень у крові з Apple Health"
           }
         }
       }
     },
-    "Skip" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skip"
+    "Some data is still on this device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some data is still on this device"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пропустити"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частина даних залишилася на пристрої"
           }
         }
       }
     },
-    "Sleep" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sleep"
+    "SpO2": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SpO2"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сон"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SpO2"
           }
         }
       }
     },
-    "Sleep and heart rate" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sleep and heart rate"
+    "Start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сон та частота серцевих скорочень"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Почати"
           }
         }
       }
     },
-    "Sleep, resting heart rate and blood oxygen from Apple Health" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sleep, resting heart rate and blood oxygen from Apple Health"
+    "Step %lld of %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step %lld of %lld"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сон, пульс у спокої та кисень у крові з Apple Health"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Крок %1$lld з %2$lld"
           }
         }
       }
     },
-    "Some data is still on this device" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Some data is still on this device"
+    "System": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Частина даних залишилася на пристрої"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системна"
           }
         }
       }
     },
-    "SpO2" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SpO2"
+    "System follows your device's language. Barosense uses English for anything it hasn't been translated into.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System follows your device's language. Barosense uses English for anything it hasn't been translated into."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SpO2"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Системна» бере мову пристрою. Для неперекладеного Barosense використовує англійську."
           }
         }
       }
     },
-    "Start" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start"
+    "Tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tag"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Почати"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тег"
           }
         }
       }
     },
-    "Step %lld of %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Step %lld of %lld"
+    "Tag name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tag name"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Крок %1$lld з %2$lld"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назва тегу"
           }
         }
       }
     },
-    "System" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "System"
+    "That tag could not be added to your list. Check that the device has free space and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That tag could not be added to your list. Check that the device has free space and try again."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Системна"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося додати тег до списку. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
           }
         }
       }
     },
-    "System follows your device's language. Barosense uses English for anything it hasn't been translated into." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "System follows your device's language. Barosense uses English for anything it hasn't been translated into."
+    "The daily cap, across every kind of notification.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The daily cap, across every kind of notification."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "«Системна» бере мову пристрою. Для неперекладеного Barosense використовує англійську."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Денний ліміт — для всіх видів сповіщень разом."
           }
         }
       }
     },
-    "Tag" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tag"
+    "The model learns from your data alone. For a sharper forecast it needs 90 days of tracking at 3 check-ins a day.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model learns from your data alone. For a sharper forecast it needs 90 days of tracking at 3 check-ins a day."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Тег"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель навчається саме на твоїх даних. Для кращого прогнозу потрібно 90 днів спостережень по 3 логи в день."
           }
         }
       }
     },
-    "Tag name" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tag name"
+    "The model will look for links between pressure, weather and how you feel. The more entries you add, the more it leans on your own history instead of general patterns.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model will look for links between pressure, weather and how you feel. The more entries you add, the more it leans on your own history instead of general patterns."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Назва тегу"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель шукатиме зв’язок між тиском, погодою і твоїм самопочуттям. Що більше записів — то більше вона спиратиметься на твою власну історію, а не на загальні закономірності."
           }
         }
       }
     },
-    "That tag could not be added to your list. Check that the device has free space and try again." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "That tag could not be added to your list. Check that the device has free space and try again."
+    "This device has no barometer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device has no barometer"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не вдалося додати тег до списку. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цей пристрій не має барометра"
           }
         }
       }
     },
-    "The model learns from your data alone. For a sharper forecast it needs 90 days of tracking at 3 check-ins a day." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The model learns from your data alone. For a sharper forecast it needs 90 days of tracking at 3 check-ins a day."
+    "This helps personalise your pressure and wellbeing forecasts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This helps personalise your pressure and wellbeing forecasts"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Модель навчається саме на твоїх даних. Для кращого прогнозу потрібно 90 днів спостережень по 3 логи в день."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Це допоможе персоналізувати прогнози тиску та самопочуття"
           }
         }
       }
     },
-    "The model will look for links between pressure, weather and how you feel. The more entries you add, the more it leans on your own history instead of general patterns." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The model will look for links between pressure, weather and how you feel. The more entries you add, the more it leans on your own history instead of general patterns."
+    "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Модель шукатиме зв’язок між тиском, погодою і твоїм самопочуттям. Що більше записів — то більше вона спиратиметься на твою власну історію, а не на загальні закономірності."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Це видалить твій профіль, твої чек-іни, теги та всі виміри тиску і дані Health, збережені на цьому пристрої. Скасувати неможливо — Barosense почне з початкового налаштування."
           }
         }
       }
     },
-    "This device has no barometer" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This device has no barometer"
+    "Time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Цей пристрій не має барометра"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Час"
           }
         }
       }
     },
-    "This helps personalise your pressure and wellbeing forecasts" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This helps personalise your pressure and wellbeing forecasts"
+    "Time taken": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Час прийому"
           }
+        }
+      }
+    },
+    "To learn faster": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To learn faster"
+          }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Це допоможе персоналізувати прогнози тиску та самопочуття"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Щоб модель навчалась швидше"
           }
         }
       }
     },
-    "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding."
+    "Try again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Це видалить твій профіль, твої чек-іни, теги та всі виміри тиску і дані Health, збережені на цьому пристрої. Скасувати неможливо — Barosense почне з початкового налаштування."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спробувати ще раз"
           }
         }
       }
     },
-    "Time" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Time"
+    "Turn on reminders": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on reminders"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Час"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увімкнути нагадування"
           }
         }
       }
     },
-    "Time taken" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Час прийому"
+    "Weather Trigger Index": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather Trigger Index"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Індекс змін погоди"
           }
         }
       }
     },
-    "To learn faster" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To learn faster"
+    "Website": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Website"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Щоб модель навчалась швидше"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сайт"
           }
         }
       }
     },
-    "Try again" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try again"
+    "What best describes how you feel?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What best describes how you feel?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Спробувати ще раз"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Що найкраще описує твій стан?"
           }
         }
       }
     },
-    "Weather Trigger Index" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weather Trigger Index"
+    "What do you want to be able to note on a check-in?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What do you want to be able to note on a check-in?"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Індекс змін погоди"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Що ти хочеш позначати в чек-іні?"
           }
         }
       }
     },
-    "Website" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Website"
+    "What it learns from": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What it learns from"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сайт"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На чому навчається"
           }
         }
       }
     },
-    "What best describes how you feel?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What best describes how you feel?"
+    "What this measures": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What this measures"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Що найкраще описує твій стан?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Що це показує"
           }
         }
       }
     },
-    "What do you want to be able to note on a check-in?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What do you want to be able to note on a check-in?"
+    "What you have logged, grouped by name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you have logged, grouped by name"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Що ти хочеш позначати в чек-іні?"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Те, що ти записував, згруповане за назвою"
           }
         }
       }
     },
-    "What it learns from" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What it learns from"
+    "What you noticed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you noticed"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "На чому навчається"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Що відчувається"
           }
         }
       }
     },
-    "What this measures" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What this measures"
+    "What you track": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you track"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Що це показує"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Що ти відстежуєш"
           }
         }
       }
     },
-    "What you have logged, grouped by name" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What you have logged, grouped by name"
+    "Woman": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Woman"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Те, що ти записував, згруповане за назвою"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Жінка"
           }
         }
       }
     },
-    "What you noticed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What you noticed"
+    "Year": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Year"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Що відчувається"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рік"
           }
         }
       }
     },
-    "What you track" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "What you track"
+    "Your answers could not be saved. Check that the device has free space and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your answers could not be saved. Check that the device has free space and try again."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Що ти відстежуєш"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося зберегти твої відповіді. Переконайся, що на пристрої є вільне місце, і спробуй ще раз."
           }
         }
       }
     },
-    "Woman" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Woman"
+    "Your changes are still here. Try Save again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your changes are still here. Try Save again."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Жінка"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твої зміни на місці. Спробуй зберегти ще раз."
           }
         }
       }
     },
-    "Year" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Year"
+    "Your check-in could not be saved. Check that the device has free space and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your check-in could not be saved. Check that the device has free space and try again."
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Рік"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося зберегти запис. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
           }
         }
       }
     },
-    "years" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "years"
+    "Your check-ins, the tags on them and what you took": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your check-ins, the tags on them and what you took"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "років"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твої записи стану, позначки на них і прийняті ліки"
           }
         }
       }
     },
-    "Your answers could not be saved. Check that the device has free space and try again." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your answers could not be saved. Check that the device has free space and try again."
+    "Your medications": {
+      "localizations": {
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твої засоби"
           }
+        }
+      }
+    },
+    "Your past check-ins next to the pressure around them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your past check-ins next to the pressure around them."
+          }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не вдалося зберегти твої відповіді. Переконайся, що на пристрої є вільне місце, і спробуй ще раз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твої минулі чек-іни поруч із тиском навколо них."
           }
         }
       }
     },
-    "Your changes are still here. Try Save again." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your changes are still here. Try Save again."
+    "Your personal model has started learning from your data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your personal model has started learning from your data"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твої зміни на місці. Спробуй зберегти ще раз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Персональна модель почала навчатись на твоїх даних"
           }
         }
       }
     },
-    "Your check-in could not be saved. Check that the device has free space and try again." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your check-in could not be saved. Check that the device has free space and try again."
+    "Your plan is ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your plan is ready"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не вдалося зберегти запис. Перевірте, чи є вільне місце на пристрої, і спробуйте ще раз."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твій план готовий"
           }
         }
       }
     },
-    "Your check-ins, the tags on them and what you took" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your check-ins, the tags on them and what you took"
+    "Your profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your profile"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твої записи стану, позначки на них і прийняті ліки"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твій профіль"
           }
         }
       }
     },
-    "Your medications" : {
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твої засоби"
+    "now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "now"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "зараз"
           }
         }
       }
     },
-    "Your past check-ins next to the pressure around them." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your past check-ins next to the pressure around them."
+    "years": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "years"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твої минулі чек-іни поруч із тиском навколо них."
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "років"
           }
         }
       }
     },
-    "Your personal model has started learning from your data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your personal model has started learning from your data"
+    "→ steady": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ steady"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Персональна модель почала навчатись на твоїх даних"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ стабільно"
           }
         }
       }
     },
-    "Your plan is ready" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your plan is ready"
+    "↗ rising": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↗ rising"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твій план готовий"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↗ росте"
           }
         }
       }
     },
-    "Your profile" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your profile"
+    "↘ falling": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↘ falling"
           }
         },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твій профіль"
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↘ падає"
           }
         }
       }
     }
   },
-  "version" : "1.1"
+  "version": "1.1"
 }
