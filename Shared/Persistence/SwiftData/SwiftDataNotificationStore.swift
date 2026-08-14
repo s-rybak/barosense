@@ -60,8 +60,8 @@ final class StoredNotification {
     ///
     /// Skipped on read rather than coerced into a neighbouring value. The consequence of a guess
     /// here is not cosmetic: a row misread as `.suppressed` when it was `.delivered` hands the
-    /// day an allowance it has already spent, which is exactly the failure the cap exists to
-    /// prevent.
+    /// day an allowance it has already spent, which is exactly the failure the cap exists to rule
+    /// out.
     var record: NotificationRecord? {
         guard let kind = NotificationKind(rawValue: kindRawValue),
               let language = AppLanguage(rawValue: languageRawValue),

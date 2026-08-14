@@ -184,7 +184,7 @@ struct NotificationDispatcher: Sendable {
     /// the same minute, and the only thing standing between the user and that is a cap counted in
     /// threes. It is reachable through any path that gets two passes running at once — which is
     /// meant to be impossible (`CheckInReminderController.inFlight`) and was not, so the state is
-    /// cleaned up here rather than only prevented upstream.
+    /// cleaned up here rather than only ruled out upstream.
     private func cancelUnwanted(_ ledger: inout [NotificationRecord],
                                 plan: [PlannedNotification],
                                 now: Date,
@@ -229,7 +229,7 @@ struct NotificationDispatcher: Sendable {
     /// `.suppressed` is not settled, and reading it as such was a bug. A refusal records what the
     /// cap cost on one pass, not a decision about the slot: the allowance can be freed later the
     /// same day — a check-in withdraws that evening's reminder, and `.cancelled` rows spend
-    /// nothing — and the slot is then worth having after all. Treating the refusal as final left
+    /// nothing — and the slot is then worth having after all. Reading the refusal as final left
     /// the day quieter than the cap actually required. Unreachable with one notification kind
     /// planned one slot deep, which is why it never showed; it would have appeared with the
     /// second kind, as a notification that silently never arrived.

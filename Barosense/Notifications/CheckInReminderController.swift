@@ -90,7 +90,7 @@ final class CheckInReminderController {
     /// scheduled before the switch had fired.
     func refresh(language: AppLanguage, calendar: Calendar, now: Date = .now) async {
         let previous = inFlight
-        let task = Task { @MainActor [weak self] in
+        let task = Task { [weak self] in
             await previous?.value
             await self?.reconcile(language: language, calendar: calendar, now: now)
         }

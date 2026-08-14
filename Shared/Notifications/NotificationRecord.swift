@@ -71,7 +71,7 @@ enum NotificationDeliveryState: String, Codable, Sendable, CaseIterable {
 /// remember is which language went to the system, because the request sitting in the
 /// notification centre is already rendered and iOS will not re-resolve it: without this, a user
 /// who switches to Ukrainian on Tuesday goes on getting English reminders until the last one
-/// scheduled before the switch has fired. `NotificationDispatcher` treats a row in the wrong
+/// scheduled before the switch has fired. `NotificationDispatcher` reads a row in the wrong
 /// language as one the plan no longer wants, which withdraws and reissues it.
 ///
 /// Nothing health-derived is here either — no intensity, no tag, no note. The log says *that*

@@ -56,8 +56,12 @@ final class NotificationRouter {
 ///
 /// Registered in `BarosenseApp.init`, which is the last moment that counts: iOS delivers a tap
 /// that launched the app as soon as launching finishes, and a delegate set after that never hears
-/// about it. The one visible symptom would be that tapping a reminder works — except on the taps
-/// that opened the app, which are most of them.
+/// about it. The one visible sign would be that tapping a reminder works — except on the taps that
+/// opened the app, which are most of them.
+/// Not `@MainActor`, and not by preference: `UNUserNotificationCenterDelegate` is imported without
+/// isolation, so a main-actor-isolated conformance does not compile under complete checking. The
+/// callback therefore arrives on a queue the SDK does not name, and reaching `NotificationRouter`
+/// is a real cross-actor call rather than a warning to be silenced.
 final class NotificationResponder: NSObject, UNUserNotificationCenterDelegate {
 
     private let router: NotificationRouter
@@ -91,7 +95,8 @@ final class NotificationResponder: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         // Answered first and unconditionally. The system holds the app awake until this is
-        // called, and the routing below is a main-actor hop that must not sit inside that window.
+        // called, and the routing below is a hop onto the main actor that must not sit inside
+        // that window.
         completionHandler()
 
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
@@ -102,8 +107,10 @@ final class NotificationResponder: NSObject, UNUserNotificationCenterDelegate {
             return
         }
 
-        Task { @MainActor [router] in
-            router.request(route)
+        // `router` is captured rather than `self`: the router carries its own isolation and is
+        // Sendable for it, and awaiting the call lets that isolation do the hop.
+        Task { [router] in
+            await router.request(route)
         }
     }
 }

@@ -92,8 +92,9 @@ final class CheckInRhythmTests: XCTestCase {
         let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 8, day: 10)))
         let checkIns = try (0..<4).map { offset -> CheckIn in
             let stamp = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: day))
-            let at = try XCTUnwrap(calendar.date(bySettingHour: 21, minute: 15, second: 0, of: stamp))
-            return CheckIn(timestamp: at, intensity: CheckInIntensity(clamping: 5))
+            let evening = try XCTUnwrap(calendar.date(bySettingHour: 21, minute: 15, second: 0,
+                                                      of: stamp))
+            return CheckIn(timestamp: evening, intensity: CheckInIntensity(clamping: 5))
         }
 
         let rhythm = CheckInRhythm.read(from: checkIns, calendar: calendar)

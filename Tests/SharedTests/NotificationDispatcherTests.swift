@@ -340,7 +340,7 @@ final class NotificationDispatcherTests: XCTestCase {
     }
 
     /// Two rows for one slot are two notifications at the same minute. Reached on device by two
-    /// passes running at once, which is now prevented upstream — this is the repair, and it has
+    /// passes running at once, which is now ruled out upstream — this is the repair, and it has
     /// to work on a store that already holds the damage.
     func testADuplicateRowForOneSlotIsWithdrawn() async throws {
         let slot = try date(12, 20)

@@ -16,10 +16,10 @@ final class SwiftDataNotificationStoreTests: XCTestCase {
 
     private func record(_ offsetHours: Double,
                         state: NotificationDeliveryState = .scheduled) -> NotificationRecord {
-        let at = referenceDate.addingTimeInterval(offsetHours * 3600)
+        let slot = referenceDate.addingTimeInterval(offsetHours * 3600)
         return NotificationRecord(kind: .checkInReminder,
                                   language: .english,
-                                  scheduledFor: at,
+                                  scheduledFor: slot,
                                   state: state,
                                   createdAt: referenceDate)
     }

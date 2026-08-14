@@ -7,9 +7,9 @@ import Foundation
 /// A notification is the one surface that speaks to the user without being opened, and it is the
 /// surface App Review reads first. Everything in
 /// `.claude/skills/appstore_compliance/SKILL.md` holds: this asks the user a question and says
-/// what answering it is for. It does not tell them how they feel, warn them about a symptom, or
-/// imply the app knows what is coming. It also interpolates nothing — no intensity, no tag, no
-/// count — because a notification body is shown on a locked screen, and health data belongs to
+/// what answering it is for. It does not tell them how they feel, name anything they might be
+/// feeling, or imply the app knows what is coming. It interpolates nothing — no intensity, no tag,
+/// no count — because a notification body is shown on a locked screen, and health data belongs to
 /// whoever is holding the phone rather than to whoever can see it.
 ///
 /// ## Why the words are resolved by name and not by environment

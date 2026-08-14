@@ -206,7 +206,7 @@ private final class RecordingNotificationDeliverer: NotificationDelivering, @unc
         lock.withLock { _cancelledIDs.append(contentsOf: ids) }
     }
 
-    /// Empty rather than the scheduled set: the pass must not treat something it has just handed
+    /// Empty rather than the scheduled set: the pass must not read something it has just handed
     /// over as already outstanding from a previous run.
     func pendingIdentifiers() async -> Set<UUID> { [] }
 
