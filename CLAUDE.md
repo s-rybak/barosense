@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 ## What this is
 
 Barosense — an iOS + watchOS app for weather-sensitive people. It samples barometric
-pressure from the Apple Watch built-in barometer, collects short self-reported wellbeing
+pressure from the iPhone built-in barometer, collects short self-reported wellbeing
 check-ins, and produces a **personal** forecast of likely wellbeing decline with an
 advance notification. Target outcome: shipped MVP on the App Store.
 

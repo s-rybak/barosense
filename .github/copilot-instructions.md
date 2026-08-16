@@ -1,7 +1,7 @@
 # Copilot review instructions — Barosense
 
 Barosense is an iOS + watchOS app for weather-sensitive people. It samples barometric
-pressure from the Apple Watch barometer, collects 1–5 wellbeing check-ins, and produces a
+pressure from the iPhone barometer, collects 1–5 wellbeing check-ins, and produces a
 **personal** forecast of likely wellbeing decline. Everything runs **on-device**: there is
 no backend, and adding one requires an explicit design decision in the PR.
 
