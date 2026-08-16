@@ -194,6 +194,192 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(model.health.isConnected)
     }
 
+    // MARK: - Check-in reminder row
+
+    func testTheReminderSwitchIsOnWhenItIsWantedAndIOSWillDeliver() async {
+        let model = makeModel(notifications: StubNotificationDeliverer(isAuthorized: true))
+
+        await model.load()
+
+        XCTAssertTrue(model.reminders.isOn)
+        XCTAssertFalse(model.reminders.isBlockedBySystem)
+    }
+
+    /// The state the two facts exist for. The user asked for the reminder and iOS is not
+    /// delivering it, so a switch showing the preference alone would sit there reading "on"
+    /// for someone who has been getting nothing.
+    func testTheReminderSwitchIsOffWhileIOSWillNotDeliver() async {
+        let model = makeModel(notifications: StubNotificationDeliverer(isAuthorized: false))
+
+        await model.load()
+
+        XCTAssertTrue(model.reminders.isPreferred)
+        XCTAssertFalse(model.reminders.isOn)
+        XCTAssertTrue(model.reminders.isBlockedBySystem)
+    }
+
+    /// Off because the user turned it off is not the same state as off because iOS refused,
+    /// and only one of the two has anywhere to send them.
+    func testAReminderTurnedOffByTheUserIsNotBlockedByTheSystem() async {
+        let model = makeModel(notifications: StubNotificationDeliverer(isAuthorized: true),
+                              reminderPreferences: InMemoryReminderPreferenceStore(
+                                  isCheckInReminderEnabled: false
+                              ))
+
+        await model.load()
+
+        XCTAssertFalse(model.reminders.isOn)
+        XCTAssertFalse(model.reminders.isBlockedBySystem)
+    }
+
+    // MARK: - Tapping the reminder switch
+
+    /// The switch is not finished when the preference is written: a week of reminders is
+    /// already sitting in the notification centre, and only a reconcile pass withdraws them.
+    func testTurningTheReminderOffRecordsItAndReplans() async {
+        let preferences = InMemoryReminderPreferenceStore()
+        let replanned = Replanned()
+        let model = makeModel(notifications: StubNotificationDeliverer(isAuthorized: true),
+                              reminderPreferences: preferences,
+                              onRemindersChanged: { await replanned.record() })
+        await model.load()
+
+        let outcome = await model.toggleReminder()
+        let replanCount = await replanned.count
+
+        XCTAssertEqual(outcome, .changed)
+        XCTAssertFalse(preferences.isCheckInReminderEnabled())
+        XCTAssertFalse(model.reminders.isOn)
+        XCTAssertEqual(replanCount, 1)
+    }
+
+    /// Permission is already granted, so turning it back on is a preference and nothing else.
+    /// Asking iOS again here would be a cross-process round trip for an answer already held.
+    func testTurningTheReminderBackOnDoesNotAskIOSAgain() async {
+        let deliverer = StubNotificationDeliverer(isAuthorized: true)
+        let preferences = InMemoryReminderPreferenceStore(isCheckInReminderEnabled: false)
+        let model = makeModel(notifications: deliverer, reminderPreferences: preferences)
+        await model.load()
+
+        let outcome = await model.toggleReminder()
+
+        XCTAssertEqual(outcome, .changed)
+        XCTAssertEqual(deliverer.requestCount, 0)
+        XCTAssertTrue(model.reminders.isOn)
+    }
+
+    /// The switch has to hold the value the user chose for the whole of the pass that follows it
+    /// — writing the preference, re-planning a week, re-reading the row. Reading `reminders`
+    /// alone shows the state from before the tap for that stretch, so the switch springs back to
+    /// where it was and then moves again, which reads as a control that dropped the tap.
+    func testTheSwitchHoldsTheChosenValueUntilThePassHasFinished() async {
+        let observer = ReminderSwitchObserver()
+        let model = makeModel(notifications: StubNotificationDeliverer(isAuthorized: true),
+                              reminderPreferences: InMemoryReminderPreferenceStore(),
+                              onRemindersChanged: { [observer] in
+                                  observer.midPassValue = observer.model?.isReminderOn
+                              })
+        observer.model = model
+        await model.load()
+        XCTAssertTrue(model.isReminderOn)
+
+        await model.toggleReminder()
+
+        // The one moment it used to be wrong: preference written, row not yet re-read.
+        XCTAssertEqual(observer.midPassValue, false)
+        XCTAssertFalse(model.isReminderOn)
+        XCTAssertNil(model.pendingReminderValue)
+    }
+
+    /// The other side of the rule. When iOS has the last word there is nothing to be optimistic
+    /// about, so the switch stays where it is instead of flicking on and back off while the app
+    /// finds out that permission is still refused.
+    func testTheSwitchDoesNotMoveWhileIOSIsBeingAsked() async {
+        let observer = ReminderSwitchObserver()
+        let model = makeModel(notifications: StubNotificationDeliverer(isAuthorized: false),
+                              onRemindersChanged: { [observer] in
+                                  observer.midPassValue = observer.model?.isReminderOn
+                              })
+        observer.model = model
+        await model.load()
+
+        let outcome = await model.toggleReminder()
+
+        XCTAssertEqual(outcome, .needsSystemSettings)
+        XCTAssertEqual(observer.midPassValue, false)
+        XCTAssertFalse(model.isReminderOn)
+    }
+
+    /// Answered with a refusal at some point in the past. iOS will not show the prompt again,
+    /// so the only honest thing left is to send the user to Settings.
+    func testTappingABlockedSwitchRoutesToSettingsWhenIOSStillRefuses() async {
+        let deliverer = StubNotificationDeliverer(isAuthorized: false)
+        let model = makeModel(notifications: deliverer)
+        await model.load()
+
+        let outcome = await model.toggleReminder()
+
+        XCTAssertEqual(outcome, .needsSystemSettings)
+        XCTAssertEqual(deliverer.requestCount, 1)
+        XCTAssertFalse(model.reminders.isOn)
+    }
+
+    func testTappingABlockedSwitchTurnsTheReminderOnWhenPermissionIsGranted() async {
+        let deliverer = StubNotificationDeliverer(isAuthorized: false, grantsOnRequest: true)
+        let model = makeModel(notifications: deliverer)
+        await model.load()
+
+        let outcome = await model.toggleReminder()
+
+        XCTAssertEqual(outcome, .authorized)
+        XCTAssertTrue(model.reminders.isOn)
+    }
+
+    /// The preference goes on before the prompt, not after it. Someone who had switched the
+    /// reminder off and then tapped a blocked switch is asking for it back — and a grant that
+    /// left the preference off would flip the switch straight back to off and read as a tap
+    /// that did nothing.
+    func testTappingABlockedSwitchWantsTheReminderOnEvenIfItHadBeenTurnedOff() async {
+        let preferences = InMemoryReminderPreferenceStore(isCheckInReminderEnabled: false)
+        let model = makeModel(
+            notifications: StubNotificationDeliverer(isAuthorized: false, grantsOnRequest: true),
+            reminderPreferences: preferences
+        )
+        await model.load()
+
+        await model.toggleReminder()
+
+        XCTAssertTrue(preferences.isCheckInReminderEnabled())
+        XCTAssertTrue(model.reminders.isOn)
+    }
+
+    // MARK: - The daily count
+
+    func testTheDailyCountReportsWhatTodayHasAlreadyCommittedTo() async throws {
+        let log = InMemoryNotificationStore()
+        // Scheduled counts as well as delivered: a reminder placed for this evening is spent
+        // from the moment the row is written, which is what the cap promises.
+        try await log.save(record(at: now.addingTimeInterval(-3600), state: .delivered))
+        try await log.save(record(at: now.addingTimeInterval(3600), state: .scheduled))
+        try await log.save(record(at: now.addingTimeInterval(1800), state: .suppressed))
+
+        let model = makeModel(notificationLog: log)
+        await model.load()
+
+        XCTAssertEqual(model.reminders.countedToday, 2)
+        XCTAssertEqual(model.reminders.dailyLimit, 3)
+    }
+
+    func testTheDailyCountLeavesYesterdayOutOfIt() async throws {
+        let log = InMemoryNotificationStore()
+        try await log.save(record(at: now.addingTimeInterval(-24 * 3600), state: .delivered))
+
+        let model = makeModel(notificationLog: log)
+        await model.load()
+
+        XCTAssertEqual(model.reminders.countedToday, 0)
+    }
+
     // MARK: - Erasing
 
     func testASuccessfulEraseHandsTheUserBackToOnboarding() async throws {
@@ -243,24 +429,51 @@ final class SettingsModelTests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// GMT rather than the device's, so which day a notification row falls in is the same
+    /// wherever the tests run.
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        return calendar
+    }
+
+    private func record(at date: Date,
+                        state: NotificationDeliveryState) -> NotificationRecord {
+        NotificationRecord(kind: .checkInReminder,
+                           language: .english,
+                           scheduledFor: date,
+                           state: state,
+                           createdAt: date)
+    }
+
     private func makeModel(access: any HealthAccessReporting
                                = StubHealthAccessReporter(state: SettingsModelTests.everythingReadable),
                            profiles: any UserProfileStore = InMemoryUserProfileStore(),
                            healthLog: any HealthSampleStore = InMemoryHealthSampleStore(),
                            pressureLog: any PressureSampleStore = InMemoryPressureSampleStore(),
-                           onDataErased: @escaping () async -> Void = {}) -> SettingsModel {
+                           notificationLog: any NotificationStore = InMemoryNotificationStore(),
+                           notifications: any NotificationDelivering = StubNotificationDeliverer(),
+                           reminderPreferences: any ReminderPreferenceStore
+                               = InMemoryReminderPreferenceStore(),
+                           onDataErased: @escaping () async -> Void = {},
+                           onRemindersChanged: @escaping () async -> Void = {}) -> SettingsModel {
         let dependencies = SettingsDependencies(
             profileStore: profiles,
             tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
             checkInStore: InMemoryCheckInStore(),
             healthLog: healthLog,
             pressureLog: pressureLog,
+            notificationLog: notificationLog,
+            notifications: notifications,
+            reminderPreferences: reminderPreferences,
             healthAccess: access
         )
         let now = now
         return SettingsModel(dependencies: dependencies,
+                             calendar: calendar,
                              now: { now },
-                             onDataErased: onDataErased)
+                             onDataErased: onDataErased,
+                             onRemindersChanged: onRemindersChanged)
     }
 }
 
@@ -295,6 +508,43 @@ private final class StubHealthAccessReporter: HealthAccessReporting, @unchecked 
     }
 }
 
+/// Reports whatever authorisation it is set to, and counts requests so a test can prove the
+/// model does not go back to iOS for an answer it already has.
+///
+/// Locked and `@unchecked` for the reason `StubHealthAccessReporter` is.
+private final class StubNotificationDeliverer: NotificationDelivering, @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var _isAuthorized: Bool
+    private let grantsOnRequest: Bool
+    private var _requestCount = 0
+
+    /// `grantsOnRequest` is the user tapping "Allow" on the prompt this call puts up. Left
+    /// `false`, the deliverer stands for an authorisation that was refused at some point in the
+    /// past — which iOS answers from its own record without showing anything.
+    init(isAuthorized: Bool = true, grantsOnRequest: Bool = false) {
+        _isAuthorized = isAuthorized
+        self.grantsOnRequest = grantsOnRequest
+    }
+
+    var requestCount: Int { lock.withLock { _requestCount } }
+
+    func isAuthorized() async -> Bool { lock.withLock { _isAuthorized } }
+
+    func requestAuthorization() async -> Bool {
+        lock.withLock {
+            _requestCount += 1
+            if grantsOnRequest { _isAuthorized = true }
+            return _isAuthorized
+        }
+    }
+
+    func schedule(_ request: NotificationDeliveryRequest) async throws {}
+    func cancel(ids: [UUID]) async {}
+    func pendingIdentifiers() async -> Set<UUID> { [] }
+    func deliveredIdentifiers() async -> Set<UUID> { [] }
+}
+
 private struct StoreRefused: Error {}
 
 private struct RefusingPressureSampleStore: PressureSampleStore {
@@ -304,6 +554,20 @@ private struct RefusingPressureSampleStore: PressureSampleStore {
 }
 
 private actor Restarted {
+    private(set) var count = 0
+    func record() { count += 1 }
+}
+
+/// Carries the model into the replan callback, which has to be built before the model exists,
+/// and holds what the switch was displaying at the moment that callback ran — after the
+/// preference has been written and before the row has been re-read.
+@MainActor
+private final class ReminderSwitchObserver {
+    var model: SettingsModel?
+    var midPassValue: Bool?
+}
+
+private actor Replanned {
     private(set) var count = 0
     func record() { count += 1 }
 }

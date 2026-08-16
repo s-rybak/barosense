@@ -59,7 +59,19 @@ if [ -n "$types" ] && [ "$share_string" -eq 0 ]; then
 fi
 
 # Heuristic: a write consumer is a save() on a health store, or a non-empty toShare set.
-writes=$(grep_swift '(healthStore|store)\.save\(|requestAuthorization\(toShare: *\[[^]]' || true)
+#
+# Scoped to the files that touch HealthKit at all, because `store.save(...)` is the shape of
+# every persistence store in this repo: matched across the whole tree it reported the SwiftData
+# notification log — which never sees a health sample — as a HealthKit write. Nothing real is
+# lost by the narrowing. Saving to HealthKit means building an HKObject and handing it to an
+# HKHealthStore, and neither is expressible in a file that imports neither.
+healthkit_files=$(printf '%s\n' "$uses_healthkit" | grep -v '^$' | cut -d: -f1 | sort -u)
+writes=''
+if [ -n "$healthkit_files" ]; then
+    writes=$(printf '%s\n' "$healthkit_files" | tr '\n' '\0' \
+        | xargs -0 grep -EnH '(healthStore|store)\.save\(|requestAuthorization\(toShare: *\[[^]]' \
+        2>/dev/null || true)
+fi
 if [ -n "$writes" ] && [ "$update_string" -eq 0 ]; then
     echo "FAIL: code writes to HealthKit but no NSHealthUpdateUsageDescription in $manifest" >&2
     printf '%s\n' "$writes" >&2

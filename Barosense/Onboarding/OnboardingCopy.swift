@@ -92,20 +92,15 @@ extension WellbeingTag {
 
     /// The shipped copy for `key` in one named language.
     ///
-    /// Loaded from that language's `.lproj` rather than with `String(localized:locale:)`. The
-    /// `locale` argument there decides how interpolated values are formatted, not which
-    /// translation is read, so it returns the base language whatever is passed to it — which
-    /// is the difference between recognising "Втома" and filing a second tag for it.
+    /// A *named* language rather than the environment's is what makes the difference between
+    /// recognising "Втома" and filing a second tag for it. The `.lproj` lookup that does it —
+    /// and why it is not `String(localized:locale:)` — lives on `AppLanguage.shippedCopy`,
+    /// shared with the notification copy, which needs the same thing for the same reason.
     ///
     /// `nil` for a language with no bundle, and the key itself for one with no translation of
     /// it. Both fall back to matching the base-language text, which `name` already covers.
     private static func shippedCopy(_ key: String, in language: AppLanguage) -> String? {
-        guard let path = Bundle.main.path(forResource: language.languageCode, ofType: "lproj"),
-              let bundle = Bundle(path: path)
-        else {
-            return nil
-        }
-        return bundle.localizedString(forKey: key, value: nil, table: nil)
+        language.shippedCopy(forKey: key)
     }
 
     /// The base-language copy for a seeded tag the user has not renamed, and `nil` for

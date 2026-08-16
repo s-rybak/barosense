@@ -34,4 +34,11 @@ enum BarosenseLog {
 
     /// Barometer sampling on the watch and the hand-off to the phone.
     static let pressure = Logger(subsystem: subsystem, category: "pressure")
+
+    /// What the app decided to send the user, and what the system did with it.
+    ///
+    /// Counts and states only. A notification's *time* is a health-adjacent value here — it is
+    /// derived from when this user writes check-ins — so the hour a reminder was placed at does
+    /// not go in the log, only how many were placed.
+    static let notifications = Logger(subsystem: subsystem, category: "notifications")
 }

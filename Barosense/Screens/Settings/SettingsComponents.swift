@@ -108,6 +108,51 @@ struct SettingsNavigationRow: View {
     }
 }
 
+/// A row that states something and leads nowhere: a label and a value, no chevron.
+///
+/// Separate from `SettingsNavigationRow` rather than that row with its chevron hidden. A
+/// chevron is the app's promise that a tap does something, and a row that reports a count the
+/// user cannot act on must not make it. When the notification log gets a screen, this becomes a
+/// navigation row and the promise becomes true.
+///
+/// The label and value are read as one element by VoiceOver — "Notifications today, 1 of 3" is
+/// the sentence; two separate elements would make the user swipe to find out what the number
+/// counts.
+struct SettingsValueRow: View {
+
+    let title: LocalizedStringKey
+    /// Already-resolved `Text`, as in `SettingsNavigationRow`: only the caller knows whether the
+    /// value is app copy or a formatted number.
+    let value: Text
+    var caption: LocalizedStringKey?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(Typography.settingsRowLabel)
+                    .foregroundStyle(Palette.heading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                value
+                    .font(Typography.settingsRowValue)
+                    .foregroundStyle(Palette.placeholder)
+            }
+
+            if let caption {
+                Text(caption)
+                    .font(Typography.settingsCaption)
+                    .foregroundStyle(Palette.placeholder)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, SettingsMetrics.rowHorizontalInset)
+        .padding(.vertical, SettingsMetrics.rowVerticalInset)
+        .frame(minHeight: SettingsMetrics.rowMinHeight)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// A row carrying a switch, with an optional caption underneath.
 ///
 /// The caption is not in the design. It is there because the switch reports an
