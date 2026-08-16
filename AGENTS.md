@@ -4,7 +4,7 @@ Entry point for any AI agent working in this repository. Read this file first, t
 only the skills the task actually requires.
 
 **Project:** Barosense — iOS + watchOS app for weather-sensitive people. Collects barometric
-pressure from the Apple Watch barometer, surveys wellbeing, and produces a personal forecast
+pressure from the iPhone barometer, surveys wellbeing, and produces a personal forecast
 of condition deterioration with an early warning. Target: shipped MVP in the App Store.
 
 **Runtime:** 100% on-device. No backend. Health data never leaves the device.
@@ -136,7 +136,7 @@ Deviating from these requires an ADR in `.claude/context/decisions/`.
   base rate. Accuracy alone is not an acceptable metric.
 - Every feature added to the model gets a row in `context/ml-spec.md`: source, unit,
   sampling frequency, missing-value strategy.
-- Pressure from the Apple Watch barometer carries the highest weight — changes to its
+- Pressure from the iPhone barometer carries the highest weight — changes to its
   handling get extra review.
 
 ### Testing
