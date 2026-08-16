@@ -11,6 +11,19 @@ struct SettingsDependencies: Sendable {
     let tagStore: any WellbeingTagStore
     let healthLog: any HealthSampleStore
     let healthAccess: any HealthAccessReporting
+
+    /// The notification log, read for the day's count. The row states what the app has already
+    /// committed to today, and the only place that is recorded is the log — the system's
+    /// notification centre cannot be asked what it delivered yesterday, which is the whole
+    /// reason the log exists. See `NotificationBudget`.
+    let notificationLog: any NotificationStore
+
+    /// Read for the authorisation state and, when the switch is tapped from off, to ask for it.
+    /// Never used to schedule anything: `NotificationDispatcher` is the only path to the system.
+    let notifications: any NotificationDelivering
+
+    let reminderPreferences: any ReminderPreferenceStore
+
     let eraser: BarosenseDataEraser
 
     /// Read by the report screen and by nothing else in this tab.
@@ -28,6 +41,9 @@ struct SettingsDependencies: Sendable {
          checkInStore: any CheckInStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+         notificationLog: any NotificationStore,
+         notifications: any NotificationDelivering = UserNotificationCenterDeliverer(),
+         reminderPreferences: any ReminderPreferenceStore = UserDefaultsReminderPreferenceStore(),
          healthAccess: any HealthAccessReporting) {
         self.profileStore = profileStore
         self.tagStore = tagStore
@@ -35,11 +51,15 @@ struct SettingsDependencies: Sendable {
         self.healthLog = healthLog
         self.pressureLog = pressureLog
         self.healthAccess = healthAccess
+        self.notificationLog = notificationLog
+        self.notifications = notifications
+        self.reminderPreferences = reminderPreferences
         self.eraser = BarosenseDataEraser(profileStore: profileStore,
                                           checkInStore: checkInStore,
                                           tagStore: tagStore,
                                           healthLog: healthLog,
-                                          pressureLog: pressureLog)
+                                          pressureLog: pressureLog,
+                                          notificationLog: notificationLog)
     }
 }
 
@@ -53,6 +73,11 @@ extension SettingsDependencies {
                              checkInStore: InMemoryCheckInStore(),
                              healthLog: InMemoryHealthSampleStore(),
                              pressureLog: InMemoryPressureSampleStore(),
+                             notificationLog: InMemoryNotificationStore(),
+                             // Reports itself unauthorised, so a preview cannot put a system
+                             // permission prompt on screen from a canvas refresh.
+                             notifications: NoOpNotificationDeliverer(),
+                             reminderPreferences: InMemoryReminderPreferenceStore(),
                              healthAccess: UnavailableHealthAccessReporter())
     }
 }
@@ -98,6 +123,36 @@ final class SettingsModel {
         }
     }
 
+    /// How the check-in reminder row should read.
+    ///
+    /// Two facts again, and for the same reason as `HealthConnection`: what the user asked for
+    /// and what iOS will actually deliver are different questions that can disagree. A switch
+    /// showing the preference alone would sit there reading "on" for someone who tapped
+    /// "Don't Allow" months ago and has been getting nothing since.
+    struct ReminderSettings: Equatable {
+
+        /// The user's own choice, from `ReminderPreferenceStore`. On for an install that has
+        /// never touched the switch.
+        var isPreferred = true
+
+        /// Whether iOS will deliver a notification at all.
+        var isAuthorized = false
+
+        /// Rows already counted against today's allowance — scheduled as well as delivered.
+        /// A reminder placed for this evening is spent from the moment it is written; see
+        /// `NotificationDeliveryState.spendsAllowance`.
+        var countedToday = 0
+
+        var dailyLimit = NotificationBudget.dailySendLimit
+
+        /// On only when the user wants it *and* iOS will deliver it.
+        var isOn: Bool { isPreferred && isAuthorized }
+
+        /// Wanted, but not being delivered. The one state the switch cannot settle on its own —
+        /// only iOS Settings can.
+        var isBlockedBySystem: Bool { isPreferred && !isAuthorized }
+    }
+
     /// Progress of "delete my data", which is slow enough to need a spinner and
     /// consequential enough to need a result.
     enum EraseState: Equatable {
@@ -108,7 +163,23 @@ final class SettingsModel {
 
     private(set) var profile: UserProfile?
     private(set) var health = HealthConnection()
+    private(set) var reminders = ReminderSettings()
     private(set) var eraseState: EraseState = .idle
+
+    /// What the switch shows while a tap is still being carried out, if anything.
+    ///
+    /// A tap is not answered on the spot: the preference is written, a reconcile pass re-plans a
+    /// week against it, and only then is the row re-read. For that stretch `reminders` still
+    /// describes the state before the tap, so a switch reading it alone springs back to where it
+    /// was and moves again a moment later — which reads as a control that did not take the tap.
+    ///
+    /// Set only where the user's choice is the thing that decides the outcome. When iOS has the
+    /// last word — permission not granted — there is nothing to be optimistic about, and the
+    /// switch stays where it is until the system has answered.
+    private(set) var pendingReminderValue: Bool?
+
+    /// What the reminder switch should display.
+    var isReminderOn: Bool { pendingReminderValue ?? reminders.isOn }
 
     /// Raised while the erase confirmation is on screen. Erasing is irreversible and
     /// reaches every store at once, so it never runs straight off a tap.
@@ -121,15 +192,32 @@ final class SettingsModel {
     private let dependencies: SettingsDependencies
     private let now: @Sendable () -> Date
 
+    /// The app's calendar, not the device's, for the same reason every date on screen uses it:
+    /// "today" here is the boundary `NotificationBudget` counts the day's allowance against, and
+    /// the row has to agree with the cap the dispatcher enforced. See `LanguageController`.
+    private let calendar: Calendar
+
     /// Called after a successful erase so the app can hand the user back to onboarding.
     private let onDataErased: () async -> Void
 
+    /// Called after the reminder preference changes, to re-plan against it.
+    ///
+    /// The switch is not finished when the preference is written: a week of reminders is already
+    /// sitting in the system's notification centre, and only a reconcile pass withdraws them —
+    /// see `CheckInReminderController.refresh`. Awaited rather than fired and forgotten, so the
+    /// count this screen reloads afterwards is the count the pass left behind.
+    private let onRemindersChanged: () async -> Void
+
     init(dependencies: SettingsDependencies,
+         calendar: Calendar = .current,
          now: @escaping @Sendable () -> Date = { Date() },
-         onDataErased: @escaping () async -> Void) {
+         onDataErased: @escaping () async -> Void,
+         onRemindersChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
+        self.calendar = calendar
         self.now = now
         self.onDataErased = onDataErased
+        self.onRemindersChanged = onRemindersChanged
     }
 
     // MARK: - Loading
@@ -139,9 +227,11 @@ final class SettingsModel {
         async let profile = loadProfile()
         async let access = dependencies.healthAccess.accessState()
         async let hasReadings = loadHasRecentReadings()
+        async let reminders = loadReminders()
 
         self.profile = await profile
         health = HealthConnection(access: await access, hasReadings: await hasReadings)
+        self.reminders = await reminders
     }
 
     private func loadProfile() async -> UserProfile? {
@@ -165,6 +255,83 @@ final class SettingsModel {
             if !samples.isEmpty { return true }
         }
         return false
+    }
+
+    /// The reminder row, read fresh: the preference is the app's, the authorisation is iOS's and
+    /// can be revoked from another app, and the count moves every time a pass schedules anything.
+    private func loadReminders() async -> ReminderSettings {
+        let budget = NotificationBudget()
+        // One reading of the clock for both the window and the count. Two would be the same
+        // instant on all but one call in a million — the one that crosses midnight between
+        // them, which fetches yesterday's rows and then counts them against today, and reports
+        // an allowance the user has already spent as untouched.
+        let instant = now()
+        let today = budget.day(containing: instant, calendar: calendar)
+        // Only today's rows are read. The log holds thirty days and none of the rest is on
+        // screen, so a wider query would be paid for on every activation to display nothing.
+        let records = (try? await dependencies.notificationLog.records(in: today)) ?? []
+
+        return ReminderSettings(
+            isPreferred: dependencies.reminderPreferences.isCheckInReminderEnabled(),
+            isAuthorized: await dependencies.notifications.isAuthorized(),
+            countedToday: budget.spentSends(on: instant, given: records, calendar: calendar),
+            dailyLimit: budget.dailySendLimit
+        )
+    }
+
+    // MARK: - Check-in reminder
+
+    /// What tapping the reminder switch should do.
+    enum ReminderToggleOutcome: Equatable {
+        /// The preference flipped. The switch now reads what the user asked for.
+        case changed
+        /// Permission was granted, so the reminder is on. Whether the system prompt was actually
+        /// shown is not knowable from here — iOS answers a repeat request from its own record.
+        case authorized
+        /// Nothing left to ask. Only iOS Settings can change this now.
+        case needsSystemSettings
+    }
+
+    /// Runs whatever the current state allows, and leaves the displayed value to `load()`.
+    ///
+    /// The switch is deliberately not writable straight through. Off can mean two different
+    /// things — the user turned it off, or iOS is refusing — and they need different actions,
+    /// so the tap is interpreted here rather than in the binding.
+    @discardableResult
+    func toggleReminder() async -> ReminderToggleOutcome {
+        // Delivering already: this is a plain preference and simply flips.
+        if reminders.isAuthorized {
+            await setReminderEnabled(!reminders.isPreferred)
+            return .changed
+        }
+
+        // The switch reads off because iOS is not delivering, so whoever tapped it wants the
+        // reminder on. The preference is written before asking: a granted prompt that left the
+        // preference off would turn the switch straight back off and look like the tap failed.
+        dependencies.reminderPreferences.setCheckInReminderEnabled(true)
+
+        // Safe whether or not the prompt has been answered — the system answers a repeat from
+        // its own record without showing anything, and a `false` from an answered refusal is
+        // exactly what routes the user to Settings.
+        let granted = await dependencies.notifications.requestAuthorization()
+        await onRemindersChanged()
+        await load()
+
+        return granted ? .authorized : .needsSystemSettings
+    }
+
+    /// Records the choice and re-plans against it.
+    ///
+    /// The switch shows the new value for the whole of it — see `pendingReminderValue`. Cleared
+    /// after `load()`, not before, so the displayed value passes straight from what the user
+    /// asked for to what was stored without reading the old one in between.
+    func setReminderEnabled(_ isEnabled: Bool) async {
+        pendingReminderValue = isEnabled
+        defer { pendingReminderValue = nil }
+
+        dependencies.reminderPreferences.setCheckInReminderEnabled(isEnabled)
+        await onRemindersChanged()
+        await load()
     }
 
     // MARK: - Apple Health

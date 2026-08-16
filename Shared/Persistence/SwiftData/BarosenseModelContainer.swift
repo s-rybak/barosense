@@ -27,13 +27,15 @@ enum BarosenseModelContainer {
     /// fails at runtime on first use, so the list is the registry.
     ///
     /// `CheckIn` joined this schema with the check-in flow: a check-in references the tag
-    /// vocabulary, so the two belong in one container. `PressureSample` is durable but
-    /// deliberately not here: sensor rows live in their own container
-    /// (`SwiftDataPressureSampleStore`), the way Health rows do.
+    /// vocabulary, so the two belong in one container. `StoredNotification` joined it for the
+    /// same reason one step removed — the reminder it logs is planned off the check-in table.
+    /// `PressureSample` is durable but deliberately not here: sensor rows live in their own
+    /// container (`SwiftDataPressureSampleStore`), the way Health rows do.
     static let schema = Schema([
         StoredUserProfile.self,
         StoredWellbeingTag.self,
-        StoredCheckIn.self
+        StoredCheckIn.self,
+        StoredNotification.self
     ])
 
     /// File name of the on-disk store. Part of the storage contract — renaming it orphans

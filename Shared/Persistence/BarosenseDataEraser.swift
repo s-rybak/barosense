@@ -20,6 +20,7 @@ enum ErasableStore: String, CaseIterable, Sendable {
     case tagVocabulary
     case healthLog
     case pressureLog
+    case notificationLog
 }
 
 /// Removes every personal and health record Barosense holds.
@@ -48,17 +49,20 @@ struct BarosenseDataEraser: Sendable {
     private let tagStore: any WellbeingTagStore
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
+    private let notificationLog: any NotificationStore
 
     init(profileStore: any UserProfileStore,
          checkInStore: any CheckInStore,
          tagStore: any WellbeingTagStore,
          healthLog: any HealthSampleStore,
-         pressureLog: any PressureSampleStore) {
+         pressureLog: any PressureSampleStore,
+         notificationLog: any NotificationStore) {
         self.profileStore = profileStore
         self.checkInStore = checkInStore
         self.tagStore = tagStore
         self.healthLog = healthLog
         self.pressureLog = pressureLog
+        self.notificationLog = notificationLog
     }
 
     /// Erases everything, then throws `DataEraseFailure.storesRefused` naming any store
@@ -79,6 +83,18 @@ struct BarosenseDataEraser: Sendable {
         }
         await attempt(.healthLog, into: &refused) {
             _ = try await healthLog.deleteSamples(before: .distantFuture)
+        }
+        // The notification log holds nothing health-derived (`NotificationRecord`), so this
+        // step is a consistency obligation rather than a privacy one: it is what stops a
+        // freshly erased install from starting with yesterday's daily allowance already
+        // spent, and from holding scheduled rows for a history that no longer exists.
+        //
+        // It does not withdraw anything already handed to the system. That is
+        // `NotificationDispatcher`'s job on the next activation, which finds no rows and
+        // cancels what it does not recognise — an erase must not have to wake the
+        // notification centre to finish.
+        await attempt(.notificationLog, into: &refused) {
+            try await notificationLog.deleteAllNotifications()
         }
         // Check-ins before the vocabulary they point at. The other order is the one that
         // can leave rows referencing tags that no longer exist: `deleteAllTags` is a hard

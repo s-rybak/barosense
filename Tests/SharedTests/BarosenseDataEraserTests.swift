@@ -14,6 +14,7 @@ final class BarosenseDataEraserTests: XCTestCase {
         let checkIns = InMemoryCheckInStore()
         let health = InMemoryHealthSampleStore()
         let pressure = InMemoryPressureSampleStore()
+        let notifications = InMemoryNotificationStore()
 
         // Note and medication entry on purpose: this is the free text the erase promise is
         // mostly about, and it is the row that used to survive it.
@@ -31,12 +32,18 @@ final class BarosenseDataEraserTests: XCTestCase {
         try await pressure.save([PressureSample(id: UUID(),
                                                 timestamp: now,
                                                 pressure: Pressure(hectopascals: 1013))])
+        try await notifications.save(NotificationRecord(kind: .checkInReminder,
+                                                        language: .english,
+                                                        scheduledFor: now,
+                                                        state: .scheduled,
+                                                        createdAt: now))
 
         let eraser = BarosenseDataEraser(profileStore: profiles,
                                          checkInStore: checkIns,
                                          tagStore: tags,
                                          healthLog: health,
-                                         pressureLog: pressure)
+                                         pressureLog: pressure,
+                                         notificationLog: notifications)
 
         try await eraser.eraseEverything()
 
@@ -48,12 +55,15 @@ final class BarosenseDataEraserTests: XCTestCase {
         let remainingProfile = try await profiles.profile()
         let remainingTags = try await tags.allTags()
         let remainingCheckIns = try await checkIns.checkIns(in: Date.distantPast..<Date.distantFuture)
+        let remainingNotifications = try await notifications.records(
+            in: Date.distantPast..<Date.distantFuture)
 
         XCTAssertNil(remainingProfile)
         XCTAssertEqual(remainingTags.count, 0)
         XCTAssertEqual(remainingCheckIns.count, 0)
         XCTAssertEqual(remainingHealth.count, 0)
         XCTAssertEqual(remainingPressure.count, 0)
+        XCTAssertEqual(remainingNotifications.count, 0)
     }
 
     /// The vocabulary is hard-deleted, so the check-ins pointing at it have to be gone
@@ -67,7 +77,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          checkInStore: RecordingCheckInStore(order: order),
                                          tagStore: RecordingWellbeingTagStore(order: order),
                                          healthLog: InMemoryHealthSampleStore(),
-                                         pressureLog: InMemoryPressureSampleStore())
+                                         pressureLog: InMemoryPressureSampleStore(),
+                                         notificationLog: InMemoryNotificationStore())
 
         try await eraser.eraseEverything()
 
@@ -86,7 +97,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          checkInStore: InMemoryCheckInStore(),
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
-                                         pressureLog: pressure)
+                                         pressureLog: pressure,
+                                         notificationLog: InMemoryNotificationStore())
 
         try await eraser.eraseEverything()
 
@@ -109,7 +121,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          checkInStore: checkIns,
                                          tagStore: tags,
                                          healthLog: health,
-                                         pressureLog: pressure)
+                                         pressureLog: pressure,
+                                         notificationLog: InMemoryNotificationStore())
 
         do {
             try await eraser.eraseEverything()
@@ -134,7 +147,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          checkInStore: FailingCheckInStore(),
                                          tagStore: FailingWellbeingTagStore(),
                                          healthLog: FailingHealthSampleStore(),
-                                         pressureLog: FailingPressureSampleStore())
+                                         pressureLog: FailingPressureSampleStore(),
+                                         notificationLog: FailingNotificationStore())
 
         do {
             try await eraser.eraseEverything()
@@ -150,7 +164,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          checkInStore: InMemoryCheckInStore(),
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
-                                         pressureLog: InMemoryPressureSampleStore())
+                                         pressureLog: InMemoryPressureSampleStore(),
+                                         notificationLog: InMemoryNotificationStore())
 
         try await eraser.eraseEverything()
         try await eraser.eraseEverything()
@@ -196,6 +211,16 @@ private struct FailingPressureSampleStore: PressureSampleStore {
     func save(_ samples: [PressureSample]) async throws { throw StoreRefused() }
     func samples(in range: Range<Date>) async throws -> [PressureSample] { throw StoreRefused() }
     func deleteSamples(before date: Date) async throws -> Int { throw StoreRefused() }
+}
+
+private struct FailingNotificationStore: NotificationStore {
+    func save(_ record: NotificationRecord) async throws { throw StoreRefused() }
+    func records(in range: Range<Date>) async throws -> [NotificationRecord] { throw StoreRefused() }
+    func pendingRecords(notBefore date: Date) async throws -> [NotificationRecord] {
+        throw StoreRefused()
+    }
+    func deleteNotifications(before date: Date) async throws -> Int { throw StoreRefused() }
+    func deleteAllNotifications() async throws { throw StoreRefused() }
 }
 
 /// The order the eraser walked its stores in. An actor because the doubles writing to it

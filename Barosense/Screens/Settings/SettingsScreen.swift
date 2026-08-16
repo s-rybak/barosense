@@ -35,12 +35,18 @@ struct SettingsScreen: View {
     init(dependencies: SettingsDependencies,
          languages: LanguageController,
          isDetailPresented: Binding<Bool>,
-         onDataErased: @escaping () async -> Void) {
+         onDataErased: @escaping () async -> Void,
+         onRemindersChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
         self.languages = languages
         _isDetailPresented = isDetailPresented
+        // The calendar is handed over rather than read from the environment, as on History:
+        // this model is built in `init`, before an environment exists, and it decides which
+        // day the notification count is taken over.
         _model = State(initialValue: SettingsModel(dependencies: dependencies,
-                                                   onDataErased: onDataErased))
+                                                   calendar: languages.calendar,
+                                                   onDataErased: onDataErased,
+                                                   onRemindersChanged: onRemindersChanged))
     }
 
     var body: some View {
@@ -84,6 +90,7 @@ struct SettingsScreen: View {
 
                 profileCard
                 preferencesCard
+                RemindersCard(model: model)
                 reportCard
                 contactCard
                 destructiveActions
@@ -316,6 +323,56 @@ struct SettingsScreen: View {
         case .contact:
             ContactScreen(back: { path.removeLast() })
         }
+    }
+}
+
+/// The check-in reminder and what it costs the user in interruptions.
+///
+/// A card of its own rather than two more rows under Apple Health. The count row only makes
+/// sense next to the switch that produces it, and a "3" sitting under a language picker
+/// would be a number with no subject.
+private struct RemindersCard: View {
+
+    let model: SettingsModel
+
+    var body: some View {
+        SettingsCard {
+            SettingsToggleRow(title: "Check-in reminder",
+                              caption: caption,
+                              isOn: binding)
+
+            SettingsRowDivider()
+
+            SettingsValueRow(title: "Notifications today",
+                             value: Text("\(model.reminders.countedToday) of \(model.reminders.dailyLimit)"),
+                             caption: "The daily cap, across every kind of notification.")
+        }
+    }
+
+    /// Written to the same way the Apple Health switch is, and for the same reason: off means
+    /// two different things here — the user turned it off, or iOS is refusing to deliver it —
+    /// and only the model can tell them apart. The setter runs whatever the current state
+    /// allows and leaves the displayed value to `model.load()`, so the switch cannot show a
+    /// state iOS disagrees with.
+    private var binding: Binding<Bool> {
+        Binding(
+            get: { model.isReminderOn },
+            set: { _ in
+                Task {
+                    if await model.toggleReminder() == .needsSystemSettings {
+                        NotificationSettingsLink.open()
+                    }
+                }
+            }
+        )
+    }
+
+    /// Says what the reminder is for, and — when it is wanted but not arriving — names the one
+    /// place that can fix it.
+    private var caption: LocalizedStringKey {
+        model.reminders.isBlockedBySystem
+            ? "Notifications are turned off for Barosense in iOS Settings."
+            : "Asks how you're feeling, at the time of day you usually check in."
     }
 }
 

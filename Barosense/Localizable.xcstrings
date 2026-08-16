@@ -419,6 +419,41 @@
         }
       }
     },
+    "A quick check-in takes a few seconds." : {
+      "comment" : "Body of the check-in reminder notification. Says what answering costs and promises nothing about what it will show.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A quick check-in takes a few seconds."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Швидкий чек-ін — це кілька секунд."
+          }
+        }
+      }
+    },
+    "A reminder to check in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A reminder to check in"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нагадування зробити чек-ін"
+          }
+        }
+      }
+    },
     "1 month" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -832,6 +867,39 @@
         }
       }
     },
+    "Asks how you're feeling, at the time of day you usually check in." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks how you're feeling, at the time of day you usually check in."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Питає, як ти почуваєшся, — у той час, коли ти зазвичай робиш чек-ін."
+          }
+        }
+      }
+    },
+    "At the hour your own check-ins cluster around" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At the hour your own check-ins cluster around"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У час, коли зазвичай з'являються твої чек-іни"
+          }
+        }
+      }
+    },
     "Apple Health readings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -911,6 +979,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Назад"
+          }
+        }
+      }
+    },
+    "Barosense can ask how you're feeling at the time of day you already tend to check in." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense can ask how you're feeling at the time of day you already tend to check in."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense може питати, як ти почуваєшся, — у той час, коли ти зазвичай робиш чек-ін."
           }
         }
       }
@@ -1127,6 +1212,22 @@
         }
       }
     },
+    "Check-in reminder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check-in reminder"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нагадування про чек-ін"
+          }
+        }
+      }
+    },
     "Check-in log" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1230,7 +1331,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Кольорові крапки — ваші записи"
+            "value" : "Кольорові крапки — твої записи"
           }
         }
       }
@@ -1994,6 +2095,24 @@
         }
       }
     },
+    "How are you feeling?" : {
+      "comment" : "Title of the check-in reminder notification, placed at the time of day the user usually logs.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How are you feeling?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Як ти почуваєшся?"
+          }
+        }
+      }
+    },
     "How long does it usually last?" : {
       "localizations" : {
         "en" : {
@@ -2485,6 +2604,23 @@
         }
       }
     },
+    "Never more than %lld notifications a day" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never more than %lld notifications a day"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не більше %lld сповіщень на день"
+          }
+        }
+      }
+    },
     "New tag" : {
       "localizations" : {
         "en" : {
@@ -2600,6 +2736,23 @@
         }
       }
     },
+    "Not now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not now"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не зараз"
+          }
+        }
+      }
+    },
     "Nothing added yet" : {
       "localizations" : {
         "en" : {
@@ -2681,6 +2834,38 @@
         }
       }
     },
+    "Notifications are turned off for Barosense in iOS Settings." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are turned off for Barosense in iOS Settings."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сповіщення для Barosense вимкнені в Налаштуваннях iOS."
+          }
+        }
+      }
+    },
+    "Notifications today" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications today"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сповіщень сьогодні"
+          }
+        }
+      }
+    },
     "Notifications, stored data, and what Barosense may read." : {
       "localizations" : {
         "en" : {
@@ -2741,6 +2926,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Вимкнено"
+          }
+        }
+      }
+    },
+    "Off at any time, in Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off at any time, in Settings"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вимкнути можна будь-коли в налаштуваннях"
           }
         }
       }
@@ -3609,6 +3811,22 @@
         }
       }
     },
+    "The daily cap, across every kind of notification." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The daily cap, across every kind of notification."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Денний ліміт — для всіх видів сповіщень разом."
+          }
+        }
+      }
+    },
     "The intensity figures are that person's own answers on a 1–10 scale that only they anchor, so they cannot be compared with anyone else's. The pressure figures come from the device barometer: they are pressure at the place of measurement, uncorrected for altitude. Nothing here joins the two — they share one timeline so that a reader can look for themselves, and Barosense asserts no connection between them." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3830,6 +4048,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Спробувати ще раз"
+          }
+        }
+      }
+    },
+    "Turn on reminders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on reminders"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Увімкнути нагадування"
           }
         }
       }

@@ -88,4 +88,29 @@ extension AppLanguage {
     /// region here would also change date order and number separators for someone who
     /// only wanted the words to change.
     var locale: Locale { Locale(identifier: languageCode) }
+
+    /// The shipped copy for `key` in this language.
+    ///
+    /// Loaded from this language's `.lproj` rather than with `String(localized:locale:)`. The
+    /// `locale` argument there decides how interpolated values are formatted, not which
+    /// translation is read, so it returns the base language whatever is passed to it.
+    ///
+    /// For the two places that need a *named* language's words rather than the environment's:
+    /// matching a tag the user typed against every translation of its shipped name
+    /// (`WellbeingTag`), and writing a notification body that will be read hours from now in the
+    /// language the app is set to (`NotificationCopy`). Everywhere else draws through
+    /// `LocalizedStringKey` and the SwiftUI environment, which is simpler and resolves live.
+    ///
+    /// `nil` when the language has no bundle, and the key itself when it has no translation of
+    /// it. Both fall back to the base-language text, because every key in this app is its own
+    /// English copy.
+    func shippedCopy(forKey key: String) -> String? {
+        guard let path = Bundle.main.path(forResource: languageCode, ofType: "lproj"),
+              let bundle = Bundle(path: path)
+        else {
+            return nil
+        }
+
+        return bundle.localizedString(forKey: key, value: nil, table: nil)
+    }
 }

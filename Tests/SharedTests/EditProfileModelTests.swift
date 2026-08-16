@@ -228,6 +228,7 @@ final class EditProfileModelTests: XCTestCase {
             checkInStore: InMemoryCheckInStore(),
             healthLog: InMemoryHealthSampleStore(),
             pressureLog: InMemoryPressureSampleStore(),
+            notificationLog: InMemoryNotificationStore(),
             healthAccess: UnavailableHealthAccessReporter()
         )
         return EditProfileModel(dependencies: dependencies, onSaved: onSaved)
