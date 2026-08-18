@@ -26,7 +26,7 @@ struct HealthStep: View {
             // step is mid-request when the first sheet is dismissed and the second has not
             // yet drawn.
             isActionEnabled: !model.isRequestingAccess,
-            action: { Task { await model.requestHealthAccess() } },
+            action: connect,
             skipTitle: "Skip",
             skip: model.skipHealthAccess
         ) {
@@ -51,6 +51,17 @@ struct HealthStep: View {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The `Task` the model deliberately does not start for itself.
+    ///
+    /// `requestHealthAccess()` is `async` so a test can await the order the two prompts go
+    /// out in, which leaves someone to bridge it to a `() -> Void` button action, and the
+    /// view is that someone. A method rather than a closure literal in the call above, for
+    /// the same reason every other step passes one: the scaffold already takes a trailing
+    /// closure for its content, and a second closure beside it reads as two bodies.
+    private func connect() {
+        Task { await model.requestHealthAccess() }
     }
 }
 
