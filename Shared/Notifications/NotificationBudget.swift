@@ -1,5 +1,6 @@
 import Foundation
 
+<<<<<<< HEAD
 /// How many notifications Barosense will put in front of the user in one day.
 ///
 /// **Three, counted per local calendar day, across every kind.** Not three reminders plus three
@@ -80,5 +81,74 @@ struct NotificationBudget: Sendable {
                            given records: [NotificationRecord],
                            calendar: Calendar) -> Bool {
         remainingSends(on: date, given: records, calendar: calendar) > 0
+=======
+/// How much of one day's notification allowance is spent.
+///
+/// The value the Settings section prints and the value dispatch gates on — one type, so the
+/// number the user reads is the number the app enforces rather than a second count that
+/// agrees with it by coincidence.
+struct NotificationBudgetStatus: Hashable, Sendable {
+
+    /// Start of the day this describes, in the calendar it was computed with.
+    let day: Date
+
+    /// Rows already scheduled or delivered for that day.
+    let used: Int
+
+    let limit: Int
+
+    /// Never negative. A day can overrun its limit — the ceiling was lowered, or the clock
+    /// moved — and reporting "−1 left" would be arithmetic rather than an answer.
+    var remaining: Int { max(limit - used, 0) }
+
+    var hasRoom: Bool { remaining > 0 }
+}
+
+/// The cap on how many notifications Barosense may send in one day.
+///
+/// Three, and the number lives here alone. It is a product rule, not a technical one: the app
+/// asks the user a question about themselves, and an app that asks too often gets its
+/// notifications turned off entirely — after which nothing it has to say arrives at all.
+///
+/// Counted over the log rather than over anything the system knows, for the reason the log
+/// exists: `UNUserNotificationCenter` reports what is pending, forgets what it has delivered
+/// once the user clears it, and cannot be asked "how many did you send yesterday". The rows
+/// can answer both.
+///
+/// Pure arithmetic over values, with the `Calendar` passed in. A day boundary is a calendar
+/// question — it moves with the time zone, and it is not 24 hours long twice a year — so a
+/// test can pin one instead of passing under the device's and failing under another.
+enum NotificationBudget {
+
+    /// The most notifications Barosense will send in one calendar day, across every kind.
+    ///
+    /// One budget for all kinds rather than one per kind: the user experiences the total, and
+    /// a per-kind allowance is how three quiet features add up to nine interruptions.
+    static let dailyLimit = 3
+
+    /// What is left of `day`'s allowance, given the whole log for it.
+    ///
+    /// `log` may contain rows for other days; they are filtered here rather than at the call
+    /// site, so a caller cannot spend the budget of a day it did not mean to.
+    static func status(on day: Date,
+                       log: [AppNotification],
+                       limit: Int = dailyLimit,
+                       calendar: Calendar = .current) -> NotificationBudgetStatus {
+        let start = calendar.startOfDay(for: day)
+        let used = log.count(where: { notification in
+            notification.state.consumesBudget
+                && calendar.isDate(notification.scheduledFor, inSameDayAs: start)
+        })
+
+        return NotificationBudgetStatus(day: start, used: used, limit: limit)
+    }
+
+    /// Whether one more notification may go out on the day containing `date`.
+    static func hasRoom(on date: Date,
+                        log: [AppNotification],
+                        limit: Int = dailyLimit,
+                        calendar: Calendar = .current) -> Bool {
+        status(on: date, log: log, limit: limit, calendar: calendar).hasRoom
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     }
 }

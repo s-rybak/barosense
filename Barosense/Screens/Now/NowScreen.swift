@@ -21,9 +21,15 @@ struct NowScreen: View {
     @State private var model: HealthMetricsViewModel
     @State private var meters: NowMetersModel
     @State private var isExplainingProgress = false
+    @State private var isShowingNotifications = false
 
     private let pressure: PressureCollectionController
     private let checkIns: any CheckInStore
+
+    /// The bell lives here rather than on History or Settings because this is the tab the app
+    /// opens on: it is one tap from launch, and the screen the user is already looking at when
+    /// a reminder brings them back into the app.
+    private let notifications: NotificationsController
 
     /// Bumped by the root when a check-in is written. Passed straight through to the chart,
     /// which re-reads its markers on a change — see `PressureChartCard`.
@@ -39,17 +45,21 @@ struct NowScreen: View {
     init(recorder: HealthSampleRecorder,
          pressure: PressureCollectionController,
          checkIns: any CheckInStore,
+         notifications: NotificationsController,
          checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         _meters = State(initialValue: NowMetersModel(pressure: pressure, checkIns: checkIns))
         self.pressure = pressure
         self.checkIns = checkIns
+        self.notifications = notifications
         self.checkInRevision = checkInRevision
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.cardSpacing) {
+                bellRow
+
                 PressureChartCard(collection: pressure,
                                   checkIns: checkIns,
                                   checkInRevision: checkInRevision)
@@ -96,6 +106,26 @@ struct NowScreen: View {
         }
         .sheet(isPresented: $isExplainingProgress) {
             TrainingProgressSheet(progress: meters.training)
+        }
+        .sheet(isPresented: $isShowingNotifications) {
+            NotificationsScreen(controller: notifications) {
+                isShowingNotifications = false
+            }
+        }
+    }
+
+    /// The bell, alone above the chart.
+    ///
+    /// No screen title beside it: this destination has never had one — the chart card names
+    /// itself — and adding one to hang a button off would be a layout change the design did
+    /// not ask for. Trailing-aligned, where a navigation-bar action would be.
+    private var bellRow: some View {
+        HStack {
+            Spacer(minLength: 0)
+
+            NotificationBell(unreadCount: notifications.unreadCount) {
+                isShowingNotifications = true
+            }
         }
     }
 }
@@ -212,7 +242,8 @@ final class HealthMetricsViewModel {
                 recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
                                                  log: InMemoryPressureSampleStore()),
                 display: NoOpPressureDisplayLink()),
-              checkIns: InMemoryCheckInStore())
+              checkIns: InMemoryCheckInStore(),
+              notifications: .preview)
     .background(Palette.surface)
 }
 

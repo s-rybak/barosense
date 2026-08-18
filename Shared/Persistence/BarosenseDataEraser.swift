@@ -49,14 +49,22 @@ struct BarosenseDataEraser: Sendable {
     private let tagStore: any WellbeingTagStore
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
+<<<<<<< HEAD
     private let notificationLog: any NotificationStore
+=======
+    private let notificationLog: any NotificationLogStore
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
     init(profileStore: any UserProfileStore,
          checkInStore: any CheckInStore,
          tagStore: any WellbeingTagStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+<<<<<<< HEAD
          notificationLog: any NotificationStore) {
+=======
+         notificationLog: any NotificationLogStore) {
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
         self.profileStore = profileStore
         self.checkInStore = checkInStore
         self.tagStore = tagStore
@@ -84,6 +92,7 @@ struct BarosenseDataEraser: Sendable {
         await attempt(.healthLog, into: &refused) {
             _ = try await healthLog.deleteSamples(before: .distantFuture)
         }
+<<<<<<< HEAD
         // The notification log holds nothing health-derived (`NotificationRecord`), so this
         // step is a consistency obligation rather than a privacy one: it is what stops a
         // freshly erased install from starting with yesterday's daily allowance already
@@ -93,6 +102,16 @@ struct BarosenseDataEraser: Sendable {
         // `NotificationDispatcher`'s job on the next activation, which finds no rows and
         // cancels what it does not recognise — an erase must not have to wake the
         // notification centre to finish.
+=======
+        // Before the check-ins it was planned from. The rows hold no health value, but they do
+        // record when this person is at their phone and what the app decided to ask them —
+        // which is the user's, and is covered by "delete my data" like everything else here.
+        //
+        // Requests iOS is already holding are **not** withdrawn here: this type walks stores
+        // and nothing else, and a reminder living in the system centre is not a store. The
+        // caller stands the plan down first — see `SettingsModel.eraseEverything`, which turns
+        // the reminder off before it erases, so there is nothing left to arrive afterwards.
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
         await attempt(.notificationLog, into: &refused) {
             try await notificationLog.deleteAllNotifications()
         }

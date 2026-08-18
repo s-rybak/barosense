@@ -14,7 +14,11 @@ final class BarosenseDataEraserTests: XCTestCase {
         let checkIns = InMemoryCheckInStore()
         let health = InMemoryHealthSampleStore()
         let pressure = InMemoryPressureSampleStore()
+<<<<<<< HEAD
         let notifications = InMemoryNotificationStore()
+=======
+        let notifications = InMemoryNotificationLogStore()
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         // Note and medication entry on purpose: this is the free text the erase promise is
         // mostly about, and it is the row that used to survive it.
@@ -32,11 +36,21 @@ final class BarosenseDataEraserTests: XCTestCase {
         try await pressure.save([PressureSample(id: UUID(),
                                                 timestamp: now,
                                                 pressure: Pressure(hectopascals: 1013))])
+<<<<<<< HEAD
         try await notifications.save(NotificationRecord(kind: .checkInReminder,
                                                         language: .english,
                                                         scheduledFor: now,
                                                         state: .scheduled,
                                                         createdAt: now))
+=======
+        // A delivered reminder: the record that the app has been nudging this person, which is
+        // theirs and goes with everything else.
+        try await notifications.save(AppNotification(kind: .checkInReminder,
+                                                     createdAt: now,
+                                                     scheduledFor: now,
+                                                     state: .delivered,
+                                                     deliveredAt: now))
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         let eraser = BarosenseDataEraser(profileStore: profiles,
                                          checkInStore: checkIns,
@@ -55,7 +69,11 @@ final class BarosenseDataEraserTests: XCTestCase {
         let remainingProfile = try await profiles.profile()
         let remainingTags = try await tags.allTags()
         let remainingCheckIns = try await checkIns.checkIns(in: Date.distantPast..<Date.distantFuture)
+<<<<<<< HEAD
         let remainingNotifications = try await notifications.records(
+=======
+        let remainingNotifications = try await notifications.notifications(
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
             in: Date.distantPast..<Date.distantFuture)
 
         XCTAssertNil(remainingProfile)
@@ -78,7 +96,11 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: RecordingWellbeingTagStore(order: order),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: InMemoryPressureSampleStore(),
+<<<<<<< HEAD
                                          notificationLog: InMemoryNotificationStore())
+=======
+                                         notificationLog: InMemoryNotificationLogStore())
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         try await eraser.eraseEverything()
 
@@ -98,7 +120,11 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: pressure,
+<<<<<<< HEAD
                                          notificationLog: InMemoryNotificationStore())
+=======
+                                         notificationLog: InMemoryNotificationLogStore())
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         try await eraser.eraseEverything()
 
@@ -122,7 +148,11 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: tags,
                                          healthLog: health,
                                          pressureLog: pressure,
+<<<<<<< HEAD
                                          notificationLog: InMemoryNotificationStore())
+=======
+                                         notificationLog: InMemoryNotificationLogStore())
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         do {
             try await eraser.eraseEverything()
@@ -148,7 +178,11 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: FailingWellbeingTagStore(),
                                          healthLog: FailingHealthSampleStore(),
                                          pressureLog: FailingPressureSampleStore(),
+<<<<<<< HEAD
                                          notificationLog: FailingNotificationStore())
+=======
+                                         notificationLog: FailingNotificationLogStore())
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         do {
             try await eraser.eraseEverything()
@@ -165,7 +199,11 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: InMemoryPressureSampleStore(),
+<<<<<<< HEAD
                                          notificationLog: InMemoryNotificationStore())
+=======
+                                         notificationLog: InMemoryNotificationLogStore())
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
         try await eraser.eraseEverything()
         try await eraser.eraseEverything()
@@ -213,6 +251,7 @@ private struct FailingPressureSampleStore: PressureSampleStore {
     func deleteSamples(before date: Date) async throws -> Int { throw StoreRefused() }
 }
 
+<<<<<<< HEAD
 private struct FailingNotificationStore: NotificationStore {
     func save(_ record: NotificationRecord) async throws { throw StoreRefused() }
     func records(in range: Range<Date>) async throws -> [NotificationRecord] { throw StoreRefused() }
@@ -220,6 +259,14 @@ private struct FailingNotificationStore: NotificationStore {
         throw StoreRefused()
     }
     func deleteNotifications(before date: Date) async throws -> Int { throw StoreRefused() }
+=======
+private struct FailingNotificationLogStore: NotificationLogStore {
+    func save(_ notification: AppNotification) async throws { throw StoreRefused() }
+    func pendingNotifications(scheduledBefore date: Date) async throws -> [AppNotification] {
+        throw StoreRefused()
+    }
+    func notifications(in range: Range<Date>) async throws -> [AppNotification] { throw StoreRefused() }
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     func deleteAllNotifications() async throws { throw StoreRefused() }
 }
 

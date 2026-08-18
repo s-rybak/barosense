@@ -36,14 +36,28 @@ struct SettingsDependencies: Sendable {
 
     /// Builds the eraser from the same store instances the screens read, so an erase
     /// cannot miss a store the settings screen is showing.
+<<<<<<< HEAD
+=======
+    ///
+    /// `checkInStore` and `notificationLog` are the exceptions and are required anyway: no
+    /// settings screen reads either directly — the notification section reads
+    /// `NotificationsController`, which is handed to the screen separately — but between them
+    /// they hold the notes, the medication entries and the record of when the app has been
+    /// nudging this person, which is what "delete my data" is mostly about. Taking them here
+    /// is what stops the erase being assembled without them.
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     init(profileStore: any UserProfileStore,
          tagStore: any WellbeingTagStore,
          checkInStore: any CheckInStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+<<<<<<< HEAD
          notificationLog: any NotificationStore,
          notifications: any NotificationDelivering = UserNotificationCenterDeliverer(),
          reminderPreferences: any ReminderPreferenceStore = UserDefaultsReminderPreferenceStore(),
+=======
+         notificationLog: any NotificationLogStore,
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
          healthAccess: any HealthAccessReporting) {
         self.profileStore = profileStore
         self.tagStore = tagStore
@@ -73,11 +87,15 @@ extension SettingsDependencies {
                              checkInStore: InMemoryCheckInStore(),
                              healthLog: InMemoryHealthSampleStore(),
                              pressureLog: InMemoryPressureSampleStore(),
+<<<<<<< HEAD
                              notificationLog: InMemoryNotificationStore(),
                              // Reports itself unauthorised, so a preview cannot put a system
                              // permission prompt on screen from a canvas refresh.
                              notifications: NoOpNotificationDeliverer(),
                              reminderPreferences: InMemoryReminderPreferenceStore(),
+=======
+                             notificationLog: InMemoryNotificationLogStore(),
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
                              healthAccess: UnavailableHealthAccessReporter())
     }
 }
@@ -192,10 +210,19 @@ final class SettingsModel {
     private let dependencies: SettingsDependencies
     private let now: @Sendable () -> Date
 
+<<<<<<< HEAD
     /// The app's calendar, not the device's, for the same reason every date on screen uses it:
     /// "today" here is the boundary `NotificationBudget` counts the day's allowance against, and
     /// the row has to agree with the cap the dispatcher enforced. See `LanguageController`.
     private let calendar: Calendar
+=======
+    /// Held for the two things this model does to notifications — re-read them on appearance,
+    /// and stand the reminder down before an erase. What the section *draws* comes off the
+    /// same controller in the view, not off a copy mirrored into a property here: the bell on
+    /// Now reads it too, and two copies of "how many went out today" is two chances to
+    /// disagree.
+    private let notifications: NotificationsController
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
     /// Called after a successful erase so the app can hand the user back to onboarding.
     private let onDataErased: () async -> Void
@@ -209,12 +236,20 @@ final class SettingsModel {
     private let onRemindersChanged: () async -> Void
 
     init(dependencies: SettingsDependencies,
+<<<<<<< HEAD
          calendar: Calendar = .current,
+=======
+         notifications: NotificationsController,
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
          now: @escaping @Sendable () -> Date = { Date() },
          onDataErased: @escaping () async -> Void,
          onRemindersChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
+<<<<<<< HEAD
         self.calendar = calendar
+=======
+        self.notifications = notifications
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
         self.now = now
         self.onDataErased = onDataErased
         self.onRemindersChanged = onRemindersChanged
@@ -231,7 +266,16 @@ final class SettingsModel {
 
         self.profile = await profile
         health = HealthConnection(access: await access, hasReadings: await hasReadings)
+<<<<<<< HEAD
         self.reminders = await reminders
+=======
+
+        // Sequential rather than joined with the three above: it is a `@MainActor` hop onto a
+        // controller the bell also owns, not an independent read, and it is the one row here
+        // whose value iOS can change while Barosense is in the background — the notification
+        // permission can be revoked in Settings. A read of the log, not a re-plan.
+        await notifications.reload()
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     }
 
     private func loadProfile() async -> UserProfile? {
@@ -402,10 +446,19 @@ final class SettingsModel {
         guard eraseState != .erasing else { return }
 
         eraseState = .erasing
+
+        // Before the stores, and deliberately outside the eraser: a reminder already accepted
+        // by iOS lives in the system notification centre, which is not a store and which
+        // `BarosenseDataEraser` therefore cannot reach. Erasing without this would leave one
+        // scheduled reminder to arrive hours later, asking a user who has just deleted
+        // everything how they are feeling.
+        await notifications.disableCheckInReminder()
+
         do {
             try await dependencies.eraser.eraseEverything()
             eraseState = .idle
             profile = nil
+            await notifications.reload()
             await onDataErased()
         } catch DataEraseFailure.storesRefused(let stores) {
             eraseState = .failed(stores: stores)

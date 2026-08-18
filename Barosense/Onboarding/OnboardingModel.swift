@@ -82,12 +82,23 @@ final class OnboardingModel {
 
     private(set) var isSaving = false
 
+    /// True while the Apple Health step's system sheets are up. The step's action is
+    /// disabled behind it, so a second tap cannot start a second pair of requests and land
+    /// two `advance()` calls on the flow.
+    private(set) var isRequestingAccess = false
+
     private(set) var failure: OnboardingFailure?
 
     // MARK: - Dependencies
 
     private let profileStore: any UserProfileStore
     private let tagStore: any WellbeingTagStore
+
+    /// The two system sheets the Apple Health step raises. Injected rather than reached for
+    /// directly, so this model stays runnable from a test that touches neither HealthKit nor
+    /// CoreMotion.
+    private let sensorAccess: any SensorAccessRequesting
+
     private let now: @Sendable () -> Date
 
     /// Called once the profile has been written, so the app can leave the flow.
@@ -95,26 +106,34 @@ final class OnboardingModel {
 
     init(profileStore: any UserProfileStore,
          tagStore: any WellbeingTagStore,
+         sensorAccess: any SensorAccessRequesting,
          now: @escaping @Sendable () -> Date = { Date() },
          onFinished: @escaping () -> Void) {
         self.profileStore = profileStore
         self.tagStore = tagStore
+        self.sensorAccess = sensorAccess
         self.now = now
         self.onFinished = onFinished
     }
 
     // MARK: - Loading
 
-    /// Reads the tag vocabulary and pre-selects all of it, matching the design's opening
-    /// state. Starting from "everything" rather than "nothing" means the user removes
-    /// what does not apply, which is the shorter path for most people.
+    /// Reads the tag vocabulary. Nothing is selected to begin with.
+    ///
+    /// The step asks what best describes how the user feels, and a vocabulary that arrives
+    /// already ticked answers it for them. A selected chip is filled with `ink`, so
+    /// pre-selecting everything opens the step as a wall of dark pills with no unselected
+    /// state beside them to read the control against — the one place in the app where a
+    /// choice control does not start on its default surface. It also inverts what the step
+    /// means: the user is deleting what is wrong instead of choosing what is right, and
+    /// every chip they overlook is archived or kept on an answer they never gave. The
+    /// check-in sheet, which offers the same vocabulary, has always started unselected.
     func load() async {
         guard offeredTags.isEmpty else { return }
 
         do {
-            let tags = WellbeingTag.inSeedOrder(try await tagStore.activeTags())
-            offeredTags = tags
-            selectedTagIDs = Set(tags.map(\.id))
+            offeredTags = WellbeingTag.inSeedOrder(try await tagStore.activeTags())
+            selectedTagIDs = []
         } catch {
             // A vocabulary that will not load is not worth blocking onboarding over: the
             // step shows nothing to choose and `canLeaveCurrentStep` keeps the user there
@@ -173,7 +192,11 @@ final class OnboardingModel {
     /// False on the opening step, and false while the closing commit is in flight: a move off
     /// `.ready` mid-write would leave the user on an earlier step while `onFinished` fired
     /// under them and the flow was torn down.
-    var canGoBack: Bool { step.previous != nil && !isSaving }
+    ///
+    /// False while the Apple Health step's sheets are up, for the same shape of reason: that
+    /// request advances the flow when it returns, and a step change underneath it would
+    /// advance from wherever the user had got to instead.
+    var canGoBack: Bool { step.previous != nil && !isSaving && !isRequestingAccess }
 
     /// Which way the last move went, so the step that arrives slides in from the side it is
     /// coming from. A back that pushed the new step in from the right would read as another
@@ -212,21 +235,55 @@ final class OnboardingModel {
         }
     }
 
-    /// The Apple Health step's primary action.
+    /// The Apple Health step's primary action: raises both system sheets, then moves on.
     ///
-    /// It records that the user asked, and nothing else. It deliberately does **not**
-    /// call `HKHealthStore.requestAuthorization`: the app reads no HealthKit type yet and
-    /// `com.apple.developer.healthkit.access` is empty, so requesting one here would
-    /// breach the consumer-first rule in
-    /// `.claude/skills/healthkit_permissions/SKILL.md`. The real request belongs with the
-    /// first feature that reads a type; until then nothing may read this as
-    /// "access granted" — iOS does not reveal read authorisation anyway.
-    func requestHealthAccess() {
+    /// Apple Health first, the barometer second — the order the step lists them in.
+    /// Sequential rather than concurrent because `requestHealthAccess` returns only once its
+    /// sheet has been answered, and two prompts racing for the screen is how one of them
+    /// gets dismissed unread.
+    ///
+    /// This is the only place in the flow that asks for anything. Both prompts used to be
+    /// raised from `App.init` instead — a Health sheet and a Motion & Fitness alert on the
+    /// first frame of a first launch, before a single screen had said what Barosense
+    /// measures. `HealthIngestController.refreshLog` and `PressureCollectionController.start()`
+    /// no longer raise either.
+    ///
+    /// Nothing branches on the outcome and neither call reports one: iOS never reveals a
+    /// HealthKit read grant (`.claude/skills/healthkit_permissions/SKILL.md`), and a refused
+    /// Motion prompt is a gap in the pressure history rather than something the flow could
+    /// repair. `wantsHealthAccess` records that the user asked, which is all the profile
+    /// stores.
+    ///
+    /// `async` rather than a method that starts its own `Task`: the step is the one piece of
+    /// the flow whose whole behaviour is "what did it ask for, in what order", and a test
+    /// cannot assert that against work a synchronous call left running behind it. The view
+    /// wraps the call — see `HealthStep`.
+    ///
+    /// Re-entrant taps are stopped by the guard, not by the disabled button: both the flag
+    /// and the check run on the main actor before the first `await`, so a second call cannot
+    /// slip between them.
+    func requestHealthAccess() async {
+        guard !isRequestingAccess else { return }
+
+        isRequestingAccess = true
         wantsHealthAccess = true
+
+        await sensorAccess.requestHealthAccess()
+        await sensorAccess.requestBarometerAccess()
+
+        isRequestingAccess = false
         advance()
     }
 
+    /// Past the step without asking for anything.
+    ///
+    /// Neither permission is lost by taking it. The Now screen requests Health on its first
+    /// load, and the barometer is requested on the first foreground activation after the
+    /// flow — both with the app on screen and the user already inside it. Skipping defers
+    /// the two sheets; it does not decline them on the user's behalf.
     func skipHealthAccess() {
+        guard !isRequestingAccess else { return }
+
         wantsHealthAccess = false
         advance()
     }

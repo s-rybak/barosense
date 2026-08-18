@@ -1,6 +1,7 @@
 import XCTest
 @testable import Barosense
 
+<<<<<<< HEAD
 /// The daily cap, and what does and does not spend against it.
 final class NotificationBudgetTests: XCTestCase {
 
@@ -154,5 +155,127 @@ final class NotificationBudgetTests: XCTestCase {
             .map { record(at: $0, state: .delivered) }
 
         XCTAssertEqual(budget.spentSends(on: try date(12, 20), given: spent, calendar: calendar), 3)
+=======
+/// Three a day, counted off the log. The number the Settings section prints is this one, so a
+/// mistake here is visible to the user as well as felt by them.
+final class NotificationBudgetTests: XCTestCase {
+
+    private let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        return calendar
+    }()
+
+    func testAnEmptyLogHasTheWholeAllowance() {
+        let status = NotificationBudget.status(on: date(day: 4, hour: 12), log: [], calendar: calendar)
+
+        XCTAssertEqual(status.used, 0)
+        XCTAssertEqual(status.limit, NotificationBudget.dailyLimit)
+        XCTAssertEqual(status.remaining, NotificationBudget.dailyLimit)
+        XCTAssertTrue(status.hasRoom)
+    }
+
+    /// Scheduled counts from the moment it is handed over, not from delivery. The user is
+    /// going to receive it, and a limit that waited for confirmation would let a day's whole
+    /// allowance be spent three times over before the first one fired.
+    func testScheduledAndDeliveredNotificationsBothSpendTheAllowance() {
+        let log = [notification(day: 4, hour: 8, state: .delivered),
+                   notification(day: 4, hour: 20, state: .scheduled)]
+
+        let status = NotificationBudget.status(on: date(day: 4, hour: 12), log: log, calendar: calendar)
+
+        XCTAssertEqual(status.used, 2)
+        XCTAssertEqual(status.remaining, 1)
+    }
+
+    /// The rule the whole design turns on. A notification held back by the limit must not
+    /// itself consume the limit — otherwise one busy day would spend the next day's
+    /// allowance, and a suppressed row would make the shortage permanent.
+    func testSuppressedAndCancelledNotificationsSpendNothing() {
+        let log = [notification(day: 4, hour: 8, state: .suppressed(reason: .dailyLimit)),
+                   notification(day: 4, hour: 9, state: .suppressed(reason: .remindersOff)),
+                   notification(day: 4, hour: 10, state: .cancelled)]
+
+        let status = NotificationBudget.status(on: date(day: 4, hour: 12), log: log, calendar: calendar)
+
+        XCTAssertEqual(status.used, 0)
+        XCTAssertTrue(status.hasRoom)
+    }
+
+    /// A row in the queue has not reached anyone yet. Counting it would make the app refuse to
+    /// send notifications it has merely thought about.
+    func testAPendingNotificationSpendsNothingUntilItIsScheduled() {
+        let log = [notification(day: 4, hour: 20, state: .pending)]
+
+        let status = NotificationBudget.status(on: date(day: 4, hour: 12), log: log, calendar: calendar)
+
+        XCTAssertEqual(status.used, 0)
+    }
+
+    func testOnlyTheDayAskedAboutIsCounted() {
+        let log = [notification(day: 3, hour: 20, state: .delivered),
+                   notification(day: 4, hour: 20, state: .delivered),
+                   notification(day: 5, hour: 20, state: .scheduled)]
+
+        let status = NotificationBudget.status(on: date(day: 4, hour: 12), log: log, calendar: calendar)
+
+        XCTAssertEqual(status.used, 1)
+    }
+
+    /// The day is the user's, not UTC's. Pinned because the coordinator hands its own calendar
+    /// in and the device's time zone changes when the user travels — a 23:30 notification is
+    /// tomorrow's in Kyiv and today's in London.
+    func testTheDayBoundaryFollowsTheCalendarsTimeZone() {
+        let log = [notification(day: 4, hour: 23, minute: 30, state: .delivered)]
+        let asked = date(day: 4, hour: 12)
+
+        var eastern = calendar
+        eastern.timeZone = TimeZone(secondsFromGMT: 3 * 3600) ?? .gmt
+
+        XCTAssertEqual(NotificationBudget.status(on: asked, log: log, calendar: calendar).used, 1)
+        // 02:30 the next morning over there, so it belongs to a different day's allowance.
+        XCTAssertEqual(NotificationBudget.status(on: asked, log: log, calendar: eastern).used, 0)
+    }
+
+    /// A day can overrun — the ceiling was lowered, or the clock moved under rows already
+    /// scheduled. "−1 left" is arithmetic, not an answer.
+    func testRemainingNeverGoesNegative() {
+        let log = (0..<5).map { notification(day: 4, hour: 8 + $0, state: .delivered) }
+
+        let status = NotificationBudget.status(on: date(day: 4, hour: 12), log: log, calendar: calendar)
+
+        XCTAssertEqual(status.used, 5)
+        XCTAssertEqual(status.remaining, 0)
+        XCTAssertFalse(status.hasRoom)
+    }
+
+    func testTheAllowanceRunsOutAtExactlyTheLimit() {
+        let log = (0..<NotificationBudget.dailyLimit).map {
+            notification(day: 4, hour: 8 + $0, state: .scheduled)
+        }
+        let asked = date(day: 4, hour: 12)
+
+        XCTAssertFalse(NotificationBudget.hasRoom(on: asked, log: log, calendar: calendar))
+        XCTAssertTrue(NotificationBudget.hasRoom(on: asked, log: Array(log.dropLast()), calendar: calendar))
+    }
+
+    // MARK: - Fixtures
+
+    private func notification(day: Int,
+                              hour: Int,
+                              minute: Int = 0,
+                              state: NotificationDeliveryState) -> AppNotification {
+        let instant = date(day: day, hour: hour, minute: minute)
+        return AppNotification(kind: .checkInReminder,
+                               createdAt: instant,
+                               scheduledFor: instant,
+                               state: state)
+    }
+
+    private func date(day: Int, hour: Int, minute: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 3, day: day,
+                                           hour: hour, minute: minute)) ?? .distantPast
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     }
 }

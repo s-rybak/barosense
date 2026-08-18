@@ -53,5 +53,6 @@ struct PatternStep: View {
 #Preview {
     PatternStep(model: OnboardingModel(profileStore: InMemoryUserProfileStore(),
                                        tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                                       sensorAccess: NoOpSensorAccess(),
                                        onFinished: {}))
 }

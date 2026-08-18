@@ -28,9 +28,16 @@ final class AppServices {
     private(set) var tagStore: (any WellbeingTagStore)?
     private(set) var checkInStore: (any CheckInStore)?
 
+<<<<<<< HEAD
     /// Drives the check-in reminder. `nil` until `start()` has opened the store, which is also
     /// the only state in which there is nothing worth reminding anybody about.
     private(set) var reminders: CheckInReminderController?
+=======
+    /// The notification log, its planner, and the main-actor value the screens read. `nil`
+    /// until `start()` has opened the store — the same state in which nothing that draws a
+    /// bell is on screen.
+    private(set) var notifications: NotificationsController?
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
     /// Everything the settings tab reads. `nil` until `start()` has opened the store —
     /// which is also the only state in which the tab is not on screen.
@@ -41,7 +48,11 @@ final class AppServices {
     /// only knew about the profile store would leave the barometer history behind.
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
-    private let healthAccess: any HealthAccessReporting
+
+    /// Not private, unlike the two logs beside it: the onboarding flow raises the Health
+    /// sheet through this same reporter (`DeviceSensorAccess`), and a second one built
+    /// there would be a second `HKHealthStore` asking about the same read set.
+    let healthAccess: any HealthAccessReporting
 
     init(healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
@@ -68,6 +79,7 @@ final class AppServices {
             // Same container as the tag vocabulary a check-in points at, so the two cannot
             // be opened separately and disagree about which tags exist.
             let checkInStore = SwiftDataCheckInStore(modelContainer: container)
+<<<<<<< HEAD
             // Same container again, for the reason the check-ins are on it: the reminder is
             // planned off the check-in table, and two containers could be opened separately
             // and disagree about which rows exist.
@@ -79,6 +91,11 @@ final class AppServices {
             // makes that decision visible in one place instead of twice by coincidence.
             let reminderPreferences = UserDefaultsReminderPreferenceStore()
             let notifications = UserNotificationCenterDeliverer()
+=======
+            // Same container again, for the reason the check-in store shares it: the reminder
+            // is planned from the check-in history, so the two are read in one pass.
+            let notificationLog = SwiftDataNotificationLogStore(modelContainer: container)
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
 
             // Seeding runs at every launch by contract — `insertIfAbsent` leaves renamed
             // and archived rows alone, and writes nothing when there is nothing new.
@@ -89,18 +106,35 @@ final class AppServices {
             self.profileStore = profileStore
             self.tagStore = tagStore
             self.checkInStore = checkInStore
+<<<<<<< HEAD
             self.reminders = CheckInReminderController(checkIns: checkInStore,
                                                        store: notificationLog,
                                                        deliverer: notifications,
                                                        preferences: reminderPreferences)
+=======
+            // The one place that knows the notification plan is driven by the real system
+            // centre. Everything downstream takes `NotificationsController`, which takes the
+            // coordinator, which takes protocols — so the whole feature is exercisable from a
+            // test that never raises a permission sheet.
+            self.notifications = NotificationsController(
+                coordinator: NotificationCoordinator(log: notificationLog,
+                                                     checkIns: checkInStore,
+                                                     system: UserNotificationCenterScheduler(),
+                                                     content: LocalizedNotificationContent(),
+                                                     preferences: UserDefaultsNotificationPreferenceStore())
+            )
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
             self.settings = SettingsDependencies(profileStore: profileStore,
                                                  tagStore: tagStore,
                                                  checkInStore: checkInStore,
                                                  healthLog: healthLog,
                                                  pressureLog: pressureLog,
                                                  notificationLog: notificationLog,
+<<<<<<< HEAD
                                                  notifications: notifications,
                                                  reminderPreferences: reminderPreferences,
+=======
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
                                                  healthAccess: healthAccess)
             phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
@@ -165,6 +199,13 @@ struct AppRootView: View {
                 if let profileStore = services.profileStore, let tagStore = services.tagStore {
                     OnboardingFlow(profileStore: profileStore,
                                    tagStore: tagStore,
+                                   // Both system prompts are raised from the flow's Apple
+                                   // Health step and nowhere earlier. It asks through the
+                                   // barometer controller the rest of the app samples with,
+                                   // so the reading that answer produces is the log's first
+                                   // row rather than a duplicate taken beside it.
+                                   sensorAccess: DeviceSensorAccess(health: services.healthAccess,
+                                                                    pressure: pressure),
                                    onFinished: services.onboardingFinished)
                 }
 
@@ -173,12 +214,18 @@ struct AppRootView: View {
                 // them in the same `do` block that sets the phase. Unwrapped rather than
                 // force-unwrapped anyway: a `!` here would turn a future reordering of that
                 // block into a launch crash instead of a blank frame.
-                if let checkInStore = services.checkInStore, let tagStore = services.tagStore {
+                if let checkInStore = services.checkInStore,
+                   let tagStore = services.tagStore,
+                   let notifications = services.notifications {
                     RootView(ingest: ingest,
                              pressure: pressure,
                              checkInStore: checkInStore,
                              tagStore: tagStore,
+<<<<<<< HEAD
                              reminders: services.reminders,
+=======
+                             notifications: notifications,
+>>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
                              settings: services.settings,
                              languages: languages,
                              router: router,

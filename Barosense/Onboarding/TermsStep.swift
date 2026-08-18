@@ -95,5 +95,6 @@ struct TermsStep: View {
 #Preview {
     TermsStep(model: OnboardingModel(profileStore: InMemoryUserProfileStore(),
                                      tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                                     sensorAccess: NoOpSensorAccess(),
                                      onFinished: {}))
 }
