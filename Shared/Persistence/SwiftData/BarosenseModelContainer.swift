@@ -27,20 +27,10 @@ enum BarosenseModelContainer {
     /// fails at runtime on first use, so the list is the registry.
     ///
     /// `CheckIn` joined this schema with the check-in flow: a check-in references the tag
-<<<<<<< HEAD
     /// vocabulary, so the two belong in one container. `StoredNotification` joined it for the
     /// same reason one step removed — the reminder it logs is planned off the check-in table.
     /// `PressureSample` is durable but deliberately not here: sensor rows live in their own
     /// container (`SwiftDataPressureSampleStore`), the way Health rows do.
-=======
-    /// vocabulary, so the two belong in one container. `PressureSample` is durable but
-    /// deliberately not here: sensor rows live in their own container
-    /// (`SwiftDataPressureSampleStore`), the way Health rows do.
-    ///
-    /// `StoredNotification` joined it with the reminder: the planner reads check-ins and writes
-    /// notifications in the same pass, so splitting the two across containers would buy nothing
-    /// but a boundary to cross.
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     static let schema = Schema([
         StoredUserProfile.self,
         StoredWellbeingTag.self,

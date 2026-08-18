@@ -463,26 +463,14 @@ final class SettingsModelTests: XCTestCase {
             checkInStore: InMemoryCheckInStore(),
             healthLog: healthLog,
             pressureLog: pressureLog,
-<<<<<<< HEAD
             notificationLog: notificationLog,
             notifications: notifications,
             reminderPreferences: reminderPreferences,
-=======
-            notificationLog: InMemoryNotificationLogStore(),
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
             healthAccess: access
         )
         let now = now
-        // `.preview` reaches no system centre — its scheduler refuses everything and reports
-        // `.denied`, so nothing here can raise a permission sheet or schedule on the machine
-        // running the tests. What the notification section itself does is covered by
-        // `NotificationCoordinatorTests`.
         return SettingsModel(dependencies: dependencies,
-<<<<<<< HEAD
                              calendar: calendar,
-=======
-                             notifications: .preview,
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
                              now: { now },
                              onDataErased: onDataErased,
                              onRemindersChanged: onRemindersChanged)

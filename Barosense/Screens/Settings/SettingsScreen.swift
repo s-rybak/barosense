@@ -22,7 +22,6 @@ struct SettingsScreen: View {
 
     let dependencies: SettingsDependencies
     let languages: LanguageController
-    let notifications: NotificationsController
 
     /// Raised while a destination is pushed, so the root can take the tab bar away —
     /// the pushed screens in the design have no tab bar under them.
@@ -33,32 +32,21 @@ struct SettingsScreen: View {
     @State private var model: SettingsModel
     @State private var path: [SettingsRoute] = []
 
-    /// The log, over the list. A sheet rather than a pushed destination so it is the same
-    /// screen the bell on Now opens, reached the same way, from both places.
-    @State private var isShowingNotificationLog = false
-
     init(dependencies: SettingsDependencies,
          languages: LanguageController,
-         notifications: NotificationsController,
          isDetailPresented: Binding<Bool>,
          onDataErased: @escaping () async -> Void,
          onRemindersChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
         self.languages = languages
-        self.notifications = notifications
         _isDetailPresented = isDetailPresented
         // The calendar is handed over rather than read from the environment, as on History:
         // this model is built in `init`, before an environment exists, and it decides which
         // day the notification count is taken over.
         _model = State(initialValue: SettingsModel(dependencies: dependencies,
-<<<<<<< HEAD
                                                    calendar: languages.calendar,
                                                    onDataErased: onDataErased,
                                                    onRemindersChanged: onRemindersChanged))
-=======
-                                                   notifications: notifications,
-                                                   onDataErased: onDataErased))
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     }
 
     var body: some View {
@@ -101,7 +89,6 @@ struct SettingsScreen: View {
                     .padding(.vertical, 6)
 
                 profileCard
-                notificationsCard
                 preferencesCard
                 RemindersCard(model: model)
                 reportCard
@@ -146,11 +133,6 @@ struct SettingsScreen: View {
         .overlay {
             if model.eraseState == .erasing {
                 erasingOverlay
-            }
-        }
-        .sheet(isPresented: $isShowingNotificationLog) {
-            NotificationsScreen(controller: notifications) {
-                isShowingNotificationLog = false
             }
         }
     }
@@ -200,62 +182,6 @@ struct SettingsScreen: View {
             return Text("Your profile")
         }
         return Text(verbatim: name)
-    }
-
-    /// The reminder switch and what is left of today's allowance.
-    ///
-    /// The count is in Settings rather than only in the log, because it is the answer to the
-    /// question this switch raises: someone who turns reminders on is agreeing to be
-    /// interrupted, and the number they should see next to that decision is how often. It is
-    /// read from the same `NotificationBudgetStatus` dispatch spends, so it cannot promise a
-    /// ceiling the app does not keep.
-    private var notificationsCard: some View {
-        SettingsCard {
-            SettingsToggleRow(title: "Check-in reminder",
-                              caption: reminderCaption,
-                              isOn: reminderBinding)
-
-            SettingsRowDivider()
-
-            SettingsNavigationRow(
-                title: "Sent today",
-                value: Text("\(notifications.snapshot.budget.used) of \(notifications.snapshot.budget.limit)")
-            ) {
-                isShowingNotificationLog = true
-            }
-        }
-    }
-
-    /// Writing to it never sets it, for the reason the Apple Health switch works that way:
-    /// the value is what iOS will actually allow, and the setter runs the action the current
-    /// state permits. A refusal on the permission sheet leaves the switch off, which is the
-    /// truth.
-    private var reminderBinding: Binding<Bool> {
-        Binding(
-            get: { notifications.snapshot.isCheckInReminderActive },
-            set: { _ in
-                Task {
-                    if await notifications.toggleCheckInReminder() == .needsSystemSettings {
-                        NotificationsController.openSystemSettings()
-                    }
-                }
-            }
-        )
-    }
-
-    /// What the switch is doing, in one line.
-    ///
-    /// States what the reminder is timed to rather than what it is for. It asks how the user
-    /// is feeling; it does not tell them anything about themselves, and the caption must not
-    /// imply otherwise.
-    private var reminderCaption: LocalizedStringKey {
-        if notifications.snapshot.permission == .denied {
-            return "Notifications are off for Barosense in iOS Settings."
-        }
-        guard notifications.snapshot.isCheckInReminderActive else {
-            return "Asks how you're feeling around the time you usually check in."
-        }
-        return "At most \(NotificationBudget.dailyLimit) a day, around the time you usually check in."
     }
 
     /// Apple Health and Language (Figma `7:1270`).
@@ -468,7 +394,6 @@ extension UserProfile {
 #Preview {
     SettingsScreen(dependencies: .preview,
                    languages: LanguageController(store: UserDefaultsLanguagePreferenceStore()),
-                   notifications: .preview,
                    isDetailPresented: .constant(false),
                    onDataErased: {})
 }

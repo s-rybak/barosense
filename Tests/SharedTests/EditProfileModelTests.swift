@@ -228,11 +228,7 @@ final class EditProfileModelTests: XCTestCase {
             checkInStore: InMemoryCheckInStore(),
             healthLog: InMemoryHealthSampleStore(),
             pressureLog: InMemoryPressureSampleStore(),
-<<<<<<< HEAD
             notificationLog: InMemoryNotificationStore(),
-=======
-            notificationLog: InMemoryNotificationLogStore(),
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
             healthAccess: UnavailableHealthAccessReporter()
         )
         return EditProfileModel(dependencies: dependencies, onSaved: onSaved)

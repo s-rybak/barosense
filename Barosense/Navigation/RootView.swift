@@ -7,7 +7,6 @@ struct RootView: View {
     let pressure: PressureCollectionController
     let checkInStore: any CheckInStore
     let tagStore: any WellbeingTagStore
-    let notifications: NotificationsController
 
     /// `nil` only while the store is still opening, which is a state this view is never
     /// shown in. Optional rather than force-unwrapped at the composition root.
@@ -67,26 +66,23 @@ struct RootView: View {
             LogScreen(checkInStore: checkInStore, tagStore: tagStore) {
                 isLoggingCheckIn = false
                 checkInRevision += 1
-<<<<<<< HEAD
                 // Today's reminder is no longer wanted — the user has just done the thing it
                 // would have asked for. The planner drops the slot and the dispatcher
                 // withdraws the row it was scheduled under.
                 refreshReminders()
-=======
-                // The check-in that was just written may make today's reminder unnecessary,
-                // and it moves the rhythm the next one is timed to. Cheap — one log read and
-                // at most one write, on a tap the user has just made.
-                Task { await notifications.refresh() }
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
                 // Onto the chart the new dot is already on. The one place the app moves the
                 // user itself, and it is the point of the whole flow.
                 selection = .now
             }
         }
-        // The plan is rebuilt when the app is already awake and never on a schedule of its
-        // own. There is no timer here and no background task: a reminder that has been handed
-        // to iOS is iOS's to deliver, and everything else waits until the user opens the app.
-        .task { await notifications.refresh() }
+        // The first activation of this view, which `onChange` below cannot see: the scene was
+        // already `.active` before the root existed, so nothing fires for it. That is the only
+        // moment the barometer would otherwise be missed — `start()` skips the launch reading
+        // until the sensor has been asked about, and a user who skipped onboarding's Health
+        // step has not been, so without this their first pressure row waits for a backgrounding
+        // that may not come for hours. Idempotent: the recorder's fifteen-minute floor decides
+        // whether the sensor runs, and on the connected path onboarding has just sampled.
+        .task { pressure.sceneDidBecomeActive() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 ingest.sceneDidBecomeActive()
@@ -95,17 +91,11 @@ struct RootView: View {
                 // Cheap to call on every activation: the recorder's fifteen-minute floor
                 // decides whether the sensor runs at all.
                 pressure.sceneDidBecomeActive()
-<<<<<<< HEAD
                 // Nothing wakes the app for this — the system holds the scheduled
                 // notifications and fires them on its own. Activation is simply where the
                 // next week's worth is brought back in step, and on a day when nothing has
                 // changed the pass makes no cross-process calls at all.
                 refreshReminders()
-=======
-                // Settles what iOS delivered while the app was away, and plans the next
-                // reminder. One log read, one settings read, one pending-request read.
-                Task { await notifications.refresh() }
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
             }
         }
         // A reminder already handed to the system carries the words it was rendered with, and
@@ -154,7 +144,6 @@ struct RootView: View {
             NowScreen(recorder: ingest.recorder,
                       pressure: pressure,
                       checkIns: checkInStore,
-                      notifications: notifications,
                       checkInRevision: checkInRevision)
         case .history:
             // The calendar is handed over rather than read from the environment: this
@@ -175,7 +164,6 @@ struct RootView: View {
             if let settings {
                 SettingsScreen(dependencies: settings,
                                languages: languages,
-                               notifications: notifications,
                                isDetailPresented: $isSettingsDetailPresented,
                                onDataErased: onDataErased,
                                onRemindersChanged: reconcileReminders)
@@ -251,16 +239,12 @@ struct RootView: View {
                 display: NoOpPressureDisplayLink()),
              checkInStore: InMemoryCheckInStore(),
              tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
-<<<<<<< HEAD
              // No notification centre in a preview: `NoOpNotificationDeliverer` reports itself
              // unauthorised, so nothing is scheduled and no permission prompt appears.
              reminders: CheckInReminderController(checkIns: InMemoryCheckInStore(),
                                                   store: InMemoryNotificationStore(),
                                                   deliverer: NoOpNotificationDeliverer(),
                                                   preferences: InMemoryReminderPreferenceStore()),
-=======
-             notifications: .preview,
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
              settings: .preview,
              languages: LanguageController(),
              router: NotificationRouter(),

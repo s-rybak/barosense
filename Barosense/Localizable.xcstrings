@@ -4,6 +4,70 @@
     "" : {
 
     },
+    "Blood oxygen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blood oxygen"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Рівень кисню у крові"
+          }
+        }
+      }
+    },
+    "Connect your data" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect your data"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Підключи свої дані"
+          }
+        }
+      }
+    },
+    "Pressure from this device's barometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressure from this device's barometer"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тиск із барометра цього пристрою"
+          }
+        }
+      }
+    },
+    "Sleep, heart rate and pressure are read for you — no typing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep, heart rate and pressure are read for you — no typing"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сон, пульс і тиск зчитуються автоматично — без ручного вводу"
+          }
+        }
+      }
+    },
     "…shortened, full text is in the app" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -299,376 +363,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$lldг %2$lldх"
-          }
-        }
-      }
-    },
-    "A short check-in keeps your history complete." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A short check-in keeps your history complete."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Короткий чек-ін — щоб історія була повною."
-          }
-        }
-      }
-    },
-    "Asks how you're feeling around the time you usually check in." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Asks how you're feeling around the time you usually check in."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Питає, як ти почуваєшся, приблизно тоді, коли ти зазвичай робиш чек-ін."
-          }
-        }
-      }
-    },
-    "At most %lld a day, around the time you usually check in." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "At most %lld a day, around the time you usually check in."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не більше %lld на день, приблизно тоді, коли ти зазвичай робиш чек-ін."
-          }
-        }
-      }
-    },
-    "Check-in reminder" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check-in reminder"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нагадування про чек-ін"
-          }
-        }
-      }
-    },
-    "Every reminder Barosense sends is recorded here, including the ones it holds back when the daily limit is reached." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Every reminder Barosense sends is recorded here, including the ones it holds back when the daily limit is reached."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Тут зберігається кожне нагадування від Barosense — разом із тими, які були притримані через денний ліміт."
-          }
-        }
-      }
-    },
-    "Held back — today's limit was reached" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Held back — today's limit was reached"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Притримано — вичерпано денний ліміт"
-          }
-        }
-      }
-    },
-    "How are you feeling?" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How are you feeling?"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Як ти почуваєшся?"
-          }
-        }
-      }
-    },
-    "New: %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New: %lld"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нових: %lld"
-          }
-        }
-      }
-    },
-    "Next: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next: %@"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Далі: %@"
-          }
-        }
-      }
-    },
-    "Not sent — its time had already passed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent — its time had already passed"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не надіслано — час уже минув"
-          }
-        }
-      }
-    },
-    "Not sent — notifications are off for Barosense" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent — notifications are off for Barosense"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не надіслано — сповіщення для Barosense вимкнені"
-          }
-        }
-      }
-    },
-    "Not sent — reminders are off" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent — reminders are off"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не надіслано — нагадування вимкнені"
-          }
-        }
-      }
-    },
-    "Nothing new" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing new"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нічого нового"
-          }
-        }
-      }
-    },
-    "Nothing scheduled." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing scheduled."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нічого не заплановано."
-          }
-        }
-      }
-    },
-    "Nothing yet" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing yet"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поки що порожньо"
-          }
-        }
-      }
-    },
-    "Notifications" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notifications"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сповіщення"
-          }
-        }
-      }
-    },
-    "Notifications are off for Barosense in iOS Settings." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notifications are off for Barosense in iOS Settings."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сповіщення для Barosense вимкнені в Налаштуваннях iOS."
-          }
-        }
-      }
-    },
-    "Queued" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Queued"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "У черзі"
-          }
-        }
-      }
-    },
-    "Reminders are off." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reminders are off."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нагадування вимкнені."
-          }
-        }
-      }
-    },
-    "Scheduled" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scheduled"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Заплановано"
-          }
-        }
-      }
-    },
-    "Sent" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sent"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Надіслано"
-          }
-        }
-      }
-    },
-    "Sent today" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sent today"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Надіслано сьогодні"
-          }
-        }
-      }
-    },
-    "Withdrawn — you checked in already" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Withdrawn — you checked in already"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Скасовано — чек-ін уже зроблено"
           }
         }
       }
@@ -1054,63 +748,6 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Activity and blood oxygen" : {
-=======
-    "Add the tags and what you took, not just the intensity" : {
-      "extractionState" : "manual",
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-<<<<<<< HEAD
-            "value" : "Activity and blood oxygen"
-=======
-            "value" : "Add the tags and what you took, not just the intensity"
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-<<<<<<< HEAD
-            "value" : "Активність та рівень кисню у крові"
-=======
-            "value" : "Додавай позначки й ліки, а не тільки силу відчуття"
-          }
-        }
-      }
-    },
-    "Atmospheric pressure and how fast it is changing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Atmospheric pressure and how fast it is changing"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Атмосферний тиск і швидкість його зміни"
-          }
-        }
-      }
-    },
-    "A–Z" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "А–Я"
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
-          }
-        }
-      }
-    },
     "Add" : {
       "localizations" : {
         "en" : {
@@ -1278,7 +915,6 @@
         }
       }
     },
-<<<<<<< HEAD
     "Asks how you're feeling, at the time of day you usually check in." : {
       "localizations" : {
         "en" : {
@@ -1346,22 +982,6 @@
         }
       }
     },
-    "Automatic tracking of sleep, heart rate and activity — no typing" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatic tracking of sleep, heart rate and activity — no typing"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматичний трекінг сну, серцевого ритму та активності — без ручного вводу"
-          }
-        }
-      }
-    },
     "average %@ · lowest %lld · highest %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1379,8 +999,6 @@
         }
       }
     },
-=======
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
     "Back" : {
       "localizations" : {
         "en" : {
@@ -1594,22 +1212,6 @@
         }
       }
     },
-    "Blood oxygen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Blood oxygen"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Рівень кисню у крові"
-          }
-        }
-      }
-    },
     "Cancel" : {
       "localizations" : {
         "en" : {
@@ -1778,22 +1380,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Підключити"
-          }
-        }
-      }
-    },
-    "Connect your data" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect your data"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Підключи свої дані"
           }
         }
       }
@@ -3626,31 +3212,19 @@
         }
       }
     },
-<<<<<<< HEAD
     "Preview" : {
       "extractionState" : "manual",
-=======
-    "Pressure from this device's barometer" : {
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-<<<<<<< HEAD
             "value" : "Preview"
-=======
-            "value" : "Pressure from this device's barometer"
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-<<<<<<< HEAD
             "value" : "Попередній перегляд"
-=======
-            "value" : "Тиск із барометра цього пристрою"
->>>>>>> 499849d (Ask for Health and barometer access on the onboarding step that explains them)
           }
         }
       }
@@ -4037,22 +3611,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Сон та частота серцевих скорочень"
-          }
-        }
-      }
-    },
-    "Sleep, heart rate and pressure are read for you — no typing" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sleep, heart rate and pressure are read for you — no typing"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сон, пульс і тиск зчитуються автоматично — без ручного вводу"
           }
         }
       }

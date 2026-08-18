@@ -259,11 +259,15 @@ final class OnboardingModel {
     /// cannot assert that against work a synchronous call left running behind it. The view
     /// wraps the call — see `HealthStep`.
     ///
-    /// Re-entrant taps are stopped by the guard, not by the disabled button: both the flag
-    /// and the check run on the main actor before the first `await`, so a second call cannot
-    /// slip between them.
+    /// Two guards, because a second tap can arrive in two different ways. `isRequestingAccess`
+    /// catches the one that interleaves — both the flag and its check run on the main actor
+    /// before the first `await`, so a call cannot slip between them. The step check catches the
+    /// one that arrives after the first has finished, when the flag is already back to `false`
+    /// and the flow has moved on: without it a queued tap would ask a second time and, worse,
+    /// call `advance()` again from a step the user is no longer on. Asking again is allowed
+    /// only by coming back to the step, which is the one case where it is what the user meant.
     func requestHealthAccess() async {
-        guard !isRequestingAccess else { return }
+        guard step == .health, !isRequestingAccess else { return }
 
         isRequestingAccess = true
         wantsHealthAccess = true
