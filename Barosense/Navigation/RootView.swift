@@ -11,9 +11,9 @@ struct RootView: View {
     /// cheap and usually silent.
     let weather: WeatherForecastController
 
-    /// The forward half of the pressure chart. `nil` only while the stores are still opening,
-    /// which is a state this view is never shown in.
-    let forecast: PressureForecastReader?
+    /// The forward half of the pressure chart. Built at the composition root and shared with
+    /// `weather`, so the picture and the feature row read one curve and one cached offset.
+    let forecast: PressureForecastReader
     let checkInStore: any CheckInStore
     let tagStore: any WellbeingTagStore
 
@@ -268,6 +268,12 @@ struct RootView: View {
     }
 }
 
+/// One reader for the preview, shared by the two arguments that take it — the same single
+/// instance the app builds, so the canvas exercises the shipped shape rather than a variant.
+private let previewForecast = PressureForecastReader(archive: InMemoryWeatherForecastStore(),
+                                                    samples: InMemoryPressureSampleStore(),
+                                                    epochs: InMemoryPressureLocationEpochStore())
+
 #Preview {
     RootView(ingest: HealthIngestController(
         recorder: HealthSampleRecorder(reader: HealthKitDataReader(),
@@ -286,12 +292,11 @@ struct RootView: View {
                     epochs: InMemoryPressureLocationEpochStore(),
                     access: UnavailableLocationAccessReporter(),
                     preferences: InMemoryWeatherKitPreferenceStore()),
+                forecast: previewForecast,
                 healthLog: InMemoryHealthSampleStore()),
              // Empty archive, so the preview draws the observed half alone — which is also the
              // state of every device without a location grant.
-             forecast: PressureForecastReader(archive: InMemoryWeatherForecastStore(),
-                                              samples: InMemoryPressureSampleStore(),
-                                              epochs: InMemoryPressureLocationEpochStore()),
+             forecast: previewForecast,
              checkInStore: InMemoryCheckInStore(),
              tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
              // No notification centre in a preview: `NoOpNotificationDeliverer` reports itself

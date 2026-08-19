@@ -104,7 +104,7 @@ struct PressureLocationEpoch: Identifiable, Hashable, Codable, Sendable {
     /// Metres above sea level, as reported by the fix that opened the epoch.
     ///
     /// Optional because a reduced-accuracy fix does not carry a useful one, and that is the
-    /// shipped default (`NSLocationDefaultAccuracyReduced`). It is a diagnostic, never a
+    /// shipped default (`NSLocationDefaultAccuracyReduced`). It is a note, never a
     /// correction: the station-to-MSLP offset is measured from the data
     /// (`PressureOffsetCalibrator`), not computed from an altitude the app half knows.
     let altitudeMetres: Double?

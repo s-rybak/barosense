@@ -182,6 +182,11 @@ enum ForecastSkillEvaluator {
         // `issuedAtOrBefore: now` is not decoration even here: scoring a forecast against an
         // issue made after the hour it describes would be scoring hindsight, and the number
         // that came out would be flattering and meaningless.
+        //
+        // The ≤12 h staleness gate deliberately does **not** apply. That gate answers "may this
+        // issue still be read as the current forecast"; this asks "how did the issues we made
+        // actually do", and every one of them is old by the time its hour arrives. Applying it
+        // here would score nothing at all.
         let rows = try await archive.points(issuedAtOrBefore: now, validIn: since..<now)
         let readings = try await samples.samples(in: since..<now.addingTimeInterval(1))
 

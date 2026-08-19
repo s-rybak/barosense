@@ -19,7 +19,7 @@ import Foundation
 /// The model has one thing to know that persistence does not: the **solar semidiurnal tide**,
 /// `S2`. It is deterministic, it follows from the time of day, and at Kyiv's latitude it is
 /// order 0.3–0.5 hPa (*provisional* — a literature order of magnitude, to be checked against
-/// real traces). Below the 1.0 hPa threshold this app treats as meaningful, but it is free skill
+/// real traces). Below the 1.0 hPa threshold this app calls meaningful, but it is free skill
 /// that persistence cannot have. Three autoregressive lags carry the local trend and its
 /// curvature.
 ///
@@ -76,7 +76,7 @@ struct LocalPressureModel: Sendable {
     /// `[intercept, lag1, lag2, lag3, sinS1, cosS1, sinS2, cosS2]`, fitted on centred values.
     let coefficients: [Double]
 
-    /// Mean of the training targets, added back on prediction.
+    /// Mean of the training targets, added back on projection.
     ///
     /// Centring is not cosmetic: pressure sits near 1000 and the harmonics near 1, so an
     /// uncentred normal matrix spans six orders of magnitude and the solve loses most of its
@@ -92,7 +92,7 @@ struct LocalPressureModel: Sendable {
 
     let rowCount: Int
 
-    /// The hour the fit ends at — the last cell it saw. Predictions step forward from here.
+    /// The hour the fit ends at — the last cell it saw. Projections step forward from here.
     let lastHour: Date
 
     /// The three most recent values, newest last. The seed for the forward iteration.
@@ -148,10 +148,14 @@ extension LocalPressureModel {
         }
         let residualSD = (residuals.reduce(0) { $0 + $1 * $1 } / Double(residuals.count)).squareRoot()
 
-        let recent = cells.suffix(autoregressiveOrder).map(\.hectopascals)
-        guard let lastHour = cells.last?.hour, recent.count == autoregressiveOrder else {
-            return nil
-        }
+        // The seed obeys the same consecutive-hours rule the design rows do, and for the same
+        // reason: `cells` omits holes, so the last three entries can be an hour apart at one
+        // end and twelve at the other. Handed to the forward iteration as lag1/lag2/lag3, that
+        // says half a day of drift happened in two hours. Measured on a twelve-hour overnight
+        // gap it moved the first step by 1.3 hPa — above the 1.0 hPa this app calls meaningful
+        // — while the band grew 1.5%, because `coverage` is a statement about the whole window
+        // and cannot see a hole at the end of it.
+        guard let seed = seed(in: cells), let lastHour = seed.last?.hour else { return nil }
 
         return LocalPressureModel(
             coefficients: coefficients,
@@ -160,45 +164,110 @@ extension LocalPressureModel {
             coverage: HourlyPressureGrid.coverage(of: cells, in: window),
             rowCount: design.count,
             lastHour: lastHour,
-            recentValues: recent,
+            recentValues: seed.map(\.hectopascals),
             fittedAt: now
         )
     }
 
+    /// The latest run of `autoregressiveOrder` consecutive hourly cells, oldest first.
+    ///
+    /// Walks back from the end rather than taking the last three outright. After a gap the
+    /// newest cells are not neighbours, and the honest anchor is the last hour at which the
+    /// sensor really did record three in a row — everything after it is a hole, not a trend.
+    ///
+    /// A model anchored before a gap then says very little, because
+    /// `forecast(asOf:horizonSeconds:)` measures its range from the anchor: an anchor eleven
+    /// hours old produces no curve at all, which is the right amount for a model whose whole
+    /// range is six hours to say about a stretch it did not observe.
+    private static func seed(in cells: [HourlyPressureGrid.Cell]) -> [HourlyPressureGrid.Cell]? {
+        guard cells.count >= autoregressiveOrder else { return nil }
+
+        for end in stride(from: cells.count, through: autoregressiveOrder, by: -1) {
+            let run = Array(cells[(end - autoregressiveOrder)..<end])
+            guard let first = run.first?.hour, let last = run.last?.hour else { continue }
+
+            let span = last.timeIntervalSince(first)
+            if abs(span - Double(autoregressiveOrder - 1) * 3600) < 1 { return run }
+        }
+
+        return nil
+    }
+
     /// The forward curve, hourly, from the first whole hour after `now`.
     ///
-    /// Clipped to `ForecastSource.localModel.rangeSeconds` whatever is asked for. A caller that
-    /// wants 24 hours gets 6, silently and on purpose: the range is a property of what a single
-    /// barometer can know, not a parameter.
+    /// Clipped to `ForecastSource.localModel.rangeSeconds` whatever is asked for, and clipped
+    /// **from `lastHour`** rather than from `now`. A caller that wants 24 hours gets 6, silently
+    /// and on purpose: the range is a property of what a single barometer can know, not a
+    /// parameter. A caller asking after a long gap gets less than 6, or nothing — the range is
+    /// six hours of extrapolation from the last observed hour, and a gap has already spent some
+    /// of it.
     ///
-    /// Predictions are fed back in as lags, which is what makes the band's growth the honest
+    /// Projections are fed back in as lags, which is what makes the band's growth the honest
     /// shape — each step inherits the previous step's error as well as its own.
-    func forecast(asOf now: Date, horizonSeconds: TimeInterval) -> [ForecastPressurePoint] {
+    /// `includingAnchorHour` adds the hour **containing** `now` — the level every delta in
+    /// `ForecastPressureFeatures` is measured against. The chart does not want it, because that
+    /// hour is behind the `now` divider and the past half of the plot is measurements; the
+    /// feature pipeline cannot do without it, because "change over the next six hours" with no
+    /// starting value is a change over five.
+    ///
+    /// For a fresh fit the anchor is the last hour the model actually observed. For a fit whose
+    /// log has gone quiet it is the model's own projection for that hour, arrived at by the
+    /// same iteration as every other point — which is the honest answer in both cases: the
+    /// anchor is where the model thinks it is standing.
+    func forecast(asOf now: Date,
+                  horizonSeconds: TimeInterval,
+                  includingAnchorHour anchored: Bool = false) -> [ForecastPressurePoint] {
         let horizon = min(horizonSeconds, ForecastSource.localModel.rangeSeconds)
         guard horizon >= 3600 else { return [] }
+
+        // The window an anchor may come from: the hour containing `now`, matching
+        // `ForecastPressurePoint.curve`'s own `lowerBound` so both producers anchor alike.
+        let anchorWindow = now.addingTimeInterval(-3600)
 
         var lags = recentValues.reversed().map { $0 - mean }
         var hour = lastHour
         var points: [ForecastPressurePoint] = []
 
+        if anchored, lastHour > anchorWindow, lastHour <= now, let level = recentValues.last {
+            points.append(ForecastPressurePoint(timestamp: lastHour,
+                                                pressure: Pressure(hectopascals: level),
+                                                uncertaintyHPa: uncertaintyHPa(atLeadSeconds: 0),
+                                                source: .localModel,
+                                                issuedAt: now))
+        }
+
         while true {
             hour = hour.addingTimeInterval(3600)
+
+            // Two clips, answering two different questions. `stepsAhead` is how far the
+            // iteration has walked from the last hour the model actually saw, and that is what
+            // its range is a statement about — six hours of *extrapolation*, not six hours of
+            // wall clock. `lead` is how far past `now` the point sits, which is what the chart
+            // asked for. A log whose last cell is five hours old therefore speaks one hour into
+            // the future rather than six.
+            let stepsAhead = hour.timeIntervalSince(lastHour)
+            guard stepsAhead <= ForecastSource.localModel.rangeSeconds else { break }
+
             let lead = hour.timeIntervalSince(now)
             if lead > horizon { break }
 
-            let predicted = dot(coefficients,
+            let projected = dot(coefficients,
                                 Self.row(lags: lags, hour: hour))
-            lags = [predicted] + lags.dropLast()
+            lags = [projected] + lags.dropLast()
 
             // Hours already past — the log's last cell can be a couple of hours old — are
             // stepped through to carry the lags forward, but never drawn: they are not a
-            // forecast, they are a gap the sensor left.
-            guard lead > 0 else { continue }
+            // forecast, they are a gap the sensor left. The one exception is the anchor hour,
+            // and only when a caller asked for it.
+            guard lead > 0 || (anchored && hour > anchorWindow) else { continue }
 
             points.append(ForecastPressurePoint(
                 timestamp: hour,
-                pressure: Pressure(hectopascals: predicted + mean),
-                uncertaintyHPa: uncertaintyHPa(atLeadSeconds: lead),
+                pressure: Pressure(hectopascals: projected + mean),
+                // From the anchor, for the reason the clip is: each step feeds its own output
+                // back in as a lag, so a point six steps out carries six steps of compounded
+                // error however recently the user opened the app.
+                uncertaintyHPa: uncertaintyHPa(atLeadSeconds: stepsAhead),
                 source: .localModel,
                 // A local forecast is knowable the moment it is computed, which is `now`. Any
                 // earlier stamp would let a feature at `t` read a curve the device had not
@@ -234,7 +303,7 @@ extension LocalPressureModel {
 
     /// One design row: intercept, lags, and the two diurnal harmonics.
     ///
-    /// `lags` is newest-first. The harmonics are functions of the hour being predicted, not of
+    /// `lags` is newest-first. The harmonics are functions of the hour being projected, not of
     /// the lags, which is what lets the model carry a time-of-day shape through a forward
     /// iteration where the lags are its own output.
     private static func row(lags: [Double], hour: Date) -> [Double] {

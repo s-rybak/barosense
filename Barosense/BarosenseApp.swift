@@ -29,6 +29,12 @@ struct BarosenseApp: App {
     private let weatherArchive: any WeatherForecastStore
     private let weather: WeatherForecastController
 
+    /// The forward half of the chart, and the same object the refresh controller reads its
+    /// feature row off. **One instance**: it caches the station-to-MSLP offset and the local
+    /// fit, and two of them would each pay for their own and could disagree about which curve
+    /// the app is showing.
+    private let forecast: PressureForecastReader
+
     /// Where a tapped notification asks to go, and the delegate that records it.
     ///
     /// Both are held here for the same reason the ingest observers are started here: iOS
@@ -111,6 +117,11 @@ struct BarosenseApp: App {
         }
         self.weatherArchive = weatherArchive
 
+        let forecast = PressureForecastReader(archive: weatherArchive,
+                                              samples: pressureLog,
+                                              epochs: locationEpochs)
+        self.forecast = forecast
+
         weather = WeatherForecastController(
             refresher: WeatherForecastRefresher(
                 // The one outbound network path in the app. Everything that decides whether it
@@ -121,6 +132,9 @@ struct BarosenseApp: App {
                 access: CoreLocationAccessReporter(),
                 preferences: UserDefaultsWeatherKitPreferenceStore()
             ),
+            // The §2.2 feature row and the realised-skill comparison are read off this after
+            // every request that lands — see `WeatherForecastController.refresh(asOf:)`.
+            forecast: forecast,
             // Read for the end of the most recent sleep session, which moves the first request
             // slot of the day. Nothing health-derived reaches the payload — see
             // `WeatherForecastController.wakeTime`.
@@ -149,11 +163,13 @@ struct BarosenseApp: App {
     var body: some Scene {
         let pressure = pressure
         let weather = weather
+        let forecast = forecast
 
         return WindowGroup {
             AppRootView(ingest: ingest,
                         pressure: pressure,
                         weather: weather,
+                        forecast: forecast,
                         healthLog: healthLog,
                         pressureLog: pressureLog,
                         locationEpochs: locationEpochs,

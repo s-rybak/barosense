@@ -138,13 +138,20 @@ extension ForecastPressurePoint {
 
     /// Builds the drawable curve from archived WeatherKit rows.
     ///
-    /// Three things happen here and each of them is load-bearing.
+    /// Four things happen here and each of them is load-bearing.
     ///
     /// 1. **Only the newest issue at or before `now`.** Mixing issues would draw a line that
     ///    zig-zags between two model runs. `points` is expected to be one issue's worth; rows
     ///    from more than one are collapsed to the newest per hour.
-    /// 2. **Offset applied**, so the curve lands in barometer coordinates — see `pressure`.
-    /// 3. **Clipped to `horizonSeconds` and to the source's own range.** A 240 h curve drawn on
+    /// 2. **Nothing past the staleness norm.** An issue older than
+    ///    `WeatherForecastPolicy.maximumIssueAgeSeconds` yields **no curve at all**, and the
+    ///    caller then falls through to whatever else can speak — in the app, the local model.
+    ///    The gate lives here rather than at each call site because the archive outlives the
+    ///    requests by design: rows are kept 90 days and one issue reaches 240 h ahead, so a
+    ///    device that stopped asking would otherwise redraw the same ten-day-old run every day
+    ///    and label it the forecast.
+    /// 3. **Offset applied**, so the curve lands in barometer coordinates — see `pressure`.
+    /// 4. **Clipped to `horizonSeconds` and to the source's own range.** A 240 h curve drawn on
     ///    a card 92 pt tall is a horizontal smear, and the domain it forces would flatten the
     ///    user's own line.
     ///
@@ -161,11 +168,17 @@ extension ForecastPressurePoint {
         // two builders, so the picture and the model are drawn from the same rows.
         let lowerBound = anchor ? now.addingTimeInterval(-3600) : now
 
+        // Both ends of the issue window. `<= now` is the leak guard — the store applies it too,
+        // and it is repeated here so a hand-assembled curve cannot skip it — and the lower
+        // bound is the staleness norm.
+        let usableIssues = WeatherForecastPolicy.oldestUsableIssue(asOf: now)...now
+
         // Newest issue wins per hour. Sorting by `issuedAt` and letting later entries overwrite
         // is cheaper than grouping, and it is the same rule the feature pipeline applies.
         var newestByHour: [Date: WeatherForecastPoint] = [:]
         for point in points.sorted(by: { $0.issuedAt < $1.issuedAt })
-        where point.validAt > lowerBound && point.validAt <= cutoff {
+        where usableIssues.contains(point.issuedAt)
+            && point.validAt > lowerBound && point.validAt <= cutoff {
             newestByHour[point.validAt] = point
         }
 
@@ -179,12 +192,14 @@ extension ForecastPressurePoint {
                 return ForecastPressurePoint(
                     timestamp: point.validAt,
                     pressure: Pressure(hectopascals: station),
-                    // Lead is measured from `now`, not from `issuedAt`. The band says how
-                    // uncertain the value is *to the person looking at it*, and an hour that
-                    // was six hours out when the issue was made is one hour out by the time it
-                    // is nearly here.
+                    // Lead is measured from `issuedAt`, not from `now`. How wrong a value is
+                    // was settled by the model run that produced it; the clock advancing does
+                    // not improve a number nobody has recomputed. Measuring from `now` would
+                    // quote a thirteen-hour-lead value — a twelve-hour-old issue read one hour
+                    // before its hour — as if it were a one-hour forecast, understating the
+                    // band by most of its width at exactly the moment the issue is oldest.
                     uncertaintyHPa: ForecastSource.weatherKit.uncertaintyHPa(
-                        atLeadSeconds: max(0, point.validAt.timeIntervalSince(now))
+                        atLeadSeconds: max(0, point.leadTimeSeconds)
                     ) + offset.uncertaintyHPa,
                     source: .weatherKit,
                     issuedAt: point.issuedAt

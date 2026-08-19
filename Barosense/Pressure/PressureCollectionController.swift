@@ -68,7 +68,7 @@ final class PressureCollectionController {
     /// Stamps each reading with the place it was taken in. `nil` on a build with no location
     /// wiring at all — the watch does not sample and previews do not record — and a `nil`
     /// here simply leaves `PressureSample.locationEpochID` unset, which every consumer already
-    /// treats as ordinary.
+    /// reads as ordinary.
     private let locationEpochs: LocationEpochRecorder?
 
     private var didStart = false
@@ -161,7 +161,14 @@ final class PressureCollectionController {
                                   requestingLocationFix: Bool) async {
         defer { hasAttemptedSample = true }
 
-        let epochID = await locationEpochID(asOf: now, requestingFix: requestingLocationFix)
+        // Asked before the epoch is resolved, because resolving it in the foreground powers the
+        // radio. The floor lives inside `record(asOf:)`, so an activation it is about to refuse
+        // would otherwise still have paid for a fix — twenty activations in an hour, twenty
+        // fixes, one row. Nothing is skipped that a written row would have used: a declined
+        // reading has nowhere to put an epoch id.
+        let epochID = await recorder.admitsReading(asOf: now)
+            ? await locationEpochID(asOf: now, requestingFix: requestingLocationFix)
+            : nil
 
         let recorded: PressureSample?
         do {
@@ -185,10 +192,11 @@ final class PressureCollectionController {
 
     /// Which epoch this reading belongs to.
     ///
-    /// On a foreground activation this may take one fix — the only place in the app that ever
-    /// does — and, on a move past 25 km, spend one geocode. On a background wake it reads the
-    /// stored row and powers nothing. Either way a failure yields `nil` and the reading is
-    /// still taken: the barometer is the feature, and the place is context for it.
+    /// On a foreground activation that the sampling floor admits, this may take one fix — the
+    /// only place in the app that ever does — and, on a move past 25 km, spend one geocode. On
+    /// a background wake it reads the stored row and powers nothing. Either way a failure
+    /// yields `nil` and the reading is still taken: the barometer is the feature, and the place
+    /// is context for it.
     private func locationEpochID(asOf now: Date, requestingFix: Bool) async -> UUID? {
         guard let locationEpochs else { return nil }
 

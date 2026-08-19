@@ -28,7 +28,27 @@ final class WeatherForecastController {
     /// `PressureCollectionController.lastUpdateAt` gives the barometer.
     private(set) var lastUpdateAt: Date?
 
+    /// The §2.2 family as of the last request.
+    ///
+    /// Computed **at the moment of the request**, which is where
+    /// `.claude/context/pressure-forecast-spec.md` §4.5 puts it: four numbers a request, read
+    /// off the curve the app had just been handed, under the same `issuedAt <= t` guard as
+    /// everything else. No wellbeing model consumes them yet — there is none to train — so this
+    /// is where they are observable until there is.
+    private(set) var lastFeatures: ForecastPressureFeatures?
+
+    /// What the archived forecasts of the last 30 days actually achieved against the barometer.
+    ///
+    /// The §7 baseline comparison, running on the device rather than in a report nobody runs.
+    /// The ground truth arrives by itself a few hours after each forecast, so this is the one
+    /// skill number the app can honestly produce without a dataset.
+    private(set) var lastSkillReport: ForecastSkillReport?
+
     private let refresher: WeatherForecastRefresher
+
+    /// The same reader the chart draws from, so the feature row and the picture are read off
+    /// one curve and one cached offset rather than two that can disagree.
+    private let forecast: PressureForecastReader
 
     /// The training log, read for the end of the most recent sleep session.
     ///
@@ -45,9 +65,11 @@ final class WeatherForecastController {
     private var inFlight: Task<Void, Never>?
 
     init(refresher: WeatherForecastRefresher,
+         forecast: PressureForecastReader,
          healthLog: any HealthSampleStore,
          calendar: Calendar = .current) {
         self.refresher = refresher
+        self.forecast = forecast
         self.healthLog = healthLog
         self.calendar = calendar
     }
@@ -77,6 +99,31 @@ final class WeatherForecastController {
 
         if case .refreshed = outcome {
             lastUpdateAt = now
+            await readForecastQuality(asOf: now)
+        }
+    }
+
+    /// Reads the feature row and the realised skill off the curve that just landed.
+    ///
+    /// **Only after rows land**, which the budget caps at four times a day plus the bootstrap.
+    /// Two indexed store reads and a pass over 30 days of archived rows, on a wake the app was
+    /// already granted — no new wake source, and nothing here powers a sensor, a radio or
+    /// HealthKit. It is skipped entirely on the ordinary pass, where nothing is due.
+    private func readForecastQuality(asOf now: Date) async {
+        lastFeatures = await forecast.features(asOf: now)
+        lastSkillReport = await forecast.skillReport(asOf: now)
+
+        // Logged rather than shown. Nothing on screen may present model output as a claim
+        // (`CLAUDE.md`, no medical claims + graded risk state only); this is the developer's
+        // view of whether the forecast is earning its place, and §7 asks for it to be stated
+        // whichever way it comes out.
+        if let summary = lastSkillReport?.summary {
+            BarosenseLog.pressure.info("forecast skill \(summary, privacy: .public)")
+        }
+        if let source = lastFeatures?.forecastSource {
+            BarosenseLog.pressure.info(
+                "forecast features from \(source.rawValue, privacy: .public)"
+            )
         }
     }
 

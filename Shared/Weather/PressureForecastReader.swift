@@ -54,50 +54,89 @@ actor PressureForecastReader {
         self.epochs = epochs
     }
 
-    /// The forward half of the chart, in barometer coordinates.
-    ///
-    /// Empty — not approximate — whenever the offset cannot be measured. An uncalibrated
-    /// WeatherKit curve sits ~22 hPa away from the user's own line and stretches the plot's
-    /// domain threefold, so drawing nothing is both more honest and more readable than drawing
-    /// that.
     /// The forward half of the chart, whichever producer can supply it.
     ///
     /// **One return type, two producers, no second code path.** WeatherKit when the archive has
-    /// something and the offset is measurable; the local model when it does not — which is the
-    /// state of every device with WeatherKit switched off, with location refused, or waiting on
-    /// its first request. The caller cannot tell which it got except by reading `source`, and
-    /// that is the design: the same table, the same type, the same chart, differing only in
-    /// range and in the width of the band
+    /// something recent enough and the offset is measurable; the local model when it does not —
+    /// which is the state of every device with WeatherKit switched off, with location refused,
+    /// or waiting on its first request. The caller cannot tell which it got except by reading
+    /// `source`, and that is the design: the same table, the same type, the same chart,
+    /// differing only in range and in the width of the band
     /// (`.claude/context/pressure-forecast-spec.md` §2.3).
-    func forecast(asOf now: Date, horizonSeconds: TimeInterval) async -> [ForecastPressurePoint] {
-        let fromWeatherKit = await weatherKitForecast(asOf: now, horizonSeconds: horizonSeconds)
+    ///
+    /// `anchoredAtNow` asks both producers to include the hour containing `now`. Only the
+    /// feature pipeline wants it — see `features(asOf:)`.
+    func forecast(asOf now: Date,
+                  horizonSeconds: TimeInterval,
+                  anchoredAtNow anchored: Bool = false) async -> [ForecastPressurePoint] {
+        let fromWeatherKit = await weatherKitForecast(asOf: now,
+                                                      horizonSeconds: horizonSeconds,
+                                                      anchored: anchored)
         guard fromWeatherKit.isEmpty else { return fromWeatherKit }
 
-        return await localForecast(asOf: now, horizonSeconds: horizonSeconds)
+        return await localForecast(asOf: now, horizonSeconds: horizonSeconds, anchored: anchored)
+    }
+
+    /// The §2.2 feature family at `now`, from whichever producer the chart is drawing.
+    ///
+    /// Deliberately built on `forecast(asOf:horizonSeconds:anchoredAtNow:)` rather than on the
+    /// archive directly: the picture and the feature row then come from the same rows, and the
+    /// pipeline stays the single branch §2.3 asks for — it reads a curve and does not know who
+    /// wrote it. `forecastSource` and `forecastUncertaintyHPa` are what carry the difference
+    /// forward, which is the whole reason they are on the vector.
+    func features(asOf now: Date) async -> ForecastPressureFeatures {
+        let curve = await forecast(asOf: now,
+                                   horizonSeconds: ForecastFeatureExtractor.featureHorizonSeconds,
+                                   anchoredAtNow: true)
+
+        return ForecastFeatureExtractor.extract(from: curve, at: now)
+    }
+
+    /// How the WeatherKit forecasts of the last 30 days actually did against the barometer.
+    ///
+    /// `nil` before an offset can be measured, which is also before there is anything to score.
+    /// Only WeatherKit is scored here: the local model's own points are never archived — it is
+    /// refitted from the barometer log rather than stored — so there is nothing to look back at.
+    func skillReport(asOf now: Date) async -> ForecastSkillReport? {
+        guard let offset = await offset(asOf: now) else { return nil }
+
+        return try? await ForecastSkillEvaluator.evaluate(archive: archive,
+                                                          samples: samples,
+                                                          offset: offset,
+                                                          asOf: now)
     }
 
     /// The calibrated WeatherKit curve, or empty.
     ///
-    /// Empty — not approximate — whenever the offset cannot be measured. An uncalibrated curve
-    /// sits ~22 hPa away from the user's own line and stretches the plot's domain threefold, so
-    /// falling through to the local model is both more honest and more readable than drawing
-    /// that.
+    /// Empty — not approximate — whenever the offset cannot be measured or the newest issue is
+    /// past the staleness norm. An uncalibrated curve sits ~22 hPa away from the user's own line
+    /// and stretches the plot's domain threefold; a ten-day-old one is a different quantity
+    /// wearing the current forecast's clothes. Falling through to the local model is the honest
+    /// answer to both.
     private func weatherKitForecast(asOf now: Date,
-                                    horizonSeconds: TimeInterval) async -> [ForecastPressurePoint] {
+                                    horizonSeconds: TimeInterval,
+                                    anchored: Bool) async -> [ForecastPressurePoint] {
         guard let offset = await offset(asOf: now) else { return [] }
 
-        let window = now..<now.addingTimeInterval(min(horizonSeconds,
-                                                      ForecastSource.weatherKit.rangeSeconds))
+        // One hour back when the caller wants the anchor hour, so the row covering `now` is in
+        // the read as well as in the curve.
+        let start = now.addingTimeInterval(anchored ? -3600 : 0)
+        let end = now.addingTimeInterval(min(horizonSeconds,
+                                             ForecastSource.weatherKit.rangeSeconds))
+        let window = start..<end
         // The leak guard travels with the read: even a chart may only draw what was knowable.
         // It is the same call the feature pipeline makes, so the picture and the model agree
         // about what the app knew.
         let points = (try? await archive.points(issuedAtOrBefore: now, validIn: window)) ?? []
         guard !points.isEmpty else { return [] }
 
+        // The staleness gate is `curve`'s, not repeated here: it is the one place both the
+        // chart and the feature pipeline pass through.
         return ForecastPressurePoint.curve(from: points,
                                            offset: offset,
                                            asOf: now,
-                                           horizonSeconds: horizonSeconds)
+                                           horizonSeconds: horizonSeconds,
+                                           includingHourAt: anchored)
     }
 
     /// The on-device autoregressive fit over the user's own log.
@@ -109,7 +148,8 @@ actor PressureForecastReader {
     /// Empty on a device with too little history to fit, which is the honest answer: a line
     /// drawn from four readings is still a claim.
     private func localForecast(asOf now: Date,
-                               horizonSeconds: TimeInterval) async -> [ForecastPressurePoint] {
+                               horizonSeconds: TimeInterval,
+                               anchored: Bool) async -> [ForecastPressurePoint] {
         if localModel == nil || localModel?.isStale(asOf: now) == true {
             let window = now.addingTimeInterval(
                 -TimeInterval(LocalPressureModel.trainingWindowDays) * 24 * 3600
@@ -118,7 +158,9 @@ actor PressureForecastReader {
             localModel = LocalPressureModel.fit(to: readings, asOf: now)
         }
 
-        return localModel?.forecast(asOf: now, horizonSeconds: horizonSeconds) ?? []
+        return localModel?.forecast(asOf: now,
+                                    horizonSeconds: horizonSeconds,
+                                    includingAnchorHour: anchored) ?? []
     }
 
     /// The place the forecast is about, for the line under the card. `nil` before the first fix.

@@ -167,7 +167,7 @@ final class PressureOffsetCalibratorTests: XCTestCase {
         XCTAssertLessThan(offset.offsetHPa(atTemperatureC: 5), offset.offsetHPa)
     }
 
-    /// At 500 m the diurnal remainder is ~2 hPa — comparable with the 1.0 hPa this app treats
+    /// At 500 m the diurnal remainder is ~2 hPa — comparable with the 1.0 hPa this app calls
     /// as the boundary of meaning, which is why the correction is not optional up there.
     func testAtFiveHundredMetresTheDiurnalRemainderIsAboutTwoHectopascals() {
         let offset = PressureOffset(offsetHPa: -58,

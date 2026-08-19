@@ -94,7 +94,7 @@ struct WeatherForecastIssue: Hashable, Sendable {
 /// lines are the ones most worth checking: `Measurement<UnitPressure>`'s runtime unit is **not
 /// documented**, so reading `.value` directly is a silent 10× error the day WeatherKit hands
 /// back kilopascals, and a 10× error in pressure is the exact failure `Pressure` exists to
-/// prevent on the sensor side.
+/// rule out on the sensor side.
 enum WeatherMeasurement {
 
     /// Hectopascals, whatever unit the measurement arrived in.
@@ -135,6 +135,18 @@ enum WeatherForecastPolicy {
     /// half of the fix: the feature vector carries it, so a model can learn that an older
     /// issue is a worse input instead of being told they are all the same.
     static let maximumIssueAgeSeconds: TimeInterval = 12 * 3600
+
+    /// The oldest issue that may still be read at `now`.
+    ///
+    /// Enforced in `ForecastPressurePoint.curve` and `ForecastFeatureExtractor`, which is to
+    /// say in the two places a curve is built — not left to each caller. Without a gate the
+    /// norm is a comment: the archive keeps rows for 90 days and a single issue reaches 240 h
+    /// ahead, so a device that stopped asking (switch off, location revoked, no network) would
+    /// go on drawing the same issue for ten days and calling it the current forecast, instead
+    /// of falling back to the local model the way §2.1 of the feature spec describes.
+    static func oldestUsableIssue(asOf now: Date) -> Date {
+        now.addingTimeInterval(-maximumIssueAgeSeconds)
+    }
 
     /// How long raw forecast rows are kept.
     ///

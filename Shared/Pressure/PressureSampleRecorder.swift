@@ -133,6 +133,21 @@ actor PressureSampleRecorder {
     /// be a wait that never ends.
     nonisolated var isAvailable: Bool { source.isAvailable }
 
+    /// Whether `record(asOf:)` would take a reading rather than decline on the rate limit.
+    ///
+    /// Exists so a caller can find out **before** paying for anything the reading needs. The
+    /// only such cost today is the location fix that resolves `locationEpochID`: powering the
+    /// radio for a reading the floor is about to refuse would spend battery on a row that is
+    /// never written, and a user flipping in and out of the app would pay it every time.
+    ///
+    /// Advisory, not the gate. `record(asOf:)` re-checks the floor itself, because a caller
+    /// that forgot to ask must still be rate-limited.
+    func admitsReading(asOf now: Date = .now) -> Bool {
+        guard let lastRecordedAt else { return true }
+
+        return now.timeIntervalSince(lastRecordedAt) >= minimumInterval
+    }
+
     /// Reads the barometer once and persists what it read.
     ///
     /// Returns `nil` when the rate limit declined to sample — an ordinary outcome, not a

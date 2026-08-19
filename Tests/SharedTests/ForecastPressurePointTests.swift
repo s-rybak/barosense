@@ -111,10 +111,11 @@ final class ForecastPressurePointTests: XCTestCase {
         XCTAssertEqual(curve.count, 12)
     }
 
-    /// Lead is measured from the moment the user is looking, not from when the issue was made:
-    /// an hour that was six hours out at 08:00 is one hour out at 13:00, and the band has to
-    /// close as it approaches.
-    func testTheBandIsMeasuredFromNowRatherThanFromTheIssue() {
+    /// Lead is measured from the issue, not from the moment the user is looking. How wrong a
+    /// value is was settled by the model run behind it; the clock advancing does not improve a
+    /// number nobody recomputed. Measuring from `now` quoted a twelve-hour-lead value as a
+    /// one-hour forecast — a band of 0.78 hPa where the honest one is 1.66.
+    func testTheBandIsMeasuredFromTheIssueRatherThanFromNow() {
         let stale = WeatherForecastPoint(issuedAt: now.addingTimeInterval(-11 * 3600),
                                          validAt: now.addingTimeInterval(3600),
                                          meanSeaLevelPressureHPa: 1013,
@@ -125,9 +126,68 @@ final class ForecastPressurePointTests: XCTestCase {
                                                 asOf: now,
                                                 horizonSeconds: 24 * 3600)
 
-        let expected = ForecastSource.weatherKit.uncertaintyHPa(atLeadSeconds: 3600)
+        let expected = ForecastSource.weatherKit.uncertaintyHPa(atLeadSeconds: 12 * 3600)
             + offset.uncertaintyHPa
         XCTAssertEqual(curve.first?.uncertaintyHPa ?? 0, expected, accuracy: 0.001)
+        XCTAssertGreaterThan(
+            curve.first?.uncertaintyHPa ?? 0,
+            ForecastSource.weatherKit.uncertaintyHPa(atLeadSeconds: 3600) + offset.uncertaintyHPa
+        )
+    }
+
+    // MARK: - Staleness
+
+    /// The §2.2 norm, as a gate rather than a comment. One issue reaches 240 h ahead and the
+    /// archive keeps rows for 90 days, so a device that stopped asking — switch off, location
+    /// revoked, no network — would otherwise redraw a ten-day-old run every day and call it the
+    /// forecast. No curve is the honest answer; the caller falls through to the local model.
+    func testAnIssuePastTheStalenessNormProducesNoCurveAtAll() {
+        let issuedAt = now.addingTimeInterval(-WeatherForecastPolicy.maximumIssueAgeSeconds - 60)
+        let points = (1...12).map { hour in
+            WeatherForecastPoint(issuedAt: issuedAt,
+                                 validAt: now.addingTimeInterval(TimeInterval(hour) * 3600),
+                                 meanSeaLevelPressureHPa: 1013,
+                                 temperatureC: 15)
+        }
+
+        let curve = ForecastPressurePoint.curve(from: points,
+                                                offset: offset,
+                                                asOf: now,
+                                                horizonSeconds: 12 * 3600)
+
+        XCTAssertTrue(curve.isEmpty)
+    }
+
+    /// And the other side of the boundary, so the gate cannot quietly become "never draw".
+    func testAnIssueInsideTheStalenessNormIsStillDrawn() {
+        let issuedAt = now.addingTimeInterval(-WeatherForecastPolicy.maximumIssueAgeSeconds + 60)
+        let points = (1...12).map { hour in
+            WeatherForecastPoint(issuedAt: issuedAt,
+                                 validAt: now.addingTimeInterval(TimeInterval(hour) * 3600),
+                                 meanSeaLevelPressureHPa: 1013,
+                                 temperatureC: 15)
+        }
+
+        let curve = ForecastPressurePoint.curve(from: points,
+                                                offset: offset,
+                                                asOf: now,
+                                                horizonSeconds: 12 * 3600)
+
+        XCTAssertEqual(curve.count, 12)
+    }
+
+    /// An issue stamped in the future is not a fresh one. The store filters it, and so does
+    /// this — a curve assembled by hand must not be able to skip the leak guard.
+    func testAnIssueFromTheFutureIsNotDrawn() {
+        let ahead = WeatherForecastPoint(issuedAt: now.addingTimeInterval(60),
+                                         validAt: now.addingTimeInterval(3600),
+                                         meanSeaLevelPressureHPa: 1013,
+                                         temperatureC: 15)
+
+        XCTAssertTrue(ForecastPressurePoint.curve(from: [ahead],
+                                                  offset: offset,
+                                                  asOf: now,
+                                                  horizonSeconds: 12 * 3600).isEmpty)
     }
 
     /// The offset's own spread is part of the band. A forecast drawn from a shakily measured

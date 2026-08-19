@@ -73,6 +73,12 @@ enum ForecastFeatureExtractor {
     /// The horizons the registry names, in hours.
     static let deltaHorizonHours = [6, 12, 24]
 
+    /// How much curve the family needs: the longest horizon, plus the hour containing `t`.
+    ///
+    /// Named rather than repeated at each call site so the reader and the store-backed path
+    /// cannot ask for different amounts and produce different `Per24h` values from one archive.
+    static let featureHorizonSeconds: TimeInterval = 24 * 3600
+
     /// The horizon `forecastUncertaintyHPa` is quoted at.
     static let uncertaintyReferenceHorizonSeconds: TimeInterval = 6 * 3600
 
@@ -93,17 +99,24 @@ enum ForecastFeatureExtractor {
     ///
     /// Pure and synchronous, so §8's fixtures reach it with literals and no store.
     static func extract(from curve: [ForecastPressurePoint], at instant: Date) -> ForecastPressureFeatures {
-        // Two rules, in this order, and both are load-bearing.
+        // Three rules, in this order, and each is load-bearing.
         //
         // 1. `issuedAt <= instant` — the leak guard. A feature at `t` may read only what the
         //    device actually had at `t`.
-        // 2. Newest **knowable** issue per hour. Without it an hour covered by two issues
+        // 2. `issuedAt >= instant − 12 h` — the staleness norm §2.2 states. A row from an issue
+        //    older than that is not a worse input, it is a different quantity, and the family
+        //    goes `nil` rather than carrying it. Local-model points never trip this: they are
+        //    stamped with the instant they were computed.
+        // 3. Newest **knowable** issue per hour. Without it an hour covered by two issues
         //    contributes twice and whichever the sort happened to put first wins, which makes
         //    the feature depend on insertion order rather than on what the app knew. It is the
         //    same rule `ForecastPressurePoint.curve` applies for the chart, so the picture and
         //    the model read the same numbers.
+        let usableIssues = WeatherForecastPolicy.oldestUsableIssue(asOf: instant)...instant
+
         var newestByHour: [Date: ForecastPressurePoint] = [:]
-        for point in curve.filter({ $0.issuedAt <= instant }).sorted(by: { $0.issuedAt < $1.issuedAt }) {
+        for point in curve.filter({ usableIssues.contains($0.issuedAt) })
+            .sorted(by: { $0.issuedAt < $1.issuedAt }) {
             newestByHour[point.timestamp] = point
         }
         let knowable = newestByHour.values.sorted { $0.timestamp < $1.timestamp }
@@ -152,7 +165,7 @@ enum ForecastFeatureExtractor {
         let curve = ForecastPressurePoint.curve(from: points,
                                                 offset: offset,
                                                 asOf: instant,
-                                                horizonSeconds: 24 * 3600,
+                                                horizonSeconds: featureHorizonSeconds,
                                                 includingHourAt: true)
         return extract(from: curve, at: instant)
     }

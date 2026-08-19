@@ -12,7 +12,7 @@ final class ForecastSkillReportTests: XCTestCase {
 
     // MARK: - Winning and losing
 
-    /// A forecast that tracked a real fall beats persistence, which by definition predicted no
+    /// A forecast that tracked a real fall beats persistence, which by definition projected no
     /// fall at all.
     func testAForecastThatTrackedTheFallBeatsPersistence() {
         let truth = fallingLog(hoursBack: 12, hPaPerHour: -0.8)
@@ -37,7 +37,7 @@ final class ForecastSkillReportTests: XCTestCase {
     /// come out of the table as a negative number, not as an absent row.
     func testAForecastWorseThanPersistenceReportsANegativeSkillScore() {
         let truth = fallingLog(hoursBack: 12, hPaPerHour: -0.2)
-        // Predicts a sharp rise while pressure actually eased down.
+        // Projects a sharp rise while pressure actually eased down.
         let forecasts = perfectForecasts(from: truth, leadHours: 6, biasHPa: 6)
 
         let report = ForecastSkillEvaluator.evaluate(forecasts: forecasts,

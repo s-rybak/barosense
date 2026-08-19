@@ -20,8 +20,8 @@ import Foundation
 /// 3. **Work per pass, a slot due:** one `weather(for:including:)` — one unit of quota — and
 ///    one batched write of ~240 rows.
 /// 4. **Once per install:** one extra historical request, so the day WeatherKit is first
-///    switched on can make five calls rather than four. Bounded by the archive itself: the
-///    bootstrap is skipped as soon as any row older than today exists.
+///    switched on can make five calls rather than four. Bounded twice: the success is recorded
+///    durably, and a failure is not retried again until the next launch.
 /// 5. **Powered while awake:** the network, for the length of one request. Never the barometer
 ///    and never CoreLocation — the coordinate is read from the epoch table.
 actor WeatherForecastRefresher {
@@ -75,6 +75,14 @@ actor WeatherForecastRefresher {
     /// `PressureSampleRecorder`'s, and with the same consequence: a fresh process prunes on its
     /// first write, which is the cadence wanted for a horizon that moves a day per day.
     private var lastPrunedAt: Date?
+
+    /// Whether this instance has already spent a request on the history bootstrap.
+    ///
+    /// In memory, and that is the point: the durable check in `bootstrapIfNeeded` can only see
+    /// a bootstrap that *landed*, so a location whose history WeatherKit declines to serve
+    /// would retry on every due slot forever. This bounds that to one extra request per launch,
+    /// while a genuine network failure still gets another attempt the next time the app starts.
+    private var didAttemptBootstrap = false
 
     init(provider: any WeatherForecastProviding,
          store: any WeatherForecastStore,
@@ -167,12 +175,22 @@ actor WeatherForecastRefresher {
     /// today would read as today's issues and inflate the request count this same budget is
     /// enforced from. Ending at midnight puts every one of them outside the day being counted.
     ///
-    /// The same boundary is what makes the "already bootstrapped" check reliable — an ordinary
-    /// forecast never writes a row valid before today, so a row that is proves the bootstrap
-    /// has run.
+    /// **"Already bootstrapped" is recorded, not inferred.** Both obvious inferences are wrong.
+    /// "The seven-day window holds rows" reads as true the day after a bootstrap that *failed*,
+    /// because the window moves and yesterday's ordinary forecast rows slide into it — one
+    /// network hiccup and the install never bootstraps again. "A row with `issuedAt == validAt`"
+    /// is not a marker either: a forecast's own zero-lead point is knowable at the hour it
+    /// describes, exactly as an observation is. So the fact is written down when it happens,
+    /// and cross-checked against the archive still existing.
     private func bootstrapIfNeeded(for coordinate: GeoCoordinate,
                                    asOf now: Date,
                                    written: inout Int) async -> Bool {
+        // One attempt per process, on top of the durable check below. A coordinate whose
+        // history WeatherKit will not serve would otherwise spend an extra request on every
+        // due slot for the life of the install — the durable check can only see a bootstrap
+        // that succeeded.
+        guard !didAttemptBootstrap else { return false }
+
         let startOfToday = calendar.startOfDay(for: now)
         guard let earliest = calendar.date(byAdding: .day, value: -Self.bootstrapDays,
                                            to: startOfToday),
@@ -181,8 +199,14 @@ actor WeatherForecastRefresher {
         }
 
         let window = earliest..<startOfToday
+        // The recorded fact, cross-checked against the rows it describes. "Delete my data" wipes
+        // the archive without touching preferences — deliberately, since a preference holds
+        // nothing personal — and a flag remembering a bootstrap whose rows are gone would leave
+        // that install permanently without one.
         let existing = (try? await store.points(issuedAtOrBefore: now, validIn: window)) ?? []
-        guard existing.isEmpty else { return false }
+        if preferences.hasBootstrappedHistory(), !existing.isEmpty { return false }
+
+        didAttemptBootstrap = true
 
         do {
             let observations = try await provider.history(for: coordinate, in: window)
@@ -191,11 +215,14 @@ actor WeatherForecastRefresher {
             let points = observations.map { $0.asArchivedPoint() }
             try await store.save(points)
             written += points.count
+            preferences.setHasBootstrappedHistory(true)
             return true
         } catch {
             // A failed bootstrap is not a failed pass. The forecast request that follows is the
             // part the user sees; the history only sharpens the offset calibration, and it will
-            // be attempted again on the next due slot.
+            // be attempted again on the next launch — not the next slot, because a location
+            // whose history the service simply does not serve must not spend a request an hour
+            // asking again.
             BarosenseLog.pressure.info(
                 "weather history bootstrap failed: \(String(describing: error), privacy: .public)"
             )

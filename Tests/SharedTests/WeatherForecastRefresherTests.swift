@@ -148,6 +148,71 @@ final class WeatherForecastRefresherTests: XCTestCase {
         XCTAssertEqual(issues.count, 1)
     }
 
+    /// A bootstrap that failed must still be retried. "Already bootstrapped" used to be inferred
+    /// from the archive — "the seven-day window holds any row" — and that window moves: an
+    /// ordinary forecast row written on day one describes an hour inside it on day two, so one
+    /// network hiccup meant the install never bootstrapped again. The fact is recorded now, and
+    /// only on success.
+    func testAFailedBootstrapIsRetriedOnTheNextLaunch() async {
+        let store = InMemoryWeatherForecastStore()
+        let preferences = InMemoryWeatherKitPreferenceStore()
+
+        // Day one: the forecast lands, the history call does not.
+        let failingHistory = HistoryRefusingProvider()
+        let firstLaunch = await makeRefresher(provider: failingHistory,
+                                              store: store,
+                                              preferences: preferences)
+        await firstLaunch.refresh(asOf: date(hour: 9))
+        XCTAssertEqual(failingHistory.historyCount, 1)
+        XCTAssertFalse(preferences.hasBootstrappedHistory(), "nothing landed, nothing to record")
+
+        // Day two, fresh process. The day-one forecast rows now describe hours before today —
+        // which is what used to read as "the bootstrap has run".
+        let provider = CountingWeatherForecastProvider()
+        let secondLaunch = await makeRefresher(provider: provider,
+                                               store: store,
+                                               preferences: preferences)
+        let outcome = await secondLaunch.refresh(asOf: date(hour: 9, dayOffset: 1))
+
+        XCTAssertEqual(provider.historyCount, 1)
+        XCTAssertTrue(preferences.hasBootstrappedHistory())
+        guard case .refreshed(_, let wasBootstrap) = outcome, wasBootstrap else {
+            return XCTFail("expected the retry to bootstrap, got \(outcome)")
+        }
+    }
+
+    /// And it is retried once per launch, not once per slot. A location whose history the
+    /// service will not serve would otherwise spend an extra request every four hours forever.
+    func testAFailedBootstrapIsNotRetriedOnEverySlot() async {
+        let provider = HistoryRefusingProvider()
+        let refresher = await makeRefresher(provider: provider)
+
+        await refresher.refresh(asOf: date(hour: 9))
+        await refresher.refresh(asOf: date(hour: 13))
+        await refresher.refresh(asOf: date(hour: 17))
+
+        XCTAssertEqual(provider.historyCount, 1)
+        XCTAssertEqual(provider.forecastCount, 3, "the forecast half must be unaffected")
+    }
+
+    /// An erase wipes the archive and leaves preferences alone, on purpose. The flag alone would
+    /// then remember a bootstrap whose rows are gone, and that install would never fetch the
+    /// week of history again — so the flag is cross-checked against the archive existing.
+    func testAnErasedArchiveBootstrapsAgainDespiteTheRecordedFlag() async {
+        let preferences = InMemoryWeatherKitPreferenceStore(hasBootstrappedHistory: true)
+        let provider = CountingWeatherForecastProvider()
+        let refresher = await makeRefresher(provider: provider,
+                                            store: InMemoryWeatherForecastStore(),
+                                            preferences: preferences)
+
+        let outcome = await refresher.refresh(asOf: date(hour: 9))
+
+        XCTAssertEqual(provider.historyCount, 1)
+        guard case .refreshed(_, let wasBootstrap) = outcome, wasBootstrap else {
+            return XCTFail("expected a wiped archive to bootstrap again, got \(outcome)")
+        }
+    }
+
     // MARK: - Switching off and back on
 
     /// Acceptance criterion 4. The archive is the offset calibration's evidence and the skill
@@ -209,8 +274,10 @@ final class WeatherForecastRefresherTests: XCTestCase {
         return calendar.date(from: components)!
     }
 
-    /// `bootstrapped: true` pre-seeds a historical row so the pass under test is the ordinary
-    /// one rather than the install-day one.
+    /// `bootstrapped: true` records the one-off history request as already done, so the pass
+    /// under test is the ordinary one rather than the install-day one. It seeds a row as well:
+    /// the refresher cross-checks the flag against the archive still existing, so that an erase
+    /// does not leave an install permanently unable to bootstrap.
     private func makeRefresher(provider: any WeatherForecastProviding
                                    = CountingWeatherForecastProvider(),
                                store: any WeatherForecastStore = InMemoryWeatherForecastStore(),
@@ -226,8 +293,7 @@ final class WeatherForecastRefresherTests: XCTestCase {
         ])
 
         if bootstrapped {
-            // A row valid before today is exactly what the refresher reads as "the bootstrap
-            // has already run" — an ordinary forecast never writes one.
+            preferences.setHasBootstrappedHistory(true)
             try? await store.save([WeatherForecastPoint(issuedAt: date(hour: 12, dayOffset: -3),
                                                         validAt: date(hour: 12, dayOffset: -3),
                                                         meanSeaLevelPressureHPa: 1010,
@@ -283,6 +349,27 @@ private final class CountingWeatherForecastProvider: WeatherForecastProviding, @
 }
 
 private struct ServiceRefused: Error {}
+
+/// Serves forecasts and refuses history — the shape of a network hiccup on the one call the
+/// bootstrap makes, and of a location whose history the service simply does not hold.
+private final class HistoryRefusingProvider: WeatherForecastProviding, @unchecked Sendable {
+
+    private let inner = CountingWeatherForecastProvider()
+    private let lock = NSLock()
+    private var _historyCount = 0
+
+    var forecastCount: Int { inner.forecastCount }
+    var historyCount: Int { lock.withLock { _historyCount } }
+
+    func forecast(for coordinate: GeoCoordinate, asOf now: Date) async throws -> WeatherForecastIssue {
+        try await inner.forecast(for: coordinate, asOf: now)
+    }
+
+    func history(for coordinate: GeoCoordinate, in range: Range<Date>) async throws -> [WeatherObservation] {
+        lock.withLock { _historyCount += 1 }
+        throw WeatherForecastError.serviceRefused(underlying: ServiceRefused())
+    }
+}
 
 /// What the Simulator does, and any build without a configured App ID.
 private struct FailingWeatherForecastProvider: WeatherForecastProviding {

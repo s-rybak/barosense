@@ -6,7 +6,7 @@ import XCTest
 /// The one control on that screen with no system authorisation behind it, which is exactly why
 /// it needs its own cases: nothing outside the app can change it, so "off" has a single meaning
 /// and the setter has nothing to interpret — and a future edit that gave it the Health row's
-/// two-facts treatment would be adding a state that cannot occur.
+/// two-facts shape would be adding a state that cannot occur.
 @MainActor
 final class SettingsWeatherRowTests: XCTestCase {
 

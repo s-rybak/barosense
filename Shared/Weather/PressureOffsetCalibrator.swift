@@ -94,7 +94,7 @@ enum PressureOffsetCalibrator {
     ///
     /// **30 minutes.** The comparison is only meaningful if both describe the same air: at a
     /// synoptic rate of ~2 hPa/h, half an hour of drift is ~1 hPa, which is the noise floor
-    /// this whole app treats as the boundary of meaning. WeatherKit is hourly and the barometer
+    /// this whole app calls the boundary of meaning. WeatherKit is hourly and the barometer
     /// aims at 15-minute samples, so most hours pair comfortably.
     static let maximumPairSeparationSeconds: TimeInterval = 30 * 60
 

@@ -9,10 +9,13 @@ import Foundation
 ///
 /// ## Cost
 ///
-/// 1. **What runs, how often?** One foreground activation → at most one fix. Nothing here is
-///    reachable from a background wake (`LocationFixProviding`).
-/// 2. **Work per activation?** With permission and an unchanged place: one fix and one
-///    indexed store read. No geocode, no write. That is the ordinary day.
+/// 1. **What runs, how often?** At most one fix per *recorded* reading, not per activation:
+///    the caller asks `PressureSampleRecorder.admitsReading(asOf:)` first, so an activation the
+///    15-minute floor is about to refuse powers no radio at all. That caps this at four fixes
+///    an hour however often the app is opened. Nothing here is reachable from a background wake
+///    (`LocationFixProviding`).
+/// 2. **Work per fix?** With permission and an unchanged place: one fix and one indexed store
+///    read. No geocode, no write. That is the ordinary day.
 /// 3. **On a move past 25 km:** one extra store write, then one geocode, then one more write
 ///    to attach the name. A handful of times a year for most people.
 /// 4. **Without permission:** nothing at all — no fix is requested, so no radio is powered.

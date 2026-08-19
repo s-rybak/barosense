@@ -55,7 +55,7 @@ actor InMemoryWeatherForecastStore: WeatherForecastStore {
 
     /// Keyed on the pair, which is what makes the append-only-per-issue rule true here as well
     /// as in SQLite. A dictionary keyed on `validAt` alone would reproduce exactly the
-    /// overwrite this store exists to prevent, and the in-memory double is where most tests
+    /// overwrite this store exists to rule out, and the in-memory double is where most tests
     /// would notice.
     private struct Key: Hashable {
         let issuedAt: Date

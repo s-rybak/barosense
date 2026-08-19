@@ -67,7 +67,7 @@ final class LocalPressureModelTests: XCTestCase {
     // MARK: - Skill against persistence
 
     /// The §7 comparison, on the one case where the model should clearly win: a steady trend.
-    /// Persistence predicts no change at all; three autoregressive lags carry the slope.
+    /// Persistence projects no change at all; three autoregressive lags carry the slope.
     ///
     /// The result at 1/3/6 h goes in the PR body whichever way it comes out.
     func testItBeatsPersistenceOnASteadyTrend() {
@@ -143,6 +143,88 @@ final class LocalPressureModelTests: XCTestCase {
         XCTAssertFalse(curve.isEmpty)
         XCTAssertTrue(curve.allSatisfy { $0.pressure.hectopascals.isFinite })
         XCTAssertEqual(curve.last?.pressure.hectopascals ?? 0, 991, accuracy: 0.5)
+    }
+
+    // MARK: - The seed
+
+    /// The seed lags have to be three **consecutive** hours. The grid omits holes, so the last
+    /// three cells after an overnight gap can be an hour apart at one end and twelve at the
+    /// other; fed in as lag1/lag2/lag3 they told the iteration that half a day of drift happened
+    /// in two hours. Measured before the fix: 1.30 hPa of error at the first step, against a
+    /// band that grew 1.5% — coverage is a statement about the whole window and cannot see a
+    /// hole at the end of it.
+    func testTheSeedNeverStraddlesAGap() {
+        let gapped = hourlyLog(hours: 24 * 7, hPaPerHour: -0.15).filter { sample in
+            let hoursAgo = now.timeIntervalSince(sample.timestamp) / 3600
+            return !(hoursAgo > 0.5 && hoursAgo < 12)
+        }
+
+        guard let model = LocalPressureModel.fit(to: gapped, asOf: now) else {
+            return XCTFail("a log with a gap at the end must still fit")
+        }
+
+        // The anchor is the last hour the sensor really did record three in a row, which is
+        // before the gap — not the isolated cell on the near side of it.
+        XCTAssertLessThan(model.lastHour, now.addingTimeInterval(-11 * 3600))
+        XCTAssertEqual(model.recentValues.count, LocalPressureModel.autoregressiveOrder)
+    }
+
+    /// And the consequence: a model anchored before a twelve-hour gap says nothing at all,
+    /// because its whole range is six hours of extrapolation from the last hour it saw.
+    func testAnAnchorOlderThanTheRangeProducesNoCurve() {
+        let gapped = hourlyLog(hours: 24 * 7, hPaPerHour: -0.15).filter { sample in
+            let hoursAgo = now.timeIntervalSince(sample.timestamp) / 3600
+            return !(hoursAgo > 0.5 && hoursAgo < 12)
+        }
+
+        guard let model = LocalPressureModel.fit(to: gapped, asOf: now) else {
+            return XCTFail("expected a fit")
+        }
+
+        XCTAssertTrue(model.forecast(asOf: now, horizonSeconds: 6 * 3600).isEmpty)
+    }
+
+    /// A log that stopped three hours ago has already spent three of its six, so it speaks for
+    /// three more — and the band on the first of them is a four-step band, not a one-step one.
+    func testTheRangeAndTheBandAreMeasuredFromTheLastObservedHour() {
+        let stale = hourlyLog(hours: 72, hPaPerHour: -0.2).filter {
+            $0.timestamp <= now.addingTimeInterval(-3 * 3600)
+        }
+
+        guard let model = LocalPressureModel.fit(to: stale, asOf: now) else {
+            return XCTFail("expected a fit")
+        }
+
+        let curve = model.forecast(asOf: now, horizonSeconds: 6 * 3600)
+
+        XCTAssertFalse(curve.isEmpty)
+        XCTAssertLessThanOrEqual(curve.count, 3, "six hours from an anchor three hours old")
+        let firstLead = (curve.first?.timestamp ?? now).timeIntervalSince(model.lastHour)
+        XCTAssertEqual(curve.first?.uncertaintyHPa ?? 0,
+                       model.uncertaintyHPa(atLeadSeconds: firstLead),
+                       accuracy: 0.001)
+    }
+
+    // MARK: - The anchor hour
+
+    /// The chart does not want the hour containing `now` — that half of the plot is
+    /// measurements — and the feature pipeline cannot do without it, because a six-hour delta
+    /// measured from the hour after `now` is a five-hour delta.
+    func testTheAnchorHourIsEmittedOnlyWhenAskedFor() {
+        guard let model = LocalPressureModel.fit(to: hourlyLog(hours: 72, hPaPerHour: -0.2),
+                                                 asOf: now) else {
+            return XCTFail("expected a fit")
+        }
+
+        let chart = model.forecast(asOf: now, horizonSeconds: 6 * 3600)
+        let features = model.forecast(asOf: now,
+                                      horizonSeconds: 6 * 3600,
+                                      includingAnchorHour: true)
+
+        XCTAssertTrue(chart.allSatisfy { $0.timestamp > now })
+        XCTAssertEqual(features.count, chart.count + 1)
+        XCTAssertLessThanOrEqual(features.first?.timestamp ?? now, now)
+        XCTAssertTrue(features.allSatisfy { $0.source == .localModel })
     }
 
     // MARK: - The band

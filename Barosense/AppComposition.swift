@@ -36,11 +36,6 @@ final class AppServices {
     /// which is also the only state in which the tab is not on screen.
     private(set) var settings: SettingsDependencies?
 
-    /// The forward half of the pressure chart. Built here rather than in the view because it
-    /// caches the station-to-MSLP offset and has to outlive a screen the user leaves and
-    /// returns to.
-    private(set) var forecast: PressureForecastReader?
-
     /// The sensor logs. Opened by `BarosenseApp` because the ingest controllers need them
     /// at launch, and handed here so an erase reaches them too — a "delete my data" that
     /// only knew about the profile store would leave the barometer history behind.
@@ -100,10 +95,6 @@ final class AppServices {
             // and archived rows alone, and writes nothing when there is nothing new.
             try await tagStore.insertIfAbsent(WellbeingTag.seeds)
 
-            self.forecast = PressureForecastReader(archive: weatherArchive,
-                                                   samples: pressureLog,
-                                                   epochs: locationEpochs)
-
             let profile = try await profileStore.profile()
 
             self.profileStore = profileStore
@@ -158,6 +149,10 @@ struct AppRootView: View {
     /// it shares the barometer's background task and must exist before the first one fires.
     let weather: WeatherForecastController
 
+    /// The forward half of the chart. Built at the composition root and passed through rather
+    /// than rebuilt here, so the chart and `weather`'s feature row share one cached offset.
+    let forecast: PressureForecastReader
+
     /// Threaded through rather than built here: it has to outlive this view and exist before it,
     /// because a tap can be delivered while the window is still being built.
     let router: NotificationRouter
@@ -168,6 +163,7 @@ struct AppRootView: View {
     init(ingest: HealthIngestController,
          pressure: PressureCollectionController,
          weather: WeatherForecastController,
+         forecast: PressureForecastReader,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
          locationEpochs: any PressureLocationEpochStore,
@@ -176,6 +172,7 @@ struct AppRootView: View {
         self.ingest = ingest
         self.pressure = pressure
         self.weather = weather
+        self.forecast = forecast
         self.router = router
         _services = State(initialValue: AppServices(healthLog: healthLog,
                                                     pressureLog: pressureLog,
@@ -210,7 +207,7 @@ struct AppRootView: View {
                     RootView(ingest: ingest,
                              pressure: pressure,
                              weather: weather,
-                             forecast: services.forecast,
+                             forecast: forecast,
                              checkInStore: checkInStore,
                              tagStore: tagStore,
                              reminders: services.reminders,

@@ -20,6 +20,18 @@ protocol WeatherKitPreferenceStore: Sendable {
     func hasOfferedWeatherKit() -> Bool
 
     func setHasOfferedWeatherKit(_ hasOffered: Bool)
+
+    /// Whether the one-off historical request has ever **succeeded**.
+    ///
+    /// Recorded rather than inferred from the archive, and that is the whole point. The obvious
+    /// inference — "the seven-day window already holds rows" — reads as true the day after a
+    /// bootstrap that failed, because the window moves and yesterday's ordinary forecast rows
+    /// slide into it; the install then never bootstraps again. The next obvious one — a row
+    /// with `issuedAt == validAt` — is not a marker either: a forecast's own zero-lead point is
+    /// knowable at the hour it describes, exactly like an observation.
+    func hasBootstrappedHistory() -> Bool
+
+    func setHasBootstrappedHistory(_ hasBootstrapped: Bool)
 }
 
 /// `UserDefaults`-backed `WeatherKitPreferenceStore`.
@@ -38,6 +50,7 @@ struct UserDefaultsWeatherKitPreferenceStore: WeatherKitPreferenceStore {
     private enum Keys {
         static let weatherKit = "barosense.settings.weatherKit"
         static let hasOfferedWeatherKit = "barosense.settings.weatherKitOffered"
+        static let hasBootstrappedHistory = "barosense.settings.weatherKitHistoryBootstrapped"
     }
 
     /// `nonisolated(unsafe)` for the reason the reminder store gives: `UserDefaults` is
@@ -70,6 +83,14 @@ struct UserDefaultsWeatherKitPreferenceStore: WeatherKitPreferenceStore {
     func setHasOfferedWeatherKit(_ hasOffered: Bool) {
         defaults.set(hasOffered, forKey: Keys.hasOfferedWeatherKit)
     }
+
+    func hasBootstrappedHistory() -> Bool {
+        defaults.bool(forKey: Keys.hasBootstrappedHistory)
+    }
+
+    func setHasBootstrappedHistory(_ hasBootstrapped: Bool) {
+        defaults.set(hasBootstrapped, forKey: Keys.hasBootstrappedHistory)
+    }
 }
 
 /// Non-persistent `WeatherKitPreferenceStore` for previews and unit tests.
@@ -82,10 +103,14 @@ final class InMemoryWeatherKitPreferenceStore: WeatherKitPreferenceStore, @unche
     private let lock = NSLock()
     private var isEnabled: Bool
     private var hasOffered: Bool
+    private var hasBootstrapped: Bool
 
-    init(isWeatherKitEnabled: Bool = true, hasOfferedWeatherKit: Bool = true) {
+    init(isWeatherKitEnabled: Bool = true,
+         hasOfferedWeatherKit: Bool = true,
+         hasBootstrappedHistory: Bool = false) {
         self.isEnabled = isWeatherKitEnabled
         self.hasOffered = hasOfferedWeatherKit
+        self.hasBootstrapped = hasBootstrappedHistory
     }
 
     func isWeatherKitEnabled() -> Bool { lock.withLock { isEnabled } }
@@ -98,5 +123,11 @@ final class InMemoryWeatherKitPreferenceStore: WeatherKitPreferenceStore, @unche
 
     func setHasOfferedWeatherKit(_ hasOffered: Bool) {
         lock.withLock { self.hasOffered = hasOffered }
+    }
+
+    func hasBootstrappedHistory() -> Bool { lock.withLock { hasBootstrapped } }
+
+    func setHasBootstrappedHistory(_ hasBootstrapped: Bool) {
+        lock.withLock { self.hasBootstrapped = hasBootstrapped }
     }
 }

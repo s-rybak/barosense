@@ -53,6 +53,30 @@ final class ForecastPressureFeaturesTests: XCTestCase {
         XCTAssertEqual(features.forecastIssueAgeSeconds ?? 0, 1800, accuracy: 0.001)
     }
 
+    /// The other end of the same rule. §2.2 states the family as "issue age ≤12 h", and an
+    /// issue past it is not a worse input but a different quantity: the archive keeps rows for
+    /// 90 days and one issue reaches 240 h ahead, so without a gate a device that stopped asking
+    /// would go on producing feature rows from a ten-day-old run and label them current.
+    func testAnIssuePastTheStalenessNormMakesTheFamilyUnavailable() {
+        let stale = curve(issuedAt: now.addingTimeInterval(
+            -WeatherForecastPolicy.maximumIssueAgeSeconds - 60
+        ), deltaPerHour: -0.2)
+
+        XCTAssertEqual(ForecastFeatureExtractor.extract(from: stale, at: now), .unavailable)
+    }
+
+    /// And an issue just inside the norm still answers, so the gate cannot become "never".
+    func testAnIssueInsideTheStalenessNormStillProducesFeatures() {
+        let fresh = curve(issuedAt: now.addingTimeInterval(
+            -WeatherForecastPolicy.maximumIssueAgeSeconds + 60
+        ), deltaPerHour: -0.2)
+
+        let features = ForecastFeatureExtractor.extract(from: fresh, at: now)
+
+        XCTAssertEqual(features.forecastPressureDeltaHPaPer6h ?? 0, -1.2, accuracy: 0.001)
+        XCTAssertEqual(features.forecastSource, .weatherKit)
+    }
+
     // MARK: - Absence
 
     /// Acceptance criterion 2. A curve that reaches six hours cannot answer a twelve-hour
