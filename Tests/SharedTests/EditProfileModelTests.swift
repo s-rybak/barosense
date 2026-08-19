@@ -228,8 +228,11 @@ final class EditProfileModelTests: XCTestCase {
             checkInStore: InMemoryCheckInStore(),
             healthLog: InMemoryHealthSampleStore(),
             pressureLog: InMemoryPressureSampleStore(),
+            locationEpochs: InMemoryPressureLocationEpochStore(),
+            weatherArchive: InMemoryWeatherForecastStore(),
             notificationLog: InMemoryNotificationStore(),
-            healthAccess: UnavailableHealthAccessReporter()
+            healthAccess: UnavailableHealthAccessReporter(),
+            locationAccess: UnavailableLocationAccessReporter()
         )
         return EditProfileModel(dependencies: dependencies, onSaved: onSaved)
     }

@@ -105,6 +105,18 @@ enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// How far past `now` the forecast half of the line is drawn.
+    ///
+    /// **Half a screenful**, so the divider lands two-thirds of the way across the viewport and
+    /// both halves are legible at every range: 30 min ahead on the narrowest button, 12 h on
+    /// the widest.
+    ///
+    /// A fraction of the window rather than a fixed horizon, for the reason the trailing
+    /// headroom is: what has to stay constant is how much of the *plot* the forecast occupies,
+    /// and a fixed 24 h would be a quarter of the day range and twenty-four screenfuls of the
+    /// one-hour one. The archive holds 240 h; this is how much of it the card draws.
+    var forecastSeconds: TimeInterval { seconds / 2 }
+
     /// The widest option, and therefore the deepest history any range asks for. One store
     /// read of `widest.historySeconds` serves every range, so switching between them is a
     /// re-slice rather than another query.
@@ -276,11 +288,15 @@ struct PressureSeries: Hashable, Sendable {
 
     /// Forward-looking values, ascending, all timestamped after `now`.
     ///
-    /// A separate array rather than a flag on the sample, because the two are separate
-    /// feature families and must stay distinguishable downstream: the phone is ground truth
-    /// for "now", WeatherKit for "next" (`.claude/context/ml-spec.md` §2.2). Empty until
-    /// WeatherKit is wired, which is why the chart has to render without it.
-    let forecast: [PressureSample]
+    /// A separate array **and a separate type**, because the two are separate feature families
+    /// and must stay distinguishable downstream: the phone is ground truth for "now", the
+    /// forecast archive for "next" (`.claude/context/ml-spec.md` §2.2). A `PressureSample` here
+    /// would be a measurement of a time nobody has measured yet.
+    ///
+    /// Still empty on plenty of ordinary devices — no location grant, WeatherKit switched off
+    /// before the local model has fitted, a fresh install — so the chart has to render without
+    /// it, and there is a test that says so.
+    let forecast: [ForecastPressurePoint]
 
     /// The user's own check-ins, placed onto `observed` so the chart can mark when each one
     /// was logged. Ascending, and a subset of what was passed in: a check-in with no line
@@ -328,8 +344,13 @@ struct PressureSeries: Hashable, Sendable {
     /// from rendering as a straight line pinned to one edge: without padding, a series
     /// whose min equals its max has a zero-height domain and the chart has nowhere to put
     /// it.
+    /// The band edges are included, not just the forecast line: a domain fitted to the line
+    /// alone would clip the top and bottom of the shaded area at exactly the horizons where the
+    /// band is the point.
     var valueDomainHPa: ClosedRange<Double>? {
-        let values = (observed + forecast).map(\.pressure.hectopascals)
+        let values = observed.map(\.pressure.hectopascals)
+            + forecast.map(\.lowerHPa)
+            + forecast.map(\.upperHPa)
         guard let lowest = values.min(), let highest = values.max() else { return nil }
 
         // 0.6× the span leaves the line occupying roughly the middle 45% of the plot, which
@@ -359,7 +380,7 @@ struct PressureSeries: Hashable, Sendable {
     /// more than the extent holds is fine and is what the caller does — one store read serves
     /// every range, the same way `samples` does.
     static func make(from samples: [PressureSample],
-                     forecast: [PressureSample] = [],
+                     forecast: [ForecastPressurePoint] = [],
                      checkIns: [CheckIn] = [],
                      range: PressureChartRange,
                      asOf now: Date) -> PressureSeries {
@@ -372,9 +393,16 @@ struct PressureSeries: Hashable, Sendable {
 
         let visibleFrom = now.addingTimeInterval(-range.seconds)
 
+        // Clipped to the range's own forward window as well as to `now`. The archive reaches
+        // 240 h and the caller hands over whatever it has; drawing all of it would flatten the
+        // user's own line into the top of the plot.
+        let forecastHorizon = now.addingTimeInterval(range.forecastSeconds)
+
         return PressureSeries(
             observed: drawn,
-            forecast: forecast.filter { $0.timestamp > now }.sorted { $0.timestamp < $1.timestamp },
+            forecast: forecast
+                .filter { $0.timestamp > now && $0.timestamp <= forecastHorizon }
+                .sorted { $0.timestamp < $1.timestamp },
             // Placed against `drawn` rather than `inExtent`, so the dots land on the line the
             // chart actually renders instead of on the raw log behind it.
             checkIns: CheckInMarker.place(checkIns.filter { extent.contains($0.timestamp) },
@@ -435,7 +463,10 @@ struct PressureSeries: Hashable, Sendable {
     /// than opening a little way into the past with the line in view. Clamped into
     /// `timeDomain` so a stale log cannot scroll the viewport off the end of the plot.
     var initialScrollX: Date {
-        let newest = observed.last?.timestamp ?? now
+        // The forecast's far end when there is one, so the card opens with the forward half in
+        // view. Opening on the newest reading instead would put the whole point of this
+        // feature just off the right edge, behind a gesture nobody knows to make.
+        let newest = forecast.last?.timestamp ?? observed.last?.timestamp ?? now
         // The same headroom `timeDomain` leaves. It has to be applied here too: the viewport
         // is what clips, so widening the plot alone would move the edge without moving what
         // is on screen.

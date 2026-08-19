@@ -90,6 +90,7 @@ struct SettingsScreen: View {
 
                 profileCard
                 preferencesCard
+                WeatherKitCard(model: model)
                 RemindersCard(model: model)
                 reportCard
                 contactCard
@@ -101,6 +102,12 @@ struct SettingsScreen: View {
         }
         .background(Palette.surface.ignoresSafeArea())
         .scrollBounceBehavior(.basedOnSize)
+        // The explanation always precedes the system prompt, and nothing else on this screen
+        // can reach iOS. See `LocationPrimer`.
+        .sheet(isPresented: $model.isExplainingLocation) {
+            LocationPrimer(onAccept: { Task { await model.requestLocationAccess() } },
+                           onDecline: model.declineLocationAccess)
+        }
         .alert("Delete my data?", isPresented: $model.isConfirmingErase) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -191,6 +198,10 @@ struct SettingsScreen: View {
                               caption: healthCaption,
                               isOn: healthBinding,
                               isEnabled: model.health.isInteractive)
+
+            SettingsRowDivider()
+
+            LocationRow(model: model)
 
             SettingsRowDivider()
 
@@ -322,6 +333,96 @@ struct SettingsScreen: View {
 
         case .contact:
             ContactScreen(back: { path.removeLast() })
+        }
+    }
+}
+
+/// Where the forecast comes from.
+///
+/// A card of its own rather than a fourth row under Language, because this is the one switch on
+/// the screen that governs whether anything leaves the device at all — and because the caption
+/// has to state the cost of turning it off, which is a sentence rather than a label.
+private struct WeatherKitCard: View {
+
+    let model: SettingsModel
+
+    var body: some View {
+        SettingsCard {
+            SettingsToggleRow(title: "Apple Weather", caption: caption, isOn: binding)
+        }
+    }
+
+    /// Written straight through, unlike every other switch on this screen. There is no system
+    /// authorisation behind it and nothing outside the app can change it, so "off" has exactly
+    /// one meaning and the setter has nothing to interpret.
+    private var binding: Binding<Bool> {
+        Binding(get: { model.isWeatherKitOn },
+                set: { model.setWeatherKitEnabled($0) })
+    }
+
+    /// The caption says what switching off costs, and says it accurately: the forecast does not
+    /// disappear, it gets shorter and less certain. Wording that claimed otherwise would be
+    /// false — see `WeatherKitPrimer`.
+    private var caption: LocalizedStringKey {
+        model.isWeatherKitOn
+            ? "Extends the pressure chart a few days ahead. Sends only your approximate area and the time."
+            : "Barosense is building the forecast from your own readings — a few hours ahead, and roughly."
+    }
+}
+
+/// The location permission, and which place the forecast is about.
+///
+/// A view of its own for the same reason `RemindersCard` is one: the state machine behind the
+/// switch has four outcomes and the caption has five wordings, and inlining both leaves the
+/// settings screen carrying logic that belongs next to the control it drives.
+private struct LocationRow: View {
+
+    let model: SettingsModel
+
+    var body: some View {
+        SettingsToggleRow(title: "Location",
+                          caption: caption,
+                          isOn: binding,
+                          isEnabled: model.location.isInteractive)
+    }
+
+    /// Written to the same way the Apple Health switch is. Off means three different things
+    /// here — never asked, refused, or services off device-wide — and each needs a different
+    /// action, so the tap is interpreted by the model and the displayed value is left to
+    /// `model.load()`.
+    private var binding: Binding<Bool> {
+        Binding(
+            get: { model.location.isConnected },
+            set: { _ in
+                Task {
+                    switch await model.toggleLocationAccess() {
+                    case .needsExplanation: model.isExplainingLocation = true
+                    case .needsSystemSettings: LocationSettingsLink.open()
+                    case .unavailable: break
+                    }
+                }
+            }
+        )
+    }
+
+    /// The granted case names the place rather than the permission, because that is the fact
+    /// the user came to check: *which* place is the forecast about. Reduced accuracy is
+    /// deliberately never mentioned — it is the accuracy the app asks for and the only one it
+    /// can use, so calling it out would invite the user to "fix" something that is not broken.
+    private var caption: LocalizedStringKey? {
+        switch model.location.access {
+        case .unavailable:
+            "Location services are turned off on this device."
+        case .notRequested:
+            "Lets Barosense fetch the pressure forecast for your area."
+        case .denied:
+            "Location is off for Barosense in iOS Settings. The forecast falls back to your own readings."
+        case .granted where model.locationPlaceDescription != nil:
+            // Interpolating an already-resolved string into a key keeps the sentence
+            // translatable while the place name itself stays the geocoder's words.
+            "Forecast for \(model.locationPlaceDescription ?? "")"
+        case .granted:
+            "Barosense will name your area once it has a fix."
         }
     }
 }

@@ -41,11 +41,13 @@ struct PressureChartCard: View {
 
     init(collection: PressureCollectionController,
          checkIns: any CheckInStore,
+         forecast: PressureForecastReader? = nil,
          checkInRevision: Int = 0) {
         self.checkInRevision = checkInRevision
         self.collection = collection
         _model = State(initialValue: PressureChartModel(collection: collection,
-                                                        checkIns: checkIns))
+                                                        checkIns: checkIns,
+                                                        forecast: forecast))
     }
 
     var body: some View {
@@ -57,6 +59,16 @@ struct PressureChartCard: View {
             plot
 
             valueRow
+
+            // Where the forward half of the line is a forecast *for*. Only drawn once there is
+            // a forecast: a place name under a chart with no forward half would be answering a
+            // question nobody had.
+            if let place = model.placeDescription, !model.series.forecast.isEmpty {
+                Text(verbatim: place)
+                    .font(Typography.cardNote)
+                    .foregroundStyle(Palette.inkSubtle)
+                    .lineLimit(1)
+            }
 
             // Only once there is a dot to explain. A legend for something not on screen is
             // noise, and this card already carries four rows.
@@ -155,6 +167,10 @@ final class PressureChartModel {
     private let collection: PressureCollectionController
     private let checkInStore: any CheckInStore
 
+    /// The forward half. `nil` on a build with no forecast wiring — the watch, a preview —
+    /// and the card then draws exactly what it drew before this feature existed.
+    private let forecastReader: PressureForecastReader?
+
     /// The deepest history any range scrolls over, kept so a range change is a re-slice. At
     /// one row per 15 min twelve days is ~1 150 samples of 40-odd bytes — under 50 kB, and
     /// cheaper to hold than to re-query on every button.
@@ -164,9 +180,19 @@ final class PressureChartModel {
     /// the cadence the cold-start arithmetic assumes, so tens over twelve days.
     private var checkIns: [CheckIn] = []
 
-    init(collection: PressureCollectionController, checkIns: any CheckInStore) {
+    /// The forward curve, held for the same reason the samples are: switching range re-slices
+    /// it rather than re-reading the archive and re-measuring the offset.
+    private var forecast: [ForecastPressurePoint] = []
+
+    /// The place the forecast is about, printed under the value row.
+    private(set) var placeDescription: String?
+
+    init(collection: PressureCollectionController,
+         checkIns: any CheckInStore,
+         forecast: PressureForecastReader? = nil) {
         self.collection = collection
         self.checkInStore = checkIns
+        self.forecastReader = forecast
     }
 
     /// Why the plot has nothing to draw. Three states that need three different sentences,
@@ -181,7 +207,23 @@ final class PressureChartModel {
         let now = Date.now
         samples = await collection.samples(trailing: PressureChartRange.widest.historySeconds)
         checkIns = await loadCheckIns(asOf: now)
+        forecast = await loadForecast(asOf: now)
+        placeDescription = await forecastReader?.placeName(asOf: now)?.description
         rebuild(asOf: now)
+    }
+
+    /// The widest forward window any range draws, so a range change is a re-slice.
+    ///
+    /// An empty result is ordinary rather than a failure: no location grant, WeatherKit off
+    /// before the local model has fitted, an offset that cannot yet be measured. The chart
+    /// renders the observed half alone and says nothing about the future.
+    private func loadForecast(asOf now: Date) async -> [ForecastPressurePoint] {
+        guard let forecastReader else { return [] }
+
+        return await forecastReader.forecast(
+            asOf: now,
+            horizonSeconds: PressureChartRange.widest.forecastSeconds
+        )
     }
 
     /// The check-ins the widest range can reach. Half-open at `now`, which is the instant
@@ -208,7 +250,11 @@ final class PressureChartModel {
     /// in memory, so nothing has been observed since, and moving the divider forward there
     /// would walk the rule and the x-domain on every button tap over unchanged data.
     private func rebuild(asOf now: Date) {
-        series = PressureSeries.make(from: samples, checkIns: checkIns, range: range, asOf: now)
+        series = PressureSeries.make(from: samples,
+                                     forecast: forecast,
+                                     checkIns: checkIns,
+                                     range: range,
+                                     asOf: now)
     }
 
     /// The figure the card prints. One decimal, which is the resolution the barometer
@@ -297,9 +343,23 @@ private struct PressureChartPlot: View {
                             .foregroundStyle(Palette.inkSubtle)
                     }
 
-                ForEach(series.forecast) { sample in
-                    LineMark(x: .value("Time", sample.timestamp),
-                             y: .value("Pressure", sample.pressure.hectopascals),
+                // Declared before the line so the shading sits under it rather than over it.
+                //
+                // The band is the honest part of the forward half: it is how much the producer
+                // knows, and it is what makes a three-hour local curve and a three-day
+                // WeatherKit curve read as different claims instead of the same one drawn
+                // twice. See `ForecastSource.uncertaintyHPa(atLeadSeconds:)`.
+                ForEach(series.forecast) { point in
+                    AreaMark(x: .value("Time", point.timestamp),
+                             yStart: .value("Lowest", point.lowerHPa),
+                             yEnd: .value("Highest", point.upperHPa))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(Palette.chartLine.opacity(0.14))
+                }
+
+                ForEach(series.forecast) { point in
+                    LineMark(x: .value("Time", point.timestamp),
+                             y: .value("Pressure", point.pressure.hectopascals),
                              series: .value("Series", "forecast"))
                     .interpolationMethod(.catmullRom)
                     .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))

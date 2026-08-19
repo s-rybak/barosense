@@ -18,6 +18,17 @@ struct BarosenseApp: App {
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
 
+    /// The epoch table, on the same container as the barometer log. Held here for the reason
+    /// the two logs are: an erase has to reach it, and re-opening the same store file from
+    /// Settings would be a second container over one SQLite file.
+    private let locationEpochs: any PressureLocationEpochStore
+
+    /// The forecast archive, and the controller that fills it. Both here for the reason the
+    /// barometer's controller is: the background task closure below has to reach it, and that
+    /// closure is declared on the scene.
+    private let weatherArchive: any WeatherForecastStore
+    private let weather: WeatherForecastController
+
     /// Where a tapped notification asks to go, and the delegate that records it.
     ///
     /// Both are held here for the same reason the ingest observers are started here: iOS
@@ -62,8 +73,14 @@ struct BarosenseApp: App {
         ingest.start()
 
         let pressureLog: any PressureSampleStore
+        let locationEpochs: any PressureLocationEpochStore
         do {
-            pressureLog = try SwiftDataPressureSampleStore.makePersistent()
+            // One container, two actors over it. The samples reference the epochs, so opening
+            // them separately is the failure `BarosenseModelContainer` warns about for
+            // check-ins and the tag vocabulary, on a different pair of tables.
+            let container = try SwiftDataPressureSampleStore.makeContainer(inMemory: false)
+            pressureLog = SwiftDataPressureSampleStore(modelContainer: container)
+            locationEpochs = SwiftDataPressureLocationEpochStore(modelContainer: container)
         } catch {
             // Worse here than the Health fallback above. This is now the *only* copy of the
             // barometer history — no other device keeps one — so a failed open costs the
@@ -73,16 +90,56 @@ struct BarosenseApp: App {
                 "pressure store unavailable, falling back to memory: \(String(describing: error), privacy: .public)"
             )
             pressureLog = InMemoryPressureSampleStore()
+            locationEpochs = InMemoryPressureLocationEpochStore()
         }
 
         self.pressureLog = pressureLog
+        self.locationEpochs = locationEpochs
+
+        let weatherArchive: any WeatherForecastStore
+        do {
+            weatherArchive = try SwiftDataWeatherForecastStore.makePersistent()
+        } catch {
+            // Less costly than the barometer's fallback: these rows can be fetched again on
+            // the next slot. What is lost is the offset calibration's history and the realised
+            // skill record, both of which rebuild themselves over days rather than being
+            // irreplaceable.
+            BarosenseLog.persistence.error(
+                "weather archive unavailable, falling back to memory: \(String(describing: error), privacy: .public)"
+            )
+            weatherArchive = InMemoryWeatherForecastStore()
+        }
+        self.weatherArchive = weatherArchive
+
+        weather = WeatherForecastController(
+            refresher: WeatherForecastRefresher(
+                // The one outbound network path in the app. Everything that decides whether it
+                // is used sits in the refresher, in `Shared/`, where a test can reach it.
+                provider: WeatherKitForecastProvider(),
+                store: weatherArchive,
+                epochs: locationEpochs,
+                access: CoreLocationAccessReporter(),
+                preferences: UserDefaultsWeatherKitPreferenceStore()
+            ),
+            // Read for the end of the most recent sleep session, which moves the first request
+            // slot of the day. Nothing health-derived reaches the payload — see
+            // `WeatherForecastController.wakeTime`.
+            healthLog: log
+        )
 
         let link = WatchConnectivityPressureLink()
         link?.activate()
 
         pressure = PressureCollectionController(
             recorder: PressureSampleRecorder(source: CoreMotionPressureSource(), log: pressureLog),
-            display: link ?? NoOpPressureDisplayLink()
+            display: link ?? NoOpPressureDisplayLink(),
+            // The only place CoreLocation is wired in. It resolves an epoch on a foreground
+            // activation and reads the stored one on a background wake — see
+            // `LocationEpochRecorder`.
+            locationEpochs: LocationEpochRecorder(access: CoreLocationAccessReporter(),
+                                                  fixes: CoreLocationFixProvider(),
+                                                  namer: CLGeocoderPlaceNamer(),
+                                                  store: locationEpochs)
         )
         // Takes the launch reading. The background chain is armed from the scene below,
         // not here — see `PressureCollectionController.armBackgroundRefresh`.
@@ -91,12 +148,16 @@ struct BarosenseApp: App {
 
     var body: some Scene {
         let pressure = pressure
+        let weather = weather
 
         return WindowGroup {
             AppRootView(ingest: ingest,
                         pressure: pressure,
+                        weather: weather,
                         healthLog: healthLog,
                         pressureLog: pressureLog,
+                        locationEpochs: locationEpochs,
+                        weatherArchive: weatherArchive,
                         router: router)
                 // The earliest point at which `.backgroundTask` below has registered the
                 // identifier. Submitting before that raises an uncatchable ObjC exception.
@@ -110,6 +171,10 @@ struct BarosenseApp: App {
         // Info.plist (`project.yml`); a mismatch fails at submit time, not here.
         .backgroundTask(.appRefresh(PressureSamplingPolicy.backgroundRefreshIdentifier)) {
             await pressure.handleBackgroundRefresh()
+            // Rides the barometer's wake rather than asking for one of its own — there is
+            // exactly one background identifier in this app and this feature adds none.
+            // Usually a no-op: the slot budget decides, and most wakes have nothing due.
+            await weather.handleBackgroundRefresh()
         }
     }
 }

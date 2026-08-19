@@ -143,8 +143,13 @@ actor PressureSampleRecorder {
     /// — but it is rejected at feature time, on the series, where the neighbouring samples
     /// that identify it are visible (`.claude/context/ml-spec.md` §3). Discarding it here
     /// would delete the evidence and leave a hole the coverage features could not explain.
+    /// `locationEpochID` is resolved by the caller rather than here, because resolving it may
+    /// mean asking CoreLocation for a fix and that is only allowed in the foreground. A `nil`
+    /// is never a reason not to record: the barometer does not depend on a permission, and a
+    /// reading with no place attached is still a reading (`PressureSample.locationEpochID`).
     @discardableResult
-    func record(asOf now: Date = .now) async throws -> PressureSample? {
+    func record(asOf now: Date = .now,
+                locationEpochID: UUID? = nil) async throws -> PressureSample? {
         if let lastRecordedAt, now.timeIntervalSince(lastRecordedAt) < minimumInterval {
             return nil
         }
@@ -154,7 +159,9 @@ actor PressureSampleRecorder {
             throw PressureSourceError.implausibleReading(hectopascals: pressure.hectopascals)
         }
 
-        let sample = PressureSample(timestamp: now, pressure: pressure)
+        let sample = PressureSample(timestamp: now,
+                                    pressure: pressure,
+                                    locationEpochID: locationEpochID)
         try await log.save([sample])
         lastRecordedAt = now
 

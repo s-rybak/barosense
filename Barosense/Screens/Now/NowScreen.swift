@@ -25,6 +25,10 @@ struct NowScreen: View {
     private let pressure: PressureCollectionController
     private let checkIns: any CheckInStore
 
+    /// The forward half of the pressure chart. `nil` before the stores are open, which is a
+    /// state this screen is never shown in.
+    private let forecast: PressureForecastReader?
+
     /// Bumped by the root when a check-in is written. Passed straight through to the chart,
     /// which re-reads its markers on a change — see `PressureChartCard`.
     private let checkInRevision: Int
@@ -39,11 +43,13 @@ struct NowScreen: View {
     init(recorder: HealthSampleRecorder,
          pressure: PressureCollectionController,
          checkIns: any CheckInStore,
+         forecast: PressureForecastReader? = nil,
          checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         _meters = State(initialValue: NowMetersModel(pressure: pressure, checkIns: checkIns))
         self.pressure = pressure
         self.checkIns = checkIns
+        self.forecast = forecast
         self.checkInRevision = checkInRevision
     }
 
@@ -52,6 +58,7 @@ struct NowScreen: View {
             VStack(alignment: .leading, spacing: Self.cardSpacing) {
                 PressureChartCard(collection: pressure,
                                   checkIns: checkIns,
+                                  forecast: forecast,
                                   checkInRevision: checkInRevision)
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -119,6 +126,7 @@ final class NowMetersModel {
 
     private let pressure: PressureCollectionController
     private let checkIns: any CheckInStore
+
     private let now: () -> Date
 
     init(pressure: PressureCollectionController,

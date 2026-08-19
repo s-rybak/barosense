@@ -17,7 +17,11 @@ the code change.
 | Check-in capture | **shipped, iPhone only** — a sheet from the tab bar's raised centre action (`Barosense/Screens/Log/`). One row per check-in: a point on the 1–10 intensity scale, any number of tags, any number of medication entries (free text, never interpreted; each carries its own `takenAt`, which may be hours before the check-in). **No free-text note is captured any more** — the field was removed from the form; `CheckIn.note` still exists, is still stored, and is now always `nil` on anything the app writes. The intensity **opens at 5** and needs no interaction, so a saved check-in that was never adjusted records a 5 — watch the recorded distribution for a spike at exactly 5 before trusting the base rate. Written straight to `SwiftDataCheckInStore`; no edit or delete UI yet, and the watch still cannot log one. The medication sheet (`AddMedicationSheet`) offers back names and doses from the last 90 days of the user's own entries — recall only, nothing shipped or inferred |
 | Check-in review | **shipped, iPhone only** — the History destination (`Barosense/Screens/History/`): a period picker (month / 3M / year / all), a card counting check-ins, the two most-used tags and medication entries in that window, and a month grid whose cells carry the day's **peak** intensity. Under it a row to "My medications", which groups the same entries by name (`MedicationSummary`). Read-only: nothing on either screen edits or deletes a check-in, and neither surface relates a medication to how the user felt |
 | Notifications | **shipped, iPhone only** — `Shared/Notifications/` + `Barosense/Notifications/`. One kind: a "How are you feeling?" check-in reminder, placed at the time of day this user's own check-ins cluster around (`CheckInRhythm` — circular mean over the last 30 d, needs 3 check-ins and a resultant ≥ 0.35, otherwise 20:00). Planned 7 days deep (`CheckInReminderPlanner`), suppressed on a day already logged. **Every notification the app decides to send is a row first** — kind, language, slot, state (`scheduled` / `delivered` / `suppressed` / `cancelled`) — on `BarosenseModelContainer` via `SwiftDataNotificationStore`, pruned at 30 d. `NotificationDispatcher` is the only path to `UNUserNotificationCenter` and enforces `NotificationBudget`: **at most 3 per local day across every kind**, counted off the stored rows so it survives a relaunch. **Display-only in the ML sense — no row here feeds a feature, and no notification body carries a health value.** Permission is never requested by a reconcile pass: `CheckInReminderPrimer` explains the reminder once per install and only its own button reaches iOS, after which the Settings switch is the second route — iOS grants one prompt ever, and an unexplained one loses the feature for that install. A tap routes to the check-in sheet (`NotificationRouter` + `NotificationResponder`, registered in `BarosenseApp.init` because a tap that launched the app is delivered as soon as launching finishes); the kind travels in `userInfo` so a cold launch need not open the store to know where to go. Kill switch: `CheckInReminderPlanner.isEnabled`. Cost: no new wake source — see battery note below |
-| Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). Pressure / WeatherKit / check-in features still planned |
+| Location epochs | **shipped, iPhone only** — `Shared/Location/` + `Shared/Pressure/LocationEpochResolver.swift` + `Barosense/Location/`. One `PressureLocationEpoch` per place the user has been: coordinate rounded to **0.1°** (~11 km), city / region / country, `startedAt`. A new epoch is opened past a **25 km** threshold and only then is `CLGeocoder` called — at most **once per epoch**, its limits being unpublished. `PressureSample.locationEpochID` references it and is optional at every layer: rows written before the epoch table read back `nil` and are not dropped. Location is **when-in-use and foreground-only** (`CoreLocationService`, one-shot `requestLocation`); a background wake reads the stored epoch and powers no radio. `NSLocationDefaultAccuracyReduced` ships `true`, so precise location is never asked for and `.reducedAccuracy` is rendered as a working grant. Durable via `SwiftDataPressureLocationEpochStore` on the barometer container |
+| Forecast archive | **shipped, iPhone only** — `Shared/Weather/` + `Shared/Persistence/SwiftDataWeatherForecastStore.swift`. Rows `(issuedAt, validAt, meanSeaLevelPressureHPa, temperatureC)`, **append-only per issue**, own container, 90 d retention on the write path. Filled by `WeatherKitForecastProvider` — `.current` + `.hourly` in **one** `weather(for:including:)`, which is one unit of quota — under `WeatherRequestBudget`: **≤4 requests/local day** at 08/12/16/20 with the first slot moved to the user's wake hour, counted off stored rows so it survives a relaunch. One historical request per install (7 d, ending at the start of today) bootstraps offset calibration against barometer history already on disk. Two switches, both of which must say yes: `WeatherForecastPolicy.isEnabled` (shipped) and `WeatherKitPreferenceStore` (the user's, default on after `WeatherKitPrimer`). A revoked location grant stops requests **without spending slots**. Cost: no new wake source — it rides the barometer's `BGAppRefreshTask` and foreground activations |
+| Local pressure model | **shipped** — `Shared/Pressure/LocalPressureModel.swift` + `HourlyPressureGrid.swift`. AR(3) + solar S1/S2 harmonics + intercept = **8 parameters**, closed-form least squares over a 30-day hourly grid, ridge `1e-6` so a flat log degrades instead of going singular. Range **3–6 h** (`ForecastSource.localModel.rangeSeconds`) — a human decision, not a default: one sensor at one point cannot see advection, so extending it needs a measurement first. Fits from **one day** of history (≥12 rows after the lags). Altitude excursions are rejected before the fit by the §3 rate gate; gaps ≤2 h are bridged and never counted as coverage. Refit at most daily, on a foreground activation — **no new wake source** |
+| Forecast skill | **shipped** — `Shared/Features/ForecastSkillReport.swift`. Scores past forecasts against what the barometer went on to record, per horizon (1/3/6 h), against **persistence**. This is the first §7 baseline comparison the app can actually run: the ground truth arrives by itself a few hours later, so no dataset is needed. Derived from the 90-day raw archive — there is deliberately no second table of realised forecasts |
+| Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). **Forecast features shipped** — `ForecastFeatureExtractor` (§2.2), reading the archive under `issuedAt <= t` and calibrated into barometer coordinates. Pressure (§2.1) / check-in (§2.4) features still planned |
 | Model | not trained; health and barometer raw samples are now accumulateable on disk. **Nothing on screen is model output.** The Now screen's two meter cards are `WeatherTriggerIndex` (§7 baseline #2, made visible) and `TrainingDataProgress` (rows on disk against §4's blend point) — both display-only, both explained under §2.1. The ⓘ on the second opens `TrainingProgressSheet`, which states in words that the bar counts check-ins and not accuracy |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
 | HealthKit read set | **3 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis`, via `Shared/Health/HealthKitDataReader.swift`. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
@@ -33,6 +37,49 @@ iPhone only. Unmeasured on device; flip `HealthBackgroundDelivery.isEnabled` if 
 4. Doubling to 2 h: still covers SpO₂'s 24 h feature window; hourly kept for missed-wake margin. Not `.immediate`.
 5. If wake never fires: foreground 7 d pull is the backstop; pipeline tolerates gaps.
 6. Daily drain %: unknown until Instruments on device.
+
+### Local pressure model — battery note
+
+iPhone only, and there is nothing scheduled to budget.
+
+1. Wake: **none**. The refit runs inside a foreground activation the user initiated, at most
+   once a day (`LocalPressureModel.refitIntervalSeconds`). No timer, no observer, no second
+   `BGAppRefreshTask` identifier.
+2. Work duration: **measured at 17 ms** for a full 30-day refit — 720 hourly cells, ~717 design
+   rows, 8 parameters — in a Debug simulator build on the machine this was written on. The
+   arithmetic is ~46 000 multiply-adds to build `XᵀX` plus a fixed ~340 for the 8×8 solve; a
+   Release build on device will be materially faster, but 17 ms is the number actually observed
+   and is the one recorded. Well inside the 100 ms at which `pressure-forecast-spec.md` §5 asks
+   for the window to be reconsidered.
+3. Powered while awake: nothing. No sensor, no network, no location, no HealthKit — it reads
+   rows already on disk.
+4. If the refit never runs: the previous day's coefficients keep being used, and the band it
+   quotes is unchanged. Staleness costs accuracy, not correctness.
+5. Daily drain %: not separately measurable. 17 ms once a day is below the noise floor of any
+   instrument that would measure it.
+
+### WeatherKit requests — battery and quota note
+
+iPhone only. **No new wake source**: requests ride the barometer's existing `BGAppRefreshTask`
+and foreground activations.
+
+1. Wake: none of its own. `WeatherRequestBudget` allows a request at four moments a day
+   (08/12/16/20, first slot moved to the user's wake hour from `.sleepAnalysis`); whichever
+   execution the app is next granted spends the slot that is due.
+2. Work duration: with nothing due — the common case — one indexed store read of the day's
+   issue times and no network at all. With a slot due, one `weather(for:including:)` and one
+   batched write of ~240 rows.
+3. Powered while awake: the network, for the length of one request. Never the barometer, never
+   CoreLocation — the coordinate comes from the epoch table.
+4. Quota: 4/day = 120/month per device, against 500 000/month per Apple Developer Program
+   membership ≈ **4 160 devices**, and lower in practice because unspent slots are never spent.
+   The quota belongs to the whole membership, not to this app; re-check before the install base
+   approaches it.
+5. Once per install, one extra historical request bootstraps offset calibration, so the day
+   WeatherKit is first enabled can make five calls rather than four.
+6. If the wake never fires: foreground activation is the backstop, exactly as it is for the
+   barometer. A curve up to 12 h old is still valid (`WeatherForecastPolicy.maximumIssueAgeSeconds`)
+   because it reaches 240 h ahead.
 
 ### Notifications — battery note
 
@@ -236,25 +283,75 @@ holds no feature either: check-ins on the device counted against
 half. Both constants are *provisional* and move together — a change to `k` that leaves the
 target at 40 makes the card's explainer wrong.
 
-### 2.2 WeatherKit — forward-looking, the reason an *advance* warning is possible
+### 2.2 Forecast — forward-looking, and the reason an *advance* warning reaches days rather than hours
 
-| name                             | source                 | unit | sampling / min coverage     | on missing | status  |
-| -------------------------------- | ---------------------- | ---- | --------------------------- | ---------- | ------- |
-| `forecastPressureDeltaHPaPer6h`  | `HourWeather.pressure` | hPa  | hourly forecast, ≤3 h stale | nil        | planned |
-| `forecastPressureDeltaHPaPer12h` | `HourWeather.pressure` | hPa  | as above                    | nil        | planned |
-| `forecastPressureDeltaHPaPer24h` | `HourWeather.pressure` | hPa  | as above                    | nil        | planned |
-| `forecastMinPressureHPaNext24h`  | `HourWeather.pressure` | hPa  | as above                    | nil        | planned |
+| name                             | source                       | unit | sampling / min coverage           | on missing | status  |
+| -------------------------------- | ---------------------------- | ---- | --------------------------------- | ---------- | ------- |
+| `forecastPressureDeltaHPaPer6h`  | forecast archive             | hPa  | hourly, issue age ≤12 h           | nil        | planned |
+| `forecastPressureDeltaHPaPer12h` | forecast archive             | hPa  | as above                          | nil        | planned |
+| `forecastPressureDeltaHPaPer24h` | forecast archive             | hPa  | as above                          | nil        | planned |
+| `forecastMinPressureHPaNext24h`  | forecast archive             | hPa  | as above                          | nil        | planned |
+| `forecastSource`                 | `ForecastPressurePoint`      | enum | always, when any forecast exists  | —          | planned |
+| `forecastUncertaintyHPa`         | `ForecastPressurePoint`      | hPa  | as above                          | nil        | planned |
 
-`Measurement<UnitPressure>` → hPa at the WeatherKit boundary, once. WeatherKit also
-exposes a pressure-trend value; verify its exact type and semantics against current
-documentation before using it — do not assume from this file.
+The source is **the archive, not WeatherKit**. `WeatherForecastStore` is filled by WeatherKit
+when the switch is on and by `LocalPressureModel` when it is off, and the feature pipeline has
+one branch, not two: it reads the table and does not know who wrote it. What differs between
+the two producers is **range** and **band width**, not the shape of the data —
+`../context/pressure-forecast-spec.md` §2.3.
 
-Sensor and forecast are **separate feature families**. A WeatherKit value never
-substitutes for a missing sensor sample: the phone's barometer is ground truth for "now",
-WeatherKit for "next". Silently swapping them makes the two families indistinguishable in
-attribution.
+That is why the last two rows exist and why they are not optional decoration. Coefficients
+fitted on WeatherKit-quality inputs and then applied to a ten-times noisier local curve would
+be applied with the same confidence, and nothing would report that the input had got worse.
+The source and the band travel to the vector so the model can be told.
 
-Outbound WeatherKit requests carry location and time only. Never a health-derived value.
+Hours past a source's range yield `nil`, which the "on missing" column already required. In the
+WeatherKit-off case that means `Per12h` and `Per24h` are `nil` nearly always and `Per6h` is at
+the edge of the local model's 3–6 h horizon — an expected reading of this table, not a defect.
+
+**Staleness: issue age ≤12 h**, replacing the ≤3 h this table used to state. That norm was
+wrong, not merely tight: requests are allowed at four slots a day (08/12/16/20, first slot moved
+to the user's wake time), so at 07:00 the newest issue is eleven hours old and a 3 h rule was
+violated about nineteen hours a day — for a curve that still holds 229 valid future hours. The
+age is now a stored, observable field rather than an assumption; `WeatherForecastPolicy.maximumIssueAgeSeconds`
+is the one place it is written.
+
+**`issuedAt <= t` is the whole leak guard.** A forecast row is identified by the pair
+`(issuedAt, validAt)` and is never overwritten by a newer issue for the same hour. Overwriting
+turns "the forecast for 14:00 last Tuesday" into hindsight, and a model fitted on hindsight
+validates beautifully and fails in production — the §5 random-split failure in different
+clothes. The filter is applied inside `WeatherForecastStore`, not left to callers.
+
+**MSLP is not station pressure, and the difference is a datum, not a unit.**
+`HourWeather.pressure` and `CurrentWeather.pressure` are **mean sea level** pressure — Apple:
+*"This is a reduced pressure calculated by using observed conditions to remove the effects of
+elevation from pressure readings."* `CMAltimeter` reports **station** pressure. Near Kyiv
+(≈180 m) the two differ by about **22 hPa**, five to seven times a whole day's weather (3–5 hPa).
+Comparing them without removing the offset is a larger error than every signal in §2.1 put
+together. The field is therefore named `meanSeaLevelPressureHPa` rather than `pressureHPa`:
+the unit is not the ambiguity that bites here, the datum is. `PressureOffsetCalibrator` measures
+the offset from the data — rolling median of `station − MSLP` plus an analytic temperature
+correction — rather than computing it from an altitude the app only half knows.
+
+`Measurement<UnitPressure>` → hPa at the WeatherKit boundary, once, through
+`WeatherMeasurement.hectopascals`. The runtime unit is **not documented**, so reading `.value`
+directly is a silent 10× error the day a response arrives in kilopascals; §8's unit fixture
+covers exactly that. Temperature goes through `WeatherMeasurement.celsius` for the same reason —
+Fahrenheit read as Celsius puts the offset's temperature correction out by nearly 2×.
+WeatherKit also exposes a pressure-trend value; its window and `steady` threshold are **not
+documented**, so it is not used.
+
+Sensor and forecast are **separate feature families**. A forecast value never substitutes for a
+missing sensor sample: the phone's barometer is ground truth for "now", the archive for "next".
+Silently swapping them makes the two families indistinguishable in attribution.
+
+Outbound WeatherKit requests carry a 0.1°-rounded coordinate and a time. Never a health-derived
+value. Health data does reach one decision — `.sleepAnalysis` moves the **first request slot of
+the day** to the user's own waking hour (already-authorised type, already-read feature
+`hoursSinceWake`) — and it reaches nothing else. The moment of a request, never its content.
+
+Retention: raw rows 90 days (`WeatherForecastPolicy.rawRetentionDays`), pruned on the write
+path like the barometer's; derived features indefinitely, being four floats a request.
 
 ### 2.3 HealthKit — all planned, none authorised
 
@@ -335,6 +432,22 @@ Candidates deferred to §9: `CMAltimeter` absolute-altitude updates (fused with 
 not circular — verify hardware and platform availability before designing around it), and
 CoreLocation altitude as an independent but noisy reference. Both cost battery
 (`../skills/watchos_budget/SKILL.md`).
+
+**WeatherKit MSLP is a third candidate, and the only non-circular one already on disk.** It is
+derived from a network of stations rather than from this device's barometer, so it cannot
+absorb the user's own altitude excursion the way `CMAltimeter`'s relative altitude does. The
+residual `station − MSLP`, once the rolling median has taken out the slow part, moves with
+**elevation** and not with weather: a ten-floor lift ride shows up in it and a passing front
+does not. That makes it an altitude reference the app now collects for free, and it costs no
+battery at all — the rows are fetched for the forecast regardless.
+
+Two reasons it is a §9 candidate and not shipped de-trending. It exists only while WeatherKit
+is on, so anything built on it would be a feature that silently changes meaning when a switch is
+flipped — exactly what §2.2's `forecastSource` exists to prevent elsewhere. And the residual
+also carries the temperature dependence of Apple's own reduction, which
+`PressureOffsetCalibrator` corrects only partially: at elevations above ~500 m the diurnal
+remainder is ~2 hPa, comparable with `PressureTrend.significantChangeHPa` itself. Quantifying
+that against real traces comes before using it. See §9, question 3.
 
 ---
 

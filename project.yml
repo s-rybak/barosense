@@ -64,6 +64,13 @@ targets:
           personal patterns between weather and how you feel. It stays on your device.
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
           Barosense uses your location to fetch the local pressure forecast.
+        # Asks for *coarse* location and never offers the user the precise option. The epochs
+        # round every coordinate to 0.1° (~11 km) before storing it and WeatherKit's own grid
+        # is coarser than a GPS fix, so precise location has no consumer here — and a
+        # permission with no consumer is exactly what CLAUDE.md constraint 3 forbids. Also
+        # written as a real Boolean rather than left to INFOPLIST_KEY_* string injection: see
+        # Barosense/Info.plist, where the authoritative entry lives.
+        INFOPLIST_KEY_NSLocationDefaultAccuracyReduced: YES
     entitlements:
       path: Barosense/Barosense.entitlements
       properties:

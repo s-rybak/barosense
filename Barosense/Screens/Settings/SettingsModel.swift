@@ -12,6 +12,11 @@ struct SettingsDependencies: Sendable {
     let healthLog: any HealthSampleStore
     let healthAccess: any HealthAccessReporting
 
+    /// Read for the location authorisation state, and — from `.notRequested` only — to raise
+    /// the system prompt behind the explanatory screen. Never used to take a fix: that is
+    /// `LocationEpochRecorder`'s job, on a foreground activation.
+    let locationAccess: any LocationAccessReporting
+
     /// The notification log, read for the day's count. The row states what the app has already
     /// committed to today, and the only place that is recorded is the log — the system's
     /// notification centre cannot be asked what it delivered yesterday, which is the whole
@@ -25,6 +30,20 @@ struct SettingsDependencies: Sendable {
     let reminderPreferences: any ReminderPreferenceStore
 
     let eraser: BarosenseDataEraser
+
+    /// The epoch table. Read for the place name the location row prints, and erased with
+    /// everything else — a city, an oblast and a country per place the user has been is the
+    /// nearest thing in this app to a movement record.
+    let locationEpochs: any PressureLocationEpochStore
+
+    /// The forecast archive. Read for nothing on this screen except the erase — the switch
+    /// below reports a preference, not a row count — and erased with everything else, because
+    /// an hour-by-hour record of where the user was is exactly what the promise covers.
+    let weatherArchive: any WeatherForecastStore
+
+    /// The WeatherKit switch's own storage. Shared with the refresher, so the screen and the
+    /// pass cannot disagree about whether the feature is on.
+    let weatherPreferences: any WeatherKitPreferenceStore
 
     /// Read by the report screen and by nothing else in this tab.
     ///
@@ -41,16 +60,27 @@ struct SettingsDependencies: Sendable {
          checkInStore: any CheckInStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+         locationEpochs: any PressureLocationEpochStore,
+         weatherArchive: any WeatherForecastStore,
          notificationLog: any NotificationStore,
          notifications: any NotificationDelivering = UserNotificationCenterDeliverer(),
          reminderPreferences: any ReminderPreferenceStore = UserDefaultsReminderPreferenceStore(),
-         healthAccess: any HealthAccessReporting) {
+         weatherPreferences: any WeatherKitPreferenceStore = UserDefaultsWeatherKitPreferenceStore(),
+         healthAccess: any HealthAccessReporting,
+         // No default. A `CoreLocationAccessReporter()` here would make every test that builds
+         // this struct touch `CLLocationManager` by omission, which is the opposite of the rule
+         // that keeps the domain layer runnable without a device.
+         locationAccess: any LocationAccessReporting) {
         self.profileStore = profileStore
         self.tagStore = tagStore
         self.checkInStore = checkInStore
         self.healthLog = healthLog
         self.pressureLog = pressureLog
+        self.locationEpochs = locationEpochs
+        self.weatherArchive = weatherArchive
+        self.weatherPreferences = weatherPreferences
         self.healthAccess = healthAccess
+        self.locationAccess = locationAccess
         self.notificationLog = notificationLog
         self.notifications = notifications
         self.reminderPreferences = reminderPreferences
@@ -59,6 +89,8 @@ struct SettingsDependencies: Sendable {
                                           tagStore: tagStore,
                                           healthLog: healthLog,
                                           pressureLog: pressureLog,
+                                          locationEpochs: locationEpochs,
+                                          weatherArchive: weatherArchive,
                                           notificationLog: notificationLog)
     }
 }
@@ -73,12 +105,20 @@ extension SettingsDependencies {
                              checkInStore: InMemoryCheckInStore(),
                              healthLog: InMemoryHealthSampleStore(),
                              pressureLog: InMemoryPressureSampleStore(),
+                             locationEpochs: InMemoryPressureLocationEpochStore(),
+                             weatherArchive: InMemoryWeatherForecastStore(),
                              notificationLog: InMemoryNotificationStore(),
                              // Reports itself unauthorised, so a preview cannot put a system
                              // permission prompt on screen from a canvas refresh.
                              notifications: NoOpNotificationDeliverer(),
                              reminderPreferences: InMemoryReminderPreferenceStore(),
-                             healthAccess: UnavailableHealthAccessReporter())
+                             weatherPreferences: InMemoryWeatherKitPreferenceStore(),
+                             healthAccess: UnavailableHealthAccessReporter(),
+                             // Reports `.notRequested`, which renders the location row in its
+                             // one actionable state — and asks CoreLocation for nothing, so a
+                             // canvas refresh cannot put a real system prompt on screen. Same
+                             // contract as `NoOpNotificationDeliverer` above.
+                             locationAccess: NoOpLocationAccessReporter())
     }
 }
 
@@ -123,6 +163,42 @@ final class SettingsModel {
         }
     }
 
+    /// How the location row should read.
+    ///
+    /// Simpler than `HealthConnection`, because CoreLocation answers the question HealthKit
+    /// refuses to: there is no probe read here and no "proven grant / unproven refusal"
+    /// asymmetry, just the authorisation the system reports and the place it produced.
+    struct LocationConnection: Equatable {
+
+        var access: LocationAccessState = .unavailable
+
+        /// What the current epoch calls itself. `nil` before the first fix, and on a device
+        /// where the geocoder has never answered — both ordinary, and the row then states the
+        /// permission without naming a place.
+        var place: PlaceName?
+
+        /// **Reduced accuracy counts as on.** The epochs round every coordinate to 0.1°
+        /// (~11 km) and WeatherKit's grid is coarser again, so precise location has no
+        /// consumer in this app. A row that showed `.reduced` as a problem would be pushing
+        /// the user to hand over precision nothing here reads, which is the surgical-
+        /// permissions rule broken on CoreLocation instead of HealthKit.
+        var isConnected: Bool { access.isGranted }
+
+        var isInteractive: Bool { access.isInteractive }
+
+        /// Granted, at the accuracy the app actually asks for. Not a defect, and the row has a
+        /// test pinning that — it is the most likely thing to regress the next time this
+        /// screen is edited.
+        var isReducedAccuracy: Bool { access == .granted(accuracy: .reduced) }
+
+        /// The user still has an answer to give, so the app may explain itself and then ask.
+        var canExplainBeforeAsking: Bool { access.canPresentPrompt }
+
+        /// Nothing left to ask: iOS will not present the prompt twice. Only Settings.app can
+        /// change this now — which is also true of a *granted* row somebody wants to revoke.
+        var needsSystemSettings: Bool { access.needsSystemSettings }
+    }
+
     /// How the check-in reminder row should read.
     ///
     /// Two facts again, and for the same reason as `HealthConnection`: what the user asked for
@@ -163,6 +239,20 @@ final class SettingsModel {
 
     private(set) var profile: UserProfile?
     private(set) var health = HealthConnection()
+    private(set) var location = LocationConnection()
+
+    /// The WeatherKit switch. A plain preference — unlike Health, Location and notifications,
+    /// nothing outside the app can change it, so there is no second fact to reconcile and no
+    /// state where the switch means something other than what the user last chose.
+    private(set) var isWeatherKitEnabled = true
+
+    /// What the switch shows while a tap is still being carried out. Same purpose as
+    /// `pendingReminderValue`: the preference is written and the row re-read, and a switch
+    /// reading only the stored value springs back for the length of that.
+    private(set) var pendingWeatherKitValue: Bool?
+
+    /// What the WeatherKit switch should display.
+    var isWeatherKitOn: Bool { pendingWeatherKitValue ?? isWeatherKitEnabled }
     private(set) var reminders = ReminderSettings()
     private(set) var eraseState: EraseState = .idle
 
@@ -184,6 +274,12 @@ final class SettingsModel {
     /// Raised while the erase confirmation is on screen. Erasing is irreversible and
     /// reaches every store at once, so it never runs straight off a tap.
     var isConfirmingErase = false
+
+    /// Raised while the location explanation is on screen, before anything reaches iOS.
+    ///
+    /// The same shape as `CheckInReminderPrimer` and for the same reason: iOS grants one
+    /// prompt per install, and one answered without context is answered "no".
+    var isExplainingLocation = false
 
     /// Raised when the user asks to reset what the model has learned. There is no learned
     /// model yet, so this explains rather than pretends.
@@ -228,10 +324,27 @@ final class SettingsModel {
         async let access = dependencies.healthAccess.accessState()
         async let hasReadings = loadHasRecentReadings()
         async let reminders = loadReminders()
+        async let location = loadLocation()
 
         self.profile = await profile
         health = HealthConnection(access: await access, hasReadings: await hasReadings)
         self.reminders = await reminders
+        self.location = await location
+        isWeatherKitEnabled = dependencies.weatherPreferences.isWeatherKitEnabled()
+    }
+
+    /// The location row: the authorisation, and the name of the place the forecast is for.
+    ///
+    /// The place comes from the epoch table rather than from a fresh reverse geocode. That is
+    /// the whole point of the table — Apple's geocoder is throttled with unpublished limits,
+    /// and a settings screen that geocoded on every appearance would be throttled into
+    /// answering nothing.
+    private func loadLocation() async -> LocationConnection {
+        async let access = dependencies.locationAccess.accessState()
+        let epoch = try? await dependencies.locationEpochs.currentEpoch()
+
+        return LocationConnection(access: await access,
+                                  place: epoch.map(\.place).flatMap { $0.isEmpty ? nil : $0 })
     }
 
     private func loadProfile() async -> UserProfile? {
@@ -385,6 +498,77 @@ final class SettingsModel {
             // the app has nothing left to ask. Both are the Health app's to settle.
             return .needsHealthApp
         }
+    }
+
+    /// The current epoch's place, as one line, or `nil` when there is nothing to name.
+    ///
+    /// The formatting lives on `PlaceName` because the chart card prints the same sentence
+    /// under the plot, and two copies of the de-duplication rule is how the two surfaces stop
+    /// agreeing about what the place is called.
+    var locationPlaceDescription: String? { location.place?.description }
+
+    // MARK: - Location
+
+    /// What tapping the location row should do.
+    enum LocationToggleOutcome: Equatable {
+
+        /// Never asked. The explanation goes up first; only its own button reaches iOS.
+        case needsExplanation
+
+        /// Asked and answered, either way. iOS will not present the prompt again, so the only
+        /// remaining route — to revoke, to re-grant, or to change accuracy — is Settings.app.
+        case needsSystemSettings
+
+        /// Location services are off device-wide. The row is inert.
+        case unavailable
+    }
+
+    /// Interprets a tap. Never writes the switch: like the Health and reminder rows, "off"
+    /// means two different things and only the state can tell them apart.
+    @discardableResult
+    func toggleLocationAccess() async -> LocationToggleOutcome {
+        // Re-read first. The grant can be changed in Settings while Barosense is backgrounded,
+        // and sending someone to Settings to enable something they enabled ten seconds ago is
+        // the same dead end this whole state machine exists to avoid.
+        await load()
+
+        if location.access == .unavailable { return .unavailable }
+        if location.canExplainBeforeAsking { return .needsExplanation }
+        return .needsSystemSettings
+    }
+
+    /// The user accepted the explanation. The one path from this screen to a system prompt.
+    func requestLocationAccess() async {
+        isExplainingLocation = false
+        await dependencies.locationAccess.requestAccess()
+        // The prompt's answer is not returned to us — CoreLocation reports it as a status
+        // change — so the row settles on what is authorised *after* it rather than on the fact
+        // it ran.
+        await load()
+    }
+
+    /// "Not now". Nothing is written and nothing is asked: unlike the reminder, there is no
+    /// preference to record here, and iOS still has the prompt in hand for the next tap.
+    func declineLocationAccess() {
+        isExplainingLocation = false
+    }
+
+    // MARK: - WeatherKit
+
+    /// Records the choice. Nothing to interpret and nothing to ask the system — this switch is
+    /// the app's own.
+    ///
+    /// Turning it off deliberately **does not** touch the archive. Rows already fetched stay,
+    /// so switching back on resumes with the offset already calibrated rather than paying a
+    /// cold start again (§5, PR 2, criterion 4). It also marks the feature as explained: a user
+    /// who has found the switch has been told what it does by finding it.
+    func setWeatherKitEnabled(_ isEnabled: Bool) {
+        pendingWeatherKitValue = isEnabled
+        defer { pendingWeatherKitValue = nil }
+
+        dependencies.weatherPreferences.setHasOfferedWeatherKit(true)
+        dependencies.weatherPreferences.setWeatherKitEnabled(isEnabled)
+        isWeatherKitEnabled = isEnabled
     }
 
     // MARK: - Erasing

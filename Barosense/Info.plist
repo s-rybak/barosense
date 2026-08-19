@@ -28,5 +28,18 @@
 	<array>
 		<string>fetch</string>
 	</array>
+	<!-- Coarse location only. The prompt then offers "Precise: Off" as the default and the
+	     user is never asked to hand over a precise fix. Nothing in this app consumes one:
+	     LocationEpochResolver rounds every coordinate to 0.1° (~11 km) before it is stored,
+	     and WeatherKit's grid is coarser than that again.
+
+	     Written here as a real Boolean rather than left to INFOPLIST_KEY_* injection alone.
+	     How that mechanism types a key it does not recognise is not documented, and a
+	     <string>YES</string> would be ignored by CoreLocation — the app would then ask for
+	     precise location while every comment in the codebase claimed it did not. project.yml
+	     carries the setting too, and the merged plist has been checked to contain a real
+	     <true/>. -->
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<true/>
 </dict>
 </plist>
