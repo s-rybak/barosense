@@ -36,7 +36,28 @@ enum ProfileAvatarEncoder {
     }
 
     /// Downscaled, re-encoded JPEG for `data`, which is the raw file the picker produced.
-    static func encode(_ data: Data) throws -> Data {
+    ///
+    /// Off whatever actor the caller is on, and `async` for no other reason. The picked file
+    /// is the big one — 12 MP and several MB is routine — and the decode that has to happen
+    /// before anything can be downscaled runs into the tens to hundreds of milliseconds. On
+    /// the main actor that is a frozen screen, arriving exactly as the picker dismisses.
+    ///
+    /// `@concurrent` rather than a bare `nonisolated async`: in today's language mode the two
+    /// mean the same thing, but `NonisolatedNonsendingByDefault` flips the bare form to run
+    /// on the caller's actor, which would quietly put this work back on the main thread. The
+    /// body is a pure function over `Data` and wants no actor at all.
+    @concurrent
+    static func encoded(_ data: Data) async throws -> Data {
+        try encode(data)
+    }
+
+    /// The work itself.
+    ///
+    /// `private` so the main-actor call is not reachable: this is a synchronous function, so
+    /// calling it from a view model would run it right there, and the only thing separating
+    /// that from the frozen screen above is that nobody wrote it down. `encoded(_:)` is the
+    /// way in.
+    private static func encode(_ data: Data) throws -> Data {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             throw Failure.unreadableImage
         }

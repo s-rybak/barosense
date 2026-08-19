@@ -56,6 +56,16 @@ final class EditProfileModel {
     private var original: UserProfile?
     private var originalTagIDs: Set<WellbeingTag.ID> = []
 
+    /// Avatar edits, counted, and the newest one that has finished.
+    ///
+    /// The re-encode runs off the main actor, so two picks can be in flight at once and the
+    /// slower one can land last. A counter is what makes "newest wins" decidable: an edit
+    /// carries the number it was given, and applies its result only if that is still the
+    /// number to beat. Remove takes a number too, so a pick that finishes after it does not
+    /// put the photo back.
+    private var avatarEditGeneration = 0
+    private var settledAvatarEditGeneration = 0
+
     private let dependencies: SettingsDependencies
     private let onSaved: () -> Void
 
@@ -102,7 +112,16 @@ final class EditProfileModel {
     /// one: a check-in with nothing to tag is a check-in with no label to learn from.
     var hasTags: Bool { !tags.isEmpty }
 
-    var canSave: Bool { isAgeValid && hasTags && hasChanges && !isSaving }
+    var canSave: Bool {
+        isAgeValid && hasTags && hasChanges && !isSaving && !isEncodingAvatar
+    }
+
+    /// True while a picked photo is still being re-encoded.
+    ///
+    /// Save is held off behind it. `edited` reads `avatarImageData`, so a save landing
+    /// mid-encode would write the profile without the photo the user just picked and leave
+    /// the screen looking as though it had taken.
+    var isEncodingAvatar: Bool { avatarEditGeneration != settledAvatarEditGeneration }
 
     /// Whether anything actually differs from what was loaded. Keeps Save dim on a screen
     /// the user only opened to look at, and makes "discard?" on the way out meaningful.
@@ -149,20 +168,41 @@ final class EditProfileModel {
         tags.append(WellbeingTag(id: .user(UUID()), name: name))
     }
 
-    func setAvatar(_ pickedImageData: Data?) {
+    /// Re-encodes the picked photo and hangs it on the working profile.
+    ///
+    /// `async` because the encode is not free — see `ProfileAvatarEncoder.encoded(_:)`, which
+    /// is where the work actually leaves the main actor. Nothing about the flow changes: the
+    /// caller was already inside a `Task`, waiting on the picker's `loadTransferable`.
+    func setAvatar(_ pickedImageData: Data?) async {
+        avatarEditGeneration += 1
+        let generation = avatarEditGeneration
+
         guard let pickedImageData else {
             avatarImageData = nil
+            settledAvatarEditGeneration = generation
             return
         }
 
-        do {
-            avatarImageData = try ProfileAvatarEncoder.encode(pickedImageData)
-        } catch {
+        // The error is dropped rather than inspected for the same reason it always was:
+        // unreadable and un-encodable both leave the user with one thing to do, which is
+        // pick a different photo.
+        let encoded = try? await ProfileAvatarEncoder.encoded(pickedImageData)
+
+        // Something newer happened while this was encoding, and its answer is the one on
+        // screen. Landing this one now would replace a photo the user has already replaced.
+        guard generation == avatarEditGeneration else { return }
+
+        if let encoded {
+            avatarImageData = encoded
+        } else {
             failure = .couldNotReadPhoto
         }
+        settledAvatarEditGeneration = generation
     }
 
     func removeAvatar() {
+        avatarEditGeneration += 1
+        settledAvatarEditGeneration = avatarEditGeneration
         avatarImageData = nil
     }
 
