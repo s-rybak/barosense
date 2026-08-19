@@ -16,7 +16,6 @@ final class HealthIngestController {
     private let changeObserver: any HealthChangeObserving
     private let backgroundCoalescer: HealthIngestSignalCoalescer
 
-    private var didAuthorize = false
     private var didStart = false
     private var foregroundRefreshTask: Task<Void, Never>?
 
@@ -26,10 +25,8 @@ final class HealthIngestController {
         self.changeObserver = changeObserver
 
         // Capture the recorder (a Sendable struct) rather than `self`: `self` is not
-        // fully initialised while stored properties are still being set. Authorisation
-        // on this path is a cheap no-op after the first launch pull in `start()`.
+        // fully initialised while stored properties are still being set.
         self.backgroundCoalescer = HealthIngestSignalCoalescer {
-            try? await recorder.authorize()
             _ = try? await recorder.refresh(lookback: .backgroundLookback)
         }
     }
@@ -60,11 +57,15 @@ final class HealthIngestController {
     /// Pulls Health into the durable log. Failures stay silent: denied access and an empty
     /// Health store are indistinguishable, and neither is actionable from a background
     /// refresh of this kind.
+    ///
+    /// Asks for nothing. `start()` runs from `App.init`, which is before onboarding has
+    /// drawn a frame, so an authorisation request on this path is a Health sheet raised
+    /// with nothing on screen to explain what is read or why. The sheet belongs to the step
+    /// that describes it (`HealthStep`), to the Settings switch, and to the Now screen's
+    /// first load. A read taken before any of those simply comes back empty — the same
+    /// shape as a refusal and as an empty Health store, which is what every consumer here
+    /// already handles.
     func refreshLog(lookback: HealthMetricsWindow) async {
-        if !didAuthorize {
-            try? await recorder.authorize()
-            didAuthorize = true
-        }
         _ = try? await recorder.refresh(lookback: lookback)
     }
 }

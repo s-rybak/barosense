@@ -15,9 +15,11 @@ struct OnboardingFlow: View {
 
     init(profileStore: any UserProfileStore,
          tagStore: any WellbeingTagStore,
+         sensorAccess: any SensorAccessRequesting,
          onFinished: @escaping () -> Void) {
         _model = State(initialValue: OnboardingModel(profileStore: profileStore,
                                                      tagStore: tagStore,
+                                                     sensorAccess: sensorAccess,
                                                      onFinished: onFinished))
     }
 
@@ -68,5 +70,6 @@ struct OnboardingFlow: View {
 #Preview {
     OnboardingFlow(profileStore: InMemoryUserProfileStore(),
                    tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                   sensorAccess: NoOpSensorAccess(),
                    onFinished: {})
 }

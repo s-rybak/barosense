@@ -48,6 +48,7 @@ struct TagsStep: View {
     @Previewable @State var model = OnboardingModel(
         profileStore: InMemoryUserProfileStore(),
         tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+        sensorAccess: NoOpSensorAccess(),
         onFinished: {}
     )
 

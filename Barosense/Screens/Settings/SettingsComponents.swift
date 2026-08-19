@@ -328,24 +328,51 @@ struct ProfileAvatar: View {
     let diameter: CGFloat
     var font: Font = Typography.avatarInitial
 
+    /// The decoded photo, kept across redraws.
+    ///
+    /// `body` used to build a `UIImage` from `imageData` every time it ran, and this view is
+    /// redrawn far more often than the photo changes: in the profile editor `initial` follows
+    /// the name field, so every keystroke made a new one. The instance is the expensive part —
+    /// UIKit decodes lazily and caches the bitmap on the image it decoded, so a fresh instance
+    /// re-decodes the JPEG at draw time, on the main thread, while the user is typing.
+    @State private var photo: Image?
+
     var body: some View {
         Circle()
             .fill(Palette.ink)
             .frame(width: diameter, height: diameter)
-            .overlay {
-                if let imageData, let image = UIImage(data: imageData) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: diameter, height: diameter)
-                        .clipShape(.circle)
-                } else if !initial.isEmpty {
-                    Text(verbatim: initial)
-                        .font(font)
-                        .foregroundStyle(Palette.onInk)
-                }
-            }
+            .overlay { face }
             .accessibilityHidden(true)
+            // Keyed on the bytes, so the decode runs when the photo changes and not when
+            // anything else on the screen does. One frame later than `body` would have drawn
+            // it, which costs nothing here: both callers read the profile from a store, so
+            // the disc is already on screen before the data it holds arrives.
+            .task(id: imageData) { photo = Self.decoded(imageData) }
+    }
+
+    @ViewBuilder
+    private var face: some View {
+        if let photo {
+            photo
+                .resizable()
+                .scaledToFill()
+                .frame(width: diameter, height: diameter)
+                .clipShape(.circle)
+        } else if !initial.isEmpty {
+            Text(verbatim: initial)
+                .font(font)
+                .foregroundStyle(Palette.onInk)
+        }
+    }
+
+    /// On the main actor deliberately, unlike the encode in `ProfileAvatarEncoder`: what is
+    /// stored here is bounded at `maxPixelSize`, so this is a few tens of kB, and moving it
+    /// off would buy a fraction of a millisecond at the cost of another frame without the
+    /// photo. The picked original is the big one, and it is re-encoded before it ever reaches
+    /// this view.
+    private static func decoded(_ data: Data?) -> Image? {
+        guard let data, let image = UIImage(data: data) else { return nil }
+        return Image(uiImage: image)
     }
 }
 

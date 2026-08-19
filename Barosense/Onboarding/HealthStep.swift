@@ -1,17 +1,18 @@
 import SwiftUI
 
-/// O5 · Apple Health (Figma `7:543`).
+/// O5 · Apple Health and the barometer (Figma `7:543`).
 ///
-/// **This step requests nothing yet.** Both actions record what the user chose and move
-/// on — see `OnboardingModel.requestHealthAccess()`. The app reads no HealthKit type and
-/// `com.apple.developer.healthkit.access` is empty, so putting a real
-/// `requestAuthorization` call here would ask for types nothing consumes, which the
-/// consumer-first rule in `.claude/skills/healthkit_permissions/SKILL.md` forbids and
-/// App Review asks about.
+/// The step where the app asks for what it reads, and the only screen in the flow that
+/// raises a system prompt. "Connect" runs both requests in order — the Health sheet for
+/// `HealthKitReadSet`, then the Motion & Fitness alert `CMAltimeter` raises when the
+/// barometer is first started — and "Skip" runs neither. See
+/// `OnboardingModel.requestHealthAccess()`.
 ///
-/// Consequence to resolve before submission: the rows below describe reads that do not
-/// happen yet. Either the first HealthKit consumer lands and this step starts making the
-/// real request, or the step comes out of the flow.
+/// The rows name exactly what the Health sheet will list, and nothing beyond it. They used
+/// to promise activity, which is not in the read set and so never appears on the sheet:
+/// a step describing reads the app does not make is the consumer-first rule of
+/// `.claude/skills/healthkit_permissions/SKILL.md` read backwards, and the kind of
+/// mismatch App Review asks about.
 struct HealthStep: View {
 
     @Bindable var model: OnboardingModel
@@ -20,7 +21,12 @@ struct HealthStep: View {
         OnboardingStepScaffold(
             completedSteps: model.step.completedSteps,
             actionTitle: "Connect",
-            action: model.requestHealthAccess,
+            // Dimmed while the two sheets are up. They are modal, so this is not what stops
+            // a second tap — `requestHealthAccess` guards that itself — it is what says the
+            // step is mid-request when the first sheet is dismissed and the second has not
+            // yet drawn.
+            isActionEnabled: !model.isRequestingAccess,
+            action: connect,
             skipTitle: "Skip",
             skip: model.skipHealthAccess
         ) {
@@ -29,20 +35,33 @@ struct HealthStep: View {
                     .padding(.top, 10)
 
                 OnboardingHeader(
-                    title: "Connect Apple Health",
-                    subtitle: "Automatic tracking of sleep, heart rate and activity — no typing",
+                    title: "Connect your data",
+                    subtitle: "Sleep, heart rate and pressure are read for you — no typing",
                     titleFont: Typography.onboardingTitleCompact,
                     alignment: .center
                 )
 
                 VStack(spacing: 10) {
                     MarkerRow(text: "Sleep and heart rate", marker: Palette.positive)
-                    MarkerRow(text: "Activity and blood oxygen", marker: Palette.positive)
+                    MarkerRow(text: "Blood oxygen", marker: Palette.positive)
+                    MarkerRow(text: "Pressure from this device's barometer",
+                              marker: Palette.positive)
                 }
                 .padding(.top, 6)
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The `Task` the model deliberately does not start for itself.
+    ///
+    /// `requestHealthAccess()` is `async` so a test can await the order the two prompts go
+    /// out in, which leaves someone to bridge it to a `() -> Void` button action, and the
+    /// view is that someone. A method rather than a closure literal in the call above, for
+    /// the same reason every other step passes one: the scaffold already takes a trailing
+    /// closure for its content, and a second closure beside it reads as two bodies.
+    private func connect() {
+        Task { await model.requestHealthAccess() }
     }
 }
 
@@ -88,5 +107,6 @@ private struct HealthTile: View {
 #Preview {
     HealthStep(model: OnboardingModel(profileStore: InMemoryUserProfileStore(),
                                       tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                                      sensorAccess: NoOpSensorAccess(),
                                       onFinished: {}))
 }

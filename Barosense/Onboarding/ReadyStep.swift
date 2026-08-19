@@ -97,5 +97,6 @@ private struct ConfirmationRing: View {
 #Preview {
     ReadyStep(model: OnboardingModel(profileStore: InMemoryUserProfileStore(),
                                      tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                                     sensorAccess: NoOpSensorAccess(),
                                      onFinished: {}))
 }
