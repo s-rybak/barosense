@@ -152,7 +152,7 @@ struct BarosenseApp: App {
             // `LocationEpochRecorder`.
             locationEpochs: LocationEpochRecorder(access: CoreLocationAccessReporter(),
                                                   fixes: CoreLocationFixProvider(),
-                                                  namer: CLGeocoderPlaceNamer(),
+                                                  namer: MapKitPlaceNamer(),
                                                   store: locationEpochs)
         )
         // Takes the launch reading. The background chain is armed from the scene below,

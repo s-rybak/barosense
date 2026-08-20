@@ -128,3 +128,61 @@ final class LocationEpochResolverTests: XCTestCase {
                               startedAt: now)
     }
 }
+
+extension LocationEpochResolverTests {
+
+    // MARK: - Which epochs count as here
+
+    /// The epoch table is a list of *arrivals*, not of places. `resolve` only ever compares a
+    /// fix against the current epoch, so a commute past the threshold writes one row per leg
+    /// and coming home writes a **third** row carrying the first one's coordinate. Treating
+    /// those two as different places would throw away half the history of where the user
+    /// lives.
+    func testComingBackHomeCountsAsTheSamePlaceAsHavingLivedThere() {
+        let home = GeoCoordinate(latitude: 50.5, longitude: 30.5)
+        let away = GeoCoordinate(latitude: 51.0, longitude: 31.5)
+
+        let first = PressureLocationEpoch(coordinate: home, startedAt: date(daysAgo: 10))
+        let trip = PressureLocationEpoch(coordinate: away, startedAt: date(daysAgo: 3))
+        let back = PressureLocationEpoch(coordinate: home, startedAt: date(daysAgo: 1))
+
+        let here = LocationEpochResolver.samePlaceEpochIDs(as: back,
+                                                           among: [first, trip, back])
+
+        XCTAssertEqual(here, [first.id, back.id])
+    }
+
+    /// No current epoch is not the same as no epochs matching. `nil` means "nothing to filter
+    /// on"; an empty set would mean "nothing qualifies" and would discard every reading on a
+    /// device where location was simply never granted.
+    func testNoCurrentEpochFiltersNothing() {
+        XCTAssertNil(LocationEpochResolver.samePlaceEpochIDs(as: nil, among: []))
+
+        let readings = [PressureSample(timestamp: date(daysAgo: 1),
+                                       pressure: Pressure(hectopascals: 1013),
+                                       locationEpochID: UUID())]
+
+        XCTAssertEqual(LocationEpochResolver.readings(readings, takenAt: nil).count, 1)
+    }
+
+    /// A log with no stamps at all — written before the epoch table existed, or before this
+    /// install's first fix — passes through whole. A log that *is* stamped is filtered.
+    func testOnlyAStampedLogIsFiltered() {
+        let here = UUID()
+        let unstamped = (0..<3).map {
+            PressureSample(timestamp: date(daysAgo: $0 + 1),
+                           pressure: Pressure(hectopascals: 1013))
+        }
+        let mixed = unstamped + [PressureSample(timestamp: date(daysAgo: 0),
+                                                pressure: Pressure(hectopascals: 1013),
+                                                locationEpochID: here)]
+
+        XCTAssertEqual(LocationEpochResolver.readings(unstamped, takenAt: [here]).count, 3)
+        XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [here]).count, 1)
+        XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [UUID()]).count, 0)
+    }
+
+    private func date(daysAgo: Int) -> Date {
+        Date(timeIntervalSince1970: 1_700_000_000).addingTimeInterval(-Double(daysAgo) * 86_400)
+    }
+}

@@ -15,7 +15,9 @@ import Observation
 /// observer, and no second background identifier — `CLAUDE.md` constraint 4 is met by there
 /// being nothing new to budget.
 ///
-/// An activation with nothing due costs one indexed store read and no network at all.
+/// An activation with nothing due costs one indexed store read, one `UserDefaults` array, and
+/// no network at all. The health log is read at most **once per local day**, and only on a pass
+/// that reaches the slot budget — see `wakeTime(asOf:)`.
 @MainActor
 @Observable
 final class WeatherForecastController {
@@ -64,6 +66,14 @@ final class WeatherForecastController {
     /// day and each spend the same slot.
     private var inFlight: Task<Void, Never>?
 
+    /// The wake time already resolved for one local day, so the health log is read once a day
+    /// rather than once an activation.
+    ///
+    /// Keyed on the day rather than aged out: the value describes *that* day's morning, and a
+    /// day boundary is exactly when it stops being the answer. `nil` is cached like any other
+    /// result — "the log cannot say" is not worth asking again fifteen times.
+    private var cachedWakeTime: (day: Date, value: Date?)?
+
     init(refresher: WeatherForecastRefresher,
          forecast: PressureForecastReader,
          healthLog: any HealthSampleStore,
@@ -93,8 +103,14 @@ final class WeatherForecastController {
     }
 
     /// Runs one pass and records what it did.
+    ///
+    /// The wake time is handed over as a closure so the health read happens only if the
+    /// refresher gets as far as the slot budget — a device with WeatherKit switched off or
+    /// location refused now reads the health log zero times per activation instead of three.
     func refresh(asOf now: Date = .now) async {
-        let outcome = await refresher.refresh(asOf: now, wakeTime: await wakeTime(asOf: now))
+        let outcome = await refresher.refresh(asOf: now) { [weak self] in
+            await self?.wakeTime(asOf: now)
+        }
         lastOutcome = outcome
 
         if case .refreshed = outcome {
@@ -135,12 +151,21 @@ final class WeatherForecastController {
     ///
     /// A failure or an absent session yields `nil`, and `WeatherRequestBudget` falls back to
     /// 08:00 local.
+    ///
+    /// **Once per local day.** `HealthFeatureExtractor.extract` reads every metric kind over a
+    /// 48 h window, and the answer it is being asked for — which hour this morning began — does
+    /// not change within a day. Memoised, the read lands on the first pass of the day that
+    /// reaches the budget; every later one is a dictionary lookup.
     private func wakeTime(asOf now: Date) async -> Date? {
+        let day = calendar.startOfDay(for: now)
+        if let cachedWakeTime, cachedWakeTime.day == day { return cachedWakeTime.value }
+
         let features = try? await HealthFeatureExtractor.extract(from: healthLog,
                                                                  at: now,
                                                                  calendar: calendar)
-        guard let hoursSinceWake = features?.hoursSinceWake else { return nil }
+        let resolved = features?.hoursSinceWake.map { now.addingTimeInterval(-$0 * 3600) }
+        cachedWakeTime = (day, resolved)
 
-        return now.addingTimeInterval(-hoursSinceWake * 3600)
+        return resolved
     }
 }

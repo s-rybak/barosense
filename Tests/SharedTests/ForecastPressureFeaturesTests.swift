@@ -93,8 +93,10 @@ final class ForecastPressureFeaturesTests: XCTestCase {
         XCTAssertEqual(features.forecastPressureDeltaHPaPer6h ?? 0, -2.4, accuracy: 0.001)
         XCTAssertNil(features.forecastPressureDeltaHPaPer12h)
         XCTAssertNil(features.forecastPressureDeltaHPaPer24h)
-        // The 24 h minimum is over what exists, and six hours of curve is not 24 h of evidence.
-        XCTAssertNotNil(features.forecastMinPressureHPaNext24h)
+        // And the minimum goes with them. Six hours of curve is not 24 h of evidence, and the
+        // minimum of a shorter window is systematically higher — reported under this name it
+        // would put two different quantities in one column with nothing saying which.
+        XCTAssertNil(features.forecastMinPressureHPaNext24h)
         XCTAssertEqual(features.forecastSource, .localModel)
     }
 

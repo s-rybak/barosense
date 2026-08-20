@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import MapKit
 
 /// The one place `CLLocationManager` is touched.
 ///
@@ -212,24 +213,55 @@ struct CoreLocationFixProvider: LocationFixProviding {
     }
 }
 
-/// `PlaceNaming` on `CLGeocoder`.
+/// `PlaceNaming` on MapKit's reverse geocoder.
 ///
-/// A fresh geocoder per call, deliberately: `CLGeocoder` holds one request at a time and the
-/// caller above it already guarantees there is at most one call per epoch
-/// (`LocationEpochRecorder`), so there is nothing for a long-lived instance to coalesce.
-struct CLGeocoderPlaceNamer: PlaceNaming {
+/// `CLGeocoder` was the obvious choice and is **deprecated as of iOS 26.0**, which is this
+/// project's own deployment target — the replacement has been available for as long as the app
+/// can run, so there is no window in which the old API buys compatibility. It is
+/// `MKReverseGeocodingRequest`, and it is a request object rather than a manager: one
+/// coordinate in, map items out, nothing to keep alive between calls.
+///
+/// A fresh request per call, deliberately: the caller above already guarantees there is at most
+/// one geocode per epoch (`LocationEpochRecorder`), so there is nothing for a long-lived
+/// instance to coalesce.
+struct MapKitPlaceNamer: PlaceNaming {
 
     func placeName(for coordinate: GeoCoordinate) async -> PlaceName? {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
 
+        // The initialiser is failable — a coordinate MapKit will not accept at all, which for
+        // a value already rounded onto the 0.1° grid means an out-of-range one.
+        guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
+
         // A throw is the throttled case, the offline case and the middle-of-the-ocean case at
         // once. All three mean "no name today", which the caller renders as no place line.
-        guard let placemark = try? await CLGeocoder().reverseGeocodeLocation(location).first else {
+        guard let item = try? await request.mapItems.first,
+              let address = item.addressRepresentations else {
             return nil
         }
 
-        return PlaceName(locality: placemark.locality,
-                         administrativeArea: placemark.administrativeArea,
-                         country: placemark.country)
+        return PlaceName(locality: address.cityName,
+                         administrativeArea: Self.context(in: address),
+                         country: address.regionName)
+    }
+
+    /// The region that `cityWithContext` appends to the city — "Cupertino, CA" → "CA".
+    ///
+    /// MapKit publishes the city and the country as fields but not the level between them, and
+    /// `cityWithContext` is the only place it appears. Taking the remainder is best-effort by
+    /// nature: it is the one field of `PlaceName` the geocoder does not hand over whole, and
+    /// `PressureLocationEpoch.place` treats every one of the three as optional precisely
+    /// because a geocode can decline any of them.
+    ///
+    /// `PlaceName.description` drops a region that merely repeats the city, so a locale where
+    /// the split lands badly costs a duplicated word at worst, never a wrong place.
+    private static func context(in address: MKAddressRepresentations) -> String? {
+        guard let combined = address.cityWithContext else { return nil }
+        guard let city = address.cityName, combined.hasPrefix(city) else { return combined }
+
+        let remainder = combined.dropFirst(city.count)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " ,\u{00A0}"))
+
+        return remainder.isEmpty ? nil : remainder
     }
 }

@@ -25,6 +25,24 @@ final class LocalPressureModelTests: XCTestCase {
         XCTAssertTrue(curve.allSatisfy { $0.source == .localModel })
     }
 
+    /// The cold-start band. A complete day of readings is a *complete* log, not a 3%-covered
+    /// one — the other 29 days of the training window are hours the app did not exist for.
+    ///
+    /// Measured against the window they inflated the band fivefold: ±22 hPa at six hours, which
+    /// then set the whole y-domain of the chart and flattened the user's own line into it.
+    /// Measured against the span the log reaches across, a clean day is a clean day.
+    func testACompleteFirstDayIsNotTreatedAsAThreePercentCoveredMonth() {
+        guard let model = LocalPressureModel.fit(to: hourlyLog(hours: 24, hPaPerHour: -0.3),
+                                                 asOf: now) else {
+            return XCTFail("one day of hourly readings must be enough to fit")
+        }
+
+        XCTAssertEqual(model.coverage, 1, accuracy: 0.05)
+        // The nominal six-hour band is 0.8 + 0.6 × 6 = 4.4 hPa; a clean fixture adds almost
+        // nothing to it. The number this replaces was 22.
+        XCTAssertLessThan(model.uncertaintyHPa(atLeadSeconds: 6 * 3600), 6)
+    }
+
     /// And the §8 "user with 3 days" fixture, which is the cold-start case the whole product is
     /// specified against.
     func testThreeDaysOfHistoryProducesAUsableCurve() {

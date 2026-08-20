@@ -471,6 +471,35 @@ final class PressureSeriesTests: XCTestCase {
                                          asOf: now)
 
         XCTAssertEqual(series.valueDomainHPa?.contains(1004), true)
+    }
+
+    /// And the limit on that. A local-model band is inflated by how thin the log is, and on a
+    /// cold start that reached ±22 hPa — which, included whole, handed the entire plot to the
+    /// least certain producer and flattened the user's own readings into a level in the middle
+    /// of it. The same failure `testAnUncalibratedForecastWouldBlowTheDomainOut` describes,
+    /// arriving from the other side.
+    func testAnInflatedBandIsClippedRatherThanSettingTheScale() {
+        let observed = (1...6).map { sample(hoursAgo: Double($0), hPa: 1000 + Double($0) * 0.5) }
+        let enormous = (1...6).map { hour in
+            ForecastPressurePoint(timestamp: now.addingTimeInterval(Double(hour) * 3600),
+                                  pressure: Pressure(hectopascals: 1000),
+                                  uncertaintyHPa: 22,
+                                  source: .localModel,
+                                  issuedAt: now)
+        }
+
+        let series = PressureSeries.make(from: observed,
+                                         forecast: enormous,
+                                         range: .sixHours,
+                                         asOf: now)
+
+        guard let domain = series.valueDomainHPa else {
+            return XCTFail("expected a domain with both halves present")
+        }
+
+        // Without the clip this was 50 hPa of plot for 3 hPa of readings.
+        XCTAssertLessThan(domain.upperBound - domain.lowerBound, 20)
+        XCTAssertFalse(domain.contains(1022))
         XCTAssertEqual(series.valueDomainHPa?.contains(996), true)
     }
 

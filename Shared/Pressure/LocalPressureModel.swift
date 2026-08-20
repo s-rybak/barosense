@@ -86,8 +86,12 @@ struct LocalPressureModel: Sendable {
     /// Root-mean-square one-step residual, hPa. What the band is scaled from.
     let residualStandardDeviationHPa: Double
 
-    /// Fraction of the training window actually observed. Feeds the band, so a log full of
-    /// holes produces a visibly less certain forecast rather than a confident one.
+    /// Fraction of the observed span actually recorded. Feeds the band, so a log full of holes
+    /// produces a visibly less certain forecast rather than a confident one.
+    ///
+    /// Deliberately **not** a fraction of the 30-day window: see
+    /// `HourlyPressureGrid.observedSpan(of:in:)`. Hours before the app was installed are not
+    /// missing data, and a cold start is the state this model exists to serve.
     let coverage: Double
 
     let rowCount: Int
@@ -161,7 +165,14 @@ extension LocalPressureModel {
             coefficients: coefficients,
             mean: mean,
             residualStandardDeviationHPa: residualSD,
-            coverage: HourlyPressureGrid.coverage(of: cells, in: window),
+            // Measured over the span the log reaches across, not over the nominal window.
+            // A one-day-old install has 29 days of window that could not have been recorded,
+            // and counting those as holes was inflating a perfectly complete cold-start log's
+            // band fivefold — ±22 hPa at six hours, which then set the chart's whole y-domain.
+            coverage: HourlyPressureGrid.coverage(
+                of: cells,
+                in: HourlyPressureGrid.observedSpan(of: cells, in: window)
+            ),
             rowCount: design.count,
             lastHour: lastHour,
             recentValues: seed.map(\.hectopascals),

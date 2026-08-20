@@ -40,6 +40,13 @@ actor PressureForecastReader {
     /// ~46 000 multiply-adds over a 30-day window — see the battery note in `ml-spec.md`.
     private var localModel: LocalPressureModel?
 
+    /// The epoch the cached fit was made in, for the reason `cachedEpochID` exists below: an
+    /// AR model carries an absolute pressure level, and 180 m of elevation moves that level by
+    /// about 22 hPa. A model fitted at the old place would draw a forward half that far from
+    /// the user's own line — the same failure an uncalibrated WeatherKit curve produces, from
+    /// the other producer.
+    private var localModelEpochID: UUID?
+
     /// The epoch the cached offset was measured in. A move past 25 km changes the elevation and
     /// therefore the offset by potentially tens of hPa, so the cache is dropped rather than
     /// aged out — six hours of drawing the previous city's offset would put the forecast line
@@ -150,12 +157,22 @@ actor PressureForecastReader {
     private func localForecast(asOf now: Date,
                                horizonSeconds: TimeInterval,
                                anchored: Bool) async -> [ForecastPressurePoint] {
-        if localModel == nil || localModel?.isStale(asOf: now) == true {
+        let epochID = (try? await epochs.currentEpoch())?.id
+
+        if localModel == nil || localModelEpochID != epochID
+            || localModel?.isStale(asOf: now) == true {
             let window = now.addingTimeInterval(
                 -TimeInterval(LocalPressureModel.trainingWindowDays) * 24 * 3600
             )..<now.addingTimeInterval(1)
             let readings = (try? await samples.samples(in: window)) ?? []
-            localModel = LocalPressureModel.fit(to: readings, asOf: now)
+            // Fitted on the readings taken **here**. A 30-day window that straddles a move
+            // holds a step of tens of hPa in the middle of it, and an AR fit reads a step as
+            // a trend to continue rather than as a change of address.
+            localModel = LocalPressureModel.fit(
+                to: LocationEpochResolver.readings(readings, takenAt: await samePlaceEpochIDs()),
+                asOf: now
+            )
+            localModelEpochID = epochID
         }
 
         return localModel?.forecast(asOf: now,
@@ -190,12 +207,26 @@ actor PressureForecastReader {
 
         guard let measured = PressureOffsetCalibrator.calibrate(samples: readings,
                                                                 archive: archived,
-                                                                asOf: now) else {
+                                                                asOf: now,
+                                                                atEpochs: await samePlaceEpochIDs())
+        else {
             return nil
         }
 
         cachedOffset = (measured, now)
         cachedEpochID = epochID
         return measured
+    }
+
+    /// The epochs that count as "here", or `nil` when there is no epoch table to filter on.
+    ///
+    /// Read on the two paths that measure something from a window of history, and on neither
+    /// of the cached ones. The table holds a few rows a year — a move of 25 km is what writes
+    /// one — so this is a small fetch on a path already doing a 48-hour range query.
+    private func samePlaceEpochIDs() async -> Set<UUID>? {
+        guard let current = try? await epochs.currentEpoch() else { return nil }
+
+        let all = (try? await epochs.allEpochs()) ?? [current]
+        return LocationEpochResolver.samePlaceEpochIDs(as: current, among: all)
     }
 }

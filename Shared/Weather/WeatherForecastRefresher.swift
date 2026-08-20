@@ -15,8 +15,9 @@ import Foundation
 /// 1. **Wake source:** none of its own. It runs on a foreground activation and inside the
 ///    barometer's existing `BGAppRefreshTask`. `CLAUDE.md` constraint 4 is satisfied by there
 ///    being no new wake rather than by a cheap one.
-/// 2. **Work per pass, nothing due:** one indexed store read of today's issue times. No
-///    network, no radio, no location.
+/// 2. **Work per pass, nothing due:** one indexed store read of today's issue times plus one
+///    `UserDefaults` array. No network, no radio, no location — and no health read either,
+///    because `wakeTime` is a closure reached only after every earlier gate has passed.
 /// 3. **Work per pass, a slot due:** one `weather(for:including:)` — one unit of quota — and
 ///    one batched write of ~240 rows.
 /// 4. **Once per install:** one extra historical request, so the day WeatherKit is first
@@ -60,6 +61,10 @@ actor WeatherForecastRefresher {
         case refreshed(points: Int, wasBootstrap: Bool)
 
         /// WeatherKit refused. Ordinary in the Simulator, which does not serve it at all.
+        ///
+        /// **The slot is spent.** A failure is recorded in the same ledger the budget counts
+        /// from, so a service that is refusing this build costs four calls a day like a
+        /// working one, instead of one per scene activation for as long as it keeps refusing.
         case failed
     }
 
@@ -114,8 +119,15 @@ actor WeatherForecastRefresher {
     /// `wakeTime` moves the first slot of the day and comes from `.sleepAnalysis`, which is
     /// already authorised and already read. It reaches **only** the slot arithmetic: there is
     /// no path from it to the request payload, which is a coordinate and a time.
+    ///
+    /// It arrives as a **closure**, not a value, and that is a battery decision rather than a
+    /// style one. Resolving it is three indexed reads over a 48 h window of the health log;
+    /// passing the result in would pay for them on every scene activation, including the ones
+    /// where WeatherKit is switched off or the grant was refused and no slot could ever be
+    /// due. Called here, it is reached only once every earlier gate has said yes.
     @discardableResult
-    func refresh(asOf now: Date = .now, wakeTime: Date? = nil) async -> Outcome {
+    func refresh(asOf now: Date = .now,
+                 wakeTime: @Sendable () async -> Date? = { nil }) async -> Outcome {
         guard WeatherForecastPolicy.isEnabled else { return .disabled }
         guard preferences.hasOfferedWeatherKit() else { return .notYetExplained }
         guard preferences.isWeatherKitEnabled() else { return .switchedOff }
@@ -132,12 +144,17 @@ actor WeatherForecastRefresher {
         // there is no coordinate to ask about, and the local model is what covers that.
         guard let epoch = try? await epochs.currentEpoch() else { return .noLocation }
 
-        let issues = (try? await store.issueTimes(in: budget.day(containing: now,
-                                                                 calendar: calendar))) ?? []
+        let day = budget.day(containing: now, calendar: calendar)
+        // Issues **and** failures. Both are a request that went out; only one of them leaves
+        // rows behind, and counting rows alone is what let a refusing service be retried
+        // without limit.
+        let spent = ((try? await store.issueTimes(in: day)) ?? [])
+            + preferences.failedRequests(in: day)
+
         guard budget.admitsRequest(asOf: now,
-                                   given: issues,
+                                   given: spent,
                                    calendar: calendar,
-                                   wakeTime: wakeTime) else {
+                                   wakeTime: await wakeTime()) else {
             return .notDue
         }
 
@@ -157,6 +174,15 @@ actor WeatherForecastRefresher {
             BarosenseLog.pressure.info(
                 "weather forecast request failed: \(String(describing: error), privacy: .public)"
             )
+            // The slot is spent whichever way the request went. Recorded here rather than
+            // before the call so a success is never counted twice: rows are the record when
+            // there are rows, and this is the record when there are none.
+            //
+            // Recorded even when the bootstrap landed. Its rows are stamped before the start
+            // of today by construction, so they are outside the day this budget counts and
+            // would leave the failed forecast request costing nothing.
+            preferences.recordFailedRequest(at: now)
+
             // A bootstrap that landed is still progress worth reporting, and its rows are
             // already durable.
             return wasBootstrap && written > 0 ? .refreshed(points: written, wasBootstrap: true)

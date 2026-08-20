@@ -29,6 +29,11 @@ struct ForecastPressureFeatures: Hashable, Sendable {
     /// The one absolute value in the family, which is why the curve has to be offset-calibrated
     /// before it reaches here: raw MSLP would be ~22 hPa away from every other pressure the
     /// model sees.
+    ///
+    /// `nil` unless the curve actually reaches the end of the window. A six-hour local curve
+    /// has a minimum, but it is the minimum of six hours, and reporting it under this name
+    /// would put two different quantities in one column — the silent degradation the deltas
+    /// avoid by going `nil` past their producer's range.
     let forecastMinPressureHPaNext24h: Double?
 
     /// Who produced the curve these were read off. `nil` when there was no curve at all.
@@ -192,12 +197,21 @@ enum ForecastFeatureExtractor {
 
     /// Lowest value strictly after `instant`, within `hours`.
     ///
-    /// `nil` when the window holds nothing — a curve that reaches six hours cannot answer a
-    /// 24-hour question, and saying so is the whole reason this family is optional.
+    /// `nil` unless the curve **reaches** the far end of the window, judged by the same
+    /// `horizonToleranceSeconds` the deltas use. A curve that stops at six hours cannot answer
+    /// a 24-hour question, and answering it anyway with the six-hour minimum is worse than not
+    /// answering: the column would then hold "lowest in 24 h" on WeatherKit rows and "lowest in
+    /// 6 h" on local-model ones, under one name, with nothing on the vector saying which — and
+    /// a minimum over a shorter window is systematically higher.
+    ///
+    /// A hole in the middle is not the same failure and is deliberately tolerated: the curve
+    /// still describes the whole window, and the minimum of what it does say is honest.
     private static func minimum(in curve: [ForecastPressurePoint],
                                 after instant: Date,
                                 hours: Int) -> Double? {
         let horizon = instant.addingTimeInterval(TimeInterval(hours) * 3600)
+        guard nearest(to: horizon, in: curve) != nil else { return nil }
+
         return curve
             .filter { $0.timestamp > instant && $0.timestamp <= horizon }
             .map(\.pressure.hectopascals)

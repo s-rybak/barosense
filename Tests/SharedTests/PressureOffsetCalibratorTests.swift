@@ -197,6 +197,74 @@ final class PressureOffsetCalibratorTests: XCTestCase {
     private struct SyntheticPairs {
         var samples: [PressureSample]
         var archive: [WeatherForecastPoint]
+
+        /// The same readings, taken in a named place. Only the samples carry an epoch — the
+        /// archive is MSLP, which is the same quantity everywhere by definition.
+        func stamped(with epochID: UUID) -> SyntheticPairs {
+            SyntheticPairs(samples: samples.map { $0.inLocationEpoch(epochID) },
+                           archive: archive)
+        }
+    }
+
+    // MARK: - One place at a time
+
+    /// What `PressureSample.locationEpochID` is for.
+    ///
+    /// The 48-hour window straddles a move: 24 hours at the coast, then 24 at Kyiv's 180 m,
+    /// where the offset is 22 hPa away. Unfiltered, the median lands between the two and the
+    /// forecast line is drawn in a place the user has never been. Filtered to the epochs that
+    /// describe where they are **now**, the answer is the one for here.
+    func testReadingsFromAnotherPlaceAreNotMedianedIntoTheOffset() {
+        let here = UUID()
+        let elsewhere = UUID()
+
+        let older = pairs(hours: 24, offsetHPa: 0, endingHoursAgo: 24)
+            .stamped(with: elsewhere)
+        let recent = pairs(hours: 24, offsetHPa: kyivOffsetHPa).stamped(with: here)
+
+        let samples = older.samples + recent.samples
+        let archive = older.archive + recent.archive
+
+        guard let blended = PressureOffsetCalibrator.calibrate(samples: samples,
+                                                               archive: archive,
+                                                               asOf: now),
+              let hereOnly = PressureOffsetCalibrator.calibrate(samples: samples,
+                                                                archive: archive,
+                                                                asOf: now,
+                                                                atEpochs: [here]) else {
+            return XCTFail("expected an offset from 48 paired hours")
+        }
+
+        // The blend is the failure this guards against — roughly half of a 22 hPa move.
+        XCTAssertEqual(blended.offsetHPa, kyivOffsetHPa / 2, accuracy: 1)
+        XCTAssertEqual(hereOnly.offsetHPa, kyivOffsetHPa, accuracy: 0.5)
+        XCTAssertEqual(hereOnly.pairCount, 24)
+    }
+
+    /// A log written before the epoch table existed, or on a device where location was refused.
+    /// Nothing is stamped, so there is nothing to filter on and dropping every row would take a
+    /// working feature away from a user who simply never granted a permission.
+    func testAnUnstampedLogIsNotFilteredAway() {
+        let synthetic = pairs(hours: 24, offsetHPa: kyivOffsetHPa)
+
+        let offset = PressureOffsetCalibrator.calibrate(samples: synthetic.samples,
+                                                        archive: synthetic.archive,
+                                                        asOf: now,
+                                                        atEpochs: [UUID()])
+
+        XCTAssertEqual(offset?.offsetHPa ?? 0, kyivOffsetHPa, accuracy: 0.5)
+    }
+
+    /// And the other side of it: a window that **is** stamped, entirely from somewhere else,
+    /// yields no offset at all. The chart then falls through to the local model, which is the
+    /// honest answer for the day or two after a move — a curve 22 hPa off would not be.
+    func testAWindowEntirelyFromElsewhereYieldsNoOffset() {
+        let synthetic = pairs(hours: 24, offsetHPa: kyivOffsetHPa).stamped(with: UUID())
+
+        XCTAssertNil(PressureOffsetCalibrator.calibrate(samples: synthetic.samples,
+                                                        archive: synthetic.archive,
+                                                        asOf: now,
+                                                        atEpochs: [UUID()]))
     }
 
     /// Hourly MSLP with a barometer reading on each hour, separated by exactly `offsetHPa`.

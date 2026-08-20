@@ -86,8 +86,8 @@ enum PressureOffsetCalibrator {
     ///
     /// **48 hours**, inside the 24–72 h the design allows. Long enough to average out a day's
     /// weather and to see both ends of a diurnal temperature swing, short enough that a move
-    /// to a new place shows up within two days. The epoch table is the real guard against
-    /// mixing two places; this is the guard against mixing two weeks.
+    /// to a new place shows up within two days. The epoch filter — `atEpochs` below — is the
+    /// guard against mixing two places; this is the guard against mixing two weeks.
     static let windowSeconds: TimeInterval = 48 * 3600
 
     /// How close in time a barometer reading and an MSLP value have to be to form a pair.
@@ -116,12 +116,26 @@ enum PressureOffsetCalibrator {
     /// row supplies the MSLP value; that is precisely why bootstrap history is safe to use for
     /// this and unsafe as a forward-looking feature
     /// (`.claude/context/pressure-forecast-spec.md` §4.5).
+    ///
+    /// `atEpochs` is the set of `PressureLocationEpoch` identities that describe where the user
+    /// is now (`LocationEpochResolver.samePlaceEpochIDs(as:among:)`). Readings taken anywhere
+    /// else are dropped **before** the median, which is the point of stamping them: the offset
+    /// is dominated by elevation, and a window straddling a move would otherwise return the
+    /// median of two places — at Kyiv's 180 m against sea level, tens of hPa apart. Passing
+    /// `nil` filters nothing, which is right for a device that has no epoch table because
+    /// location was never granted.
+    ///
+    /// After a move the window holds too few readings from the new place to clear
+    /// `minimumPairCount`, and `nil` comes back until it does. That is the intended answer:
+    /// the chart falls through to the local model rather than drawing the previous city's
+    /// curve for two days.
     static func calibrate(samples: [PressureSample],
                           archive: [WeatherForecastPoint],
-                          asOf now: Date) -> PressureOffset? {
+                          asOf now: Date,
+                          atEpochs epochIDs: Set<UUID>? = nil) -> PressureOffset? {
         let window = now.addingTimeInterval(-windowSeconds)...now
-        let readings = samples
-            .filter { window.contains($0.timestamp) }
+        let inWindow = samples.filter { window.contains($0.timestamp) }
+        let readings = LocationEpochResolver.readings(inWindow, takenAt: epochIDs)
             .sorted { $0.timestamp < $1.timestamp }
         guard !readings.isEmpty else { return nil }
 

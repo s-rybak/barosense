@@ -32,6 +32,20 @@ protocol WeatherKitPreferenceStore: Sendable {
     func hasBootstrappedHistory() -> Bool
 
     func setHasBootstrappedHistory(_ hasBootstrapped: Bool)
+
+    /// When a request went out today and came back with nothing.
+    ///
+    /// The day's budget is counted off **stored issues** (`WeatherRequestBudget`), which is
+    /// what makes it survive a relaunch — and which is also why a request that fails leaves no
+    /// trace of itself. Without this ledger a service that is refusing the app (no
+    /// `DEVELOPMENT_TEAM`, an expired token, a device offline for a day) turns every single
+    /// scene activation into another network call, because the archive still reads as empty.
+    ///
+    /// Only failures are recorded. A request that lands writes rows, and those rows are the
+    /// record; writing both would count one slot twice.
+    func failedRequests(in day: Range<Date>) -> [Date]
+
+    func recordFailedRequest(at instant: Date)
 }
 
 /// `UserDefaults`-backed `WeatherKitPreferenceStore`.
@@ -45,13 +59,27 @@ protocol WeatherKitPreferenceStore: Sendable {
 /// The preference holds nothing personal, which is why `BarosenseDataEraser` leaves it alone —
 /// the same reasoning as the reminder switch and the language row. An erase that silently
 /// re-enabled a network feature would be changing a setting rather than deleting data.
+///
+/// The failed-request ledger rides here rather than in a store of its own, and it is the one
+/// thing in this type that is not a preference. It is kept out of the erase for the same
+/// reason: at most four timestamps of "the app asked the weather service something", self-pruned
+/// after 48 hours, holding nothing about the user — and an erase that reset it would be handing
+/// back the day's spent quota rather than deleting data.
 struct UserDefaultsWeatherKitPreferenceStore: WeatherKitPreferenceStore {
 
     private enum Keys {
         static let weatherKit = "barosense.settings.weatherKit"
         static let hasOfferedWeatherKit = "barosense.settings.weatherKitOffered"
         static let hasBootstrappedHistory = "barosense.settings.weatherKitHistoryBootstrapped"
+        static let failedRequests = "barosense.settings.weatherKitFailedRequests"
     }
+
+    /// How long a failure is remembered.
+    ///
+    /// **48 hours.** The budget only ever asks about the current local day, so anything older
+    /// than one day plus a DST hour can never be read again; 48 h is that with room to spare
+    /// and still bounds the array at a handful of entries.
+    private static let failureRetentionSeconds: TimeInterval = 48 * 3600
 
     /// `nonisolated(unsafe)` for the reason the reminder store gives: `UserDefaults` is
     /// documented thread-safe and simply is not annotated `Sendable` in the SDK.
@@ -91,6 +119,35 @@ struct UserDefaultsWeatherKitPreferenceStore: WeatherKitPreferenceStore {
     func setHasBootstrappedHistory(_ hasBootstrapped: Bool) {
         defaults.set(hasBootstrapped, forKey: Keys.hasBootstrappedHistory)
     }
+
+    /// Stored as an array of `timeIntervalSince1970`, which `UserDefaults` holds natively —
+    /// no archiver, and readable in a plist dump when something needs explaining.
+    func failedRequests(in day: Range<Date>) -> [Date] {
+        storedFailures().filter { day.contains($0) }
+    }
+
+    /// Pruned on write rather than on read, so the array cannot grow across a stretch of days
+    /// spent offline and so a read stays a plain filter.
+    ///
+    /// The horizon is measured from the **newest** entry, not from the one being written. The
+    /// two are the same whenever the clock moves forward, which is the ordinary case — but a
+    /// clock that jumps backwards, by a manual change or a time-zone move, would otherwise give
+    /// every subsequent write an older cutoff than the last and prune nothing at all. The bound
+    /// on this array has to hold whichever way the clock went.
+    func recordFailedRequest(at instant: Date) {
+        let all = storedFailures() + [instant]
+        let newest = all.max() ?? instant
+        let kept = all
+            .filter { $0 > newest.addingTimeInterval(-Self.failureRetentionSeconds) }
+            .map(\.timeIntervalSince1970)
+
+        defaults.set(kept, forKey: Keys.failedRequests)
+    }
+
+    private func storedFailures() -> [Date] {
+        let stored = defaults.array(forKey: Keys.failedRequests) as? [Double] ?? []
+        return stored.map(Date.init(timeIntervalSince1970:))
+    }
 }
 
 /// Non-persistent `WeatherKitPreferenceStore` for previews and unit tests.
@@ -104,6 +161,7 @@ final class InMemoryWeatherKitPreferenceStore: WeatherKitPreferenceStore, @unche
     private var isEnabled: Bool
     private var hasOffered: Bool
     private var hasBootstrapped: Bool
+    private var failures: [Date] = []
 
     init(isWeatherKitEnabled: Bool = true,
          hasOfferedWeatherKit: Bool = true,
@@ -129,5 +187,13 @@ final class InMemoryWeatherKitPreferenceStore: WeatherKitPreferenceStore, @unche
 
     func setHasBootstrappedHistory(_ hasBootstrapped: Bool) {
         lock.withLock { self.hasBootstrapped = hasBootstrapped }
+    }
+
+    func failedRequests(in day: Range<Date>) -> [Date] {
+        lock.withLock { failures.filter { day.contains($0) } }
+    }
+
+    func recordFailedRequest(at instant: Date) {
+        lock.withLock { failures.append(instant) }
     }
 }

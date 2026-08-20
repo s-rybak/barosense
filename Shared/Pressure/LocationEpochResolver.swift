@@ -87,6 +87,62 @@ enum LocationEpochResolver {
         return travelled < newEpochThresholdMetres ? .reuse(current) : .open(grid)
     }
 
+    /// Every epoch that describes the same place as `current`, by this type's own definition
+    /// of "same place".
+    ///
+    /// The epoch table is not a list of places — it is a list of *arrivals*. `resolve` only
+    /// ever compares a fix against the epoch that is current, so a user who commutes past the
+    /// threshold writes a new row every leg: home, work, home again. The third row carries the
+    /// first one's coordinate, because both rounded onto the same 0.1° cell, and treating them
+    /// as different places would throw away half the history of somewhere the user has been
+    /// living all along.
+    ///
+    /// So membership is measured the way the threshold is: within `newEpochThresholdMetres` of
+    /// where the user is now. That makes "same place" the same relation in both directions —
+    /// a fix that would have been `.reuse`d is a place whose old rows are usable.
+    ///
+    /// `nil` for `current` — a fresh install, an erase, location never granted — yields `nil`
+    /// rather than an empty set, and callers read that as "there is nothing to filter on".
+    /// An empty set would mean the opposite and would silently discard every reading.
+    static func samePlaceEpochIDs(as current: PressureLocationEpoch?,
+                                  among all: [PressureLocationEpoch]) -> Set<UUID>? {
+        guard let current else { return nil }
+
+        let here = all.filter {
+            distanceMetres(from: current.coordinate, to: $0.coordinate) < newEpochThresholdMetres
+        }
+
+        return Set(here.map(\.id)).union([current.id])
+    }
+
+    /// The readings taken where the user is now.
+    ///
+    /// This is what `PressureSample.locationEpochID` is *for*: the offset between the
+    /// barometer and mean-sea-level pressure is dominated by elevation, so a 48 h median that
+    /// straddles a move blends two places' offsets into one number. At 180 m — Kyiv — the
+    /// offset is about −22 hPa and at the coast it is 0, so the blend is not a rounding error;
+    /// it is the whole quantity.
+    ///
+    /// Two cases are deliberately **not** filtered, because in both of them the stamp says
+    /// nothing rather than says "elsewhere":
+    ///
+    /// - `epochIDs == nil` — there is no current epoch. Location was refused or has never
+    ///   resolved, and the barometer works without it.
+    /// - no reading in the batch carries any stamp at all — rows written before the epoch
+    ///   table existed, or before this install's first fix.
+    ///
+    /// A batch that *is* stamped, but not with anywhere near here, correctly comes back
+    /// short or empty: the caller's answer to that is to report nothing rather than to report
+    /// the previous city's number.
+    static func readings(_ samples: [PressureSample],
+                         takenAt epochIDs: Set<UUID>?) -> [PressureSample] {
+        guard let epochIDs, samples.contains(where: { $0.locationEpochID != nil }) else {
+            return samples
+        }
+
+        return samples.filter { $0.locationEpochID.map(epochIDs.contains) ?? false }
+    }
+
     private static func round(_ value: Double, to step: Double) -> Double {
         // Re-rounded to six places because `(value / step).rounded() * step` lands on
         // 50.400000000000006 for perfectly ordinary inputs, and that value then differs from

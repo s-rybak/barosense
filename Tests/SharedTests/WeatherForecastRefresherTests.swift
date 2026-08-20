@@ -259,6 +259,79 @@ final class WeatherForecastRefresherTests: XCTestCase {
         XCTAssertEqual(outcome, .failed)
     }
 
+    /// Acceptance criterion 1 again, on the path that used not to be bounded at all.
+    ///
+    /// The budget counts **stored issues**, so a request that fails leaves the archive reading
+    /// as empty and the slot reading as unspent. With a service that refuses this build — an
+    /// empty `DEVELOPMENT_TEAM`, an expired token, a day offline — that turned every scene
+    /// activation into another call. The failure ledger is what makes a refusing service cost
+    /// the same four calls a day as a working one.
+    func testAFailingServiceStillSpendsTheDaysBudget() async {
+        let provider = FailingWeatherForecastProvider()
+        let refresher = await makeRefresher(provider: provider, bootstrapped: true)
+
+        for step in 0..<50 {
+            let now = date(hour: 7).addingTimeInterval(TimeInterval(step) * 20 * 60)
+            await refresher.refresh(asOf: now)
+        }
+
+        XCTAssertEqual(provider.forecastCount, 4)
+    }
+
+    /// And the ledger is a day's, not a lifetime's: tomorrow gets its own four attempts rather
+    /// than inheriting today's exhausted budget.
+    func testYesterdaysFailuresDoNotSpendTomorrowsBudget() async {
+        let provider = FailingWeatherForecastProvider()
+        let refresher = await makeRefresher(provider: provider, bootstrapped: true)
+
+        for hour in [8, 12, 16, 20] {
+            await refresher.refresh(asOf: date(hour: hour))
+        }
+        XCTAssertEqual(provider.forecastCount, 4)
+
+        await refresher.refresh(asOf: date(hour: 12, dayOffset: 1))
+
+        XCTAssertEqual(provider.forecastCount, 5)
+    }
+
+    // MARK: - The wake time
+
+    /// `wakeTime` is three indexed reads over 48 h of the health log, and it only ever moves
+    /// the first slot of the day. Passing it in as a value meant paying for it on every scene
+    /// activation, including every activation of a device that can never make a request.
+    func testTheWakeTimeIsNotResolvedOnAPassThatCannotRequest() async {
+        let resolutions = Counter()
+        let refresher = await makeRefresher(preferences: InMemoryWeatherKitPreferenceStore(
+            isWeatherKitEnabled: false
+        ))
+
+        let outcome = await refresher.refresh(asOf: date(hour: 13)) {
+            resolutions.increment()
+            return nil
+        }
+
+        XCTAssertEqual(outcome, .switchedOff)
+        XCTAssertEqual(resolutions.value, 0)
+    }
+
+    /// And it *is* resolved once a pass gets as far as the budget — the feature it drives has
+    /// to keep working.
+    func testTheWakeTimeMovesTheFirstSlotOfTheDay() async {
+        let provider = CountingWeatherForecastProvider()
+        let refresher = await makeRefresher(provider: provider, bootstrapped: true)
+
+        // Awake since 06:00: the first slot moves from the 08:00 fallback back to 06:00, so a
+        // 07:00 activation — which `testNothingIsFetchedBeforeTheFirstSlot` shows fetches
+        // nothing on the fallback — now has one due.
+        let wake = date(hour: 6)
+        let outcome = await refresher.refresh(asOf: date(hour: 7)) { wake }
+
+        XCTAssertEqual(provider.forecastCount, 1)
+        guard case .refreshed = outcome else {
+            return XCTFail("expected a fetch on the wake-moved slot, got \(outcome)")
+        }
+    }
+
     // MARK: - Helpers
 
     private var everything: Range<Date> { Date.distantPast..<Date.distantFuture }
@@ -371,14 +444,32 @@ private final class HistoryRefusingProvider: WeatherForecastProviding, @unchecke
     }
 }
 
-/// What the Simulator does, and any build without a configured App ID.
-private struct FailingWeatherForecastProvider: WeatherForecastProviding {
+/// What the Simulator does, and any build without a configured App ID. Counts what it refused,
+/// because "how many times did it try" is the whole question on this path.
+private final class FailingWeatherForecastProvider: WeatherForecastProviding, @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var _forecastCount = 0
+
+    var forecastCount: Int { lock.withLock { _forecastCount } }
 
     func forecast(for coordinate: GeoCoordinate, asOf now: Date) async throws -> WeatherForecastIssue {
+        lock.withLock { _forecastCount += 1 }
         throw WeatherForecastError.serviceRefused(underlying: ServiceRefused())
     }
 
     func history(for coordinate: GeoCoordinate, in range: Range<Date>) async throws -> [WeatherObservation] {
         throw WeatherForecastError.serviceRefused(underlying: ServiceRefused())
     }
+}
+
+/// A call counter reachable from a `@Sendable` closure.
+private final class Counter: @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var _value = 0
+
+    var value: Int { lock.withLock { _value } }
+
+    func increment() { lock.withLock { _value += 1 } }
 }

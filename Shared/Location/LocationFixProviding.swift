@@ -66,7 +66,7 @@ struct UnavailableLocationFixProvider: LocationFixProviding {
     func currentFix() async -> LocationFix? { nil }
 }
 
-/// A namer that names nothing. Keeps a preview and a test off `CLGeocoder`.
+/// A namer that names nothing. Keeps a preview and a test off the system geocoder.
 struct UnnamedPlaceNamer: PlaceNaming {
     func placeName(for coordinate: GeoCoordinate) async -> PlaceName? { nil }
 }

@@ -39,15 +39,20 @@ struct PressureChartCard: View {
         static let plotHeight: CGFloat = 110
     }
 
+    /// `attribution` defaults to the real provider rather than being threaded down from the
+    /// app: it is asked for only when a WeatherKit curve is already on screen, so a build
+    /// without the entitlement, a preview and the watch all reach it zero times.
     init(collection: PressureCollectionController,
          checkIns: any CheckInStore,
          forecast: PressureForecastReader? = nil,
+         attribution: any WeatherAttributionProviding = WeatherKitAttributionProvider(),
          checkInRevision: Int = 0) {
         self.checkInRevision = checkInRevision
         self.collection = collection
         _model = State(initialValue: PressureChartModel(collection: collection,
                                                         checkIns: checkIns,
-                                                        forecast: forecast))
+                                                        forecast: forecast,
+                                                        attribution: attribution))
     }
 
     var body: some View {
@@ -68,6 +73,12 @@ struct PressureChartCard: View {
                     .font(Typography.cardNote)
                     .foregroundStyle(Palette.inkSubtle)
                     .lineLimit(1)
+            }
+
+            // Required wherever WeatherKit data is drawn, and drawn only then — the local
+            // model's curve is the user's own barometer and owes Apple nothing.
+            if let attribution = model.attribution {
+                AppleWeatherAttribution(attribution: attribution)
             }
 
             // Only once there is a dot to explain. A legend for something not on screen is
@@ -187,12 +198,20 @@ final class PressureChartModel {
     /// The place the forecast is about, printed under the value row.
     private(set) var placeDescription: String?
 
+    /// The Apple Weather mark and legal link. Non-`nil` only while a WeatherKit curve is on
+    /// screen — see `loadAttribution(for:)`.
+    private(set) var attribution: WeatherDataAttribution?
+
+    private let attributionProvider: any WeatherAttributionProviding
+
     init(collection: PressureCollectionController,
          checkIns: any CheckInStore,
-         forecast: PressureForecastReader? = nil) {
+         forecast: PressureForecastReader? = nil,
+         attribution: any WeatherAttributionProviding = UnattributedWeatherProvider()) {
         self.collection = collection
         self.checkInStore = checkIns
         self.forecastReader = forecast
+        self.attributionProvider = attribution
     }
 
     /// Why the plot has nothing to draw. Three states that need three different sentences,
@@ -209,7 +228,20 @@ final class PressureChartModel {
         checkIns = await loadCheckIns(asOf: now)
         forecast = await loadForecast(asOf: now)
         placeDescription = await forecastReader?.placeName(asOf: now)?.description
+        attribution = await loadAttribution(for: forecast)
         rebuild(asOf: now)
+    }
+
+    /// The attribution to draw, or `nil` when there is no WeatherKit data on screen to attribute.
+    ///
+    /// Gated on the **source of the curve that is actually drawn**, not on the preference: the
+    /// switch can be on while the chart falls through to the local model — no offset yet, a
+    /// stale archive, a move to a new place — and a mark under a curve Apple did not produce
+    /// would be a false credit rather than a compliant one.
+    private func loadAttribution(for curve: [ForecastPressurePoint]) async -> WeatherDataAttribution? {
+        guard curve.contains(where: { $0.source == .weatherKit }) else { return nil }
+
+        return await attributionProvider.attribution()
     }
 
     /// The widest forward window any range draws, so a range change is a re-slice.

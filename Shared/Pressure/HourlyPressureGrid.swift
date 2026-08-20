@@ -72,6 +72,31 @@ enum HourlyPressureGrid {
         return bridgingShortGaps(in: observed)
     }
 
+    /// The stretch of `range` the log actually reaches across, first observed hour to last.
+    ///
+    /// The denominator `coverage` should be measured against, and the difference is not a
+    /// refinement. A 30-day window on an install that is one day old is 96% hours that could
+    /// not have been recorded because the app did not exist yet — counting them as missing
+    /// reads a complete log as 3% covered, and the band inflates fivefold on the strength of
+    /// it. What coverage is *for* is holes: hours the sensor could have recorded and did not.
+    ///
+    /// A hole at the near end shortens the span rather than lowering the number, which is
+    /// correct and is why it is not the only guard: the seed rule in `LocalPressureModel` is
+    /// what handles a log that has gone quiet.
+    ///
+    /// Falls back to `range` when nothing was observed, so a caller dividing by it gets zero
+    /// rather than a degenerate span.
+    static func observedSpan(of cells: [Cell], in range: Range<Date>) -> Range<Date> {
+        let observed = cells.filter(\.isObserved).map(\.hour)
+        guard let first = observed.min(), let last = observed.max() else { return range }
+
+        let start = max(first, range.lowerBound)
+        let end = min(last.addingTimeInterval(3600), range.upperBound)
+        guard end > start else { return range }
+
+        return start..<end
+    }
+
     /// Fraction of the hours in `range` that were actually recorded.
     ///
     /// Observed cells only — bridged ones are excluded by construction, which is what makes

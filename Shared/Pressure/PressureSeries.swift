@@ -344,14 +344,23 @@ struct PressureSeries: Hashable, Sendable {
     /// from rendering as a straight line pinned to one edge: without padding, a series
     /// whose min equals its max has a zero-height domain and the chart has nowhere to put
     /// it.
-    /// The band edges are included, not just the forecast line: a domain fitted to the line
-    /// alone would clip the top and bottom of the shaded area at exactly the horizons where the
-    /// band is the point.
+    /// The band widens the domain, but only so far — `bandDomainAllowance` — and past that it
+    /// is clipped by the plot instead.
+    ///
+    /// Both halves of that are deliberate. A domain fitted to the lines alone would cut the top
+    /// and bottom off the shaded area at exactly the horizons where the band is the point. A
+    /// domain fitted to the band outright hands the whole plot to whichever producer is least
+    /// certain: the local model quotes ±4.4 hPa at six hours before any inflation, so a
+    /// nine-hectopascal band sits under a day of real movement that spans two, and the user's
+    /// own line flattens into the middle — the same failure §4.1 names for an uncalibrated
+    /// WeatherKit curve, arriving from the other producer.
+    ///
+    /// The measured half of the picture wins the argument: what is drawn from the barometer is
+    /// what the plot is scaled to.
     var valueDomainHPa: ClosedRange<Double>? {
-        let values = observed.map(\.pressure.hectopascals)
-            + forecast.map(\.lowerHPa)
-            + forecast.map(\.upperHPa)
-        guard let lowest = values.min(), let highest = values.max() else { return nil }
+        let drawn = observed.map(\.pressure.hectopascals)
+            + forecast.map(\.pressure.hectopascals)
+        guard let lowest = drawn.min(), let highest = drawn.max() else { return nil }
 
         // 0.6× the span leaves the line occupying roughly the middle 45% of the plot, which
         // is how the design draws it. The 1 hPa floor covers a span of zero.
@@ -362,8 +371,36 @@ struct PressureSeries: Hashable, Sendable {
         // of weather spans tens of hPa, and 60% of that as padding on each side squashes a
         // day's movement into a flat line.
         let padding = min(max((highest - lowest) * 0.6, 1.0), 3.0)
-        return (lowest - padding)...(highest + padding)
+        let low = lowest - padding
+        let high = highest + padding
+        guard !forecast.isEmpty else { return low...high }
+
+        let allowance = max((high - low) * Self.bandDomainAllowance, Self.bandDomainFloorHPa)
+        let bandLow = forecast.map(\.lowerHPa).min() ?? low
+        let bandHigh = forecast.map(\.upperHPa).max() ?? high
+
+        return min(low, max(bandLow, low - allowance))...max(high, min(bandHigh, high + allowance))
     }
+
+    /// How far past the drawn lines the uncertainty band may stretch the y-domain, as a
+    /// fraction of the domain those lines set, each side.
+    ///
+    /// **0.5**, so on an ordinary day the band can at most double the plot's height — which
+    /// leaves the observed line about a fifth of it, the point past which it stops reading as a
+    /// line and starts reading as a level.
+    static let bandDomainAllowance: Double = 0.5
+
+    /// The allowance on a short or flat series, where half of a nearly-zero span would clip
+    /// every band there is.
+    ///
+    /// An **uninflated local band at its own range** — 0.8 hPa at issue plus 0.6 per hour, six
+    /// hours out. Read as a rule: a producer quoting no more uncertainty than the shortest-range
+    /// producer quotes at full stretch is drawn whole, and anything wider than that is inflation
+    /// — a thin log, a hole, a fit that does not fit — and is clipped at the edge of the plot
+    /// instead of being allowed to set its scale. Clipping is the honest failure: a band running
+    /// off the top of the chart reads as "wider than this chart", which is what it is.
+    static let bandDomainFloorHPa =
+        ForecastSource.localModel.uncertaintyHPa(atLeadSeconds: 6 * 3600)
 
     /// Builds the series for one range.
     ///

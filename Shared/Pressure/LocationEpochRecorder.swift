@@ -107,7 +107,7 @@ actor LocationEpochRecorder {
 
     /// Geocodes an epoch once, ever.
     ///
-    /// The guard is the acceptance criterion: Apple does not publish `CLGeocoder`'s limits,
+    /// The guard is the acceptance criterion: Apple does not publish its geocoder's limits,
     /// and an app that re-geocoded on every foreground activation would be throttled into
     /// returning nothing at all — which reads on screen as an app that has forgotten where it
     /// is.
