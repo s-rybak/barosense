@@ -216,6 +216,65 @@ final class EditProfileModelTests: XCTestCase {
         XCTAssertEqual(model.initial, "O")
     }
 
+    // MARK: - Avatar
+
+    func testPickingAPhotoStoresItDownscaled() async throws {
+        let model = makeModel()
+        await model.load()
+
+        await model.setAvatar(try SampleImage.jpeg(width: 1200, height: 900))
+
+        let stored = try XCTUnwrap(model.avatarImageData)
+        XCTAssertEqual(try SampleImage.pixelSize(of: stored).width,
+                       ProfileAvatarEncoder.maxPixelSize)
+        XCTAssertFalse(model.isEncodingAvatar)
+    }
+
+    func testAPhotoThatCannotBeReadKeepsTheOneAlreadyThere() async throws {
+        let model = makeModel()
+        await model.load()
+        await model.setAvatar(try SampleImage.jpeg(width: 400, height: 400))
+        let kept = model.avatarImageData
+
+        await model.setAvatar(Data("not an image".utf8))
+
+        XCTAssertEqual(model.failure, .couldNotReadPhoto)
+        XCTAssertEqual(model.avatarImageData, kept)
+    }
+
+    /// The re-encode runs off the main actor, which is what makes this reachable at all:
+    /// Remove stays tappable while a picked photo is still being encoded, and the encode
+    /// finishing afterwards must not put the photo back.
+    func testRemovingThePhotoBeatsAPickThatIsStillEncoding() async throws {
+        let model = makeModel()
+        await model.load()
+        let picked = try SampleImage.jpeg(width: 4000, height: 3000)
+
+        let encoding = Task { await model.setAvatar(picked) }
+        while !model.isEncodingAvatar { await Task.yield() }
+        model.removeAvatar()
+        await encoding.value
+
+        XCTAssertNil(model.avatarImageData)
+        XCTAssertFalse(model.isEncodingAvatar)
+    }
+
+    /// Save writes `avatarImageData` as it stands, so it has to wait for the photo the user
+    /// just picked rather than write the profile without it.
+    func testSaveIsHeldUntilThePickedPhotoIsEncoded() async throws {
+        let model = makeModel()
+        await model.load()
+        let picked = try SampleImage.jpeg(width: 4000, height: 3000)
+
+        let encoding = Task { await model.setAvatar(picked) }
+        while !model.isEncodingAvatar { await Task.yield() }
+        XCTAssertFalse(model.canSave)
+
+        await encoding.value
+
+        XCTAssertTrue(model.canSave)
+    }
+
     // MARK: - Helpers
 
     private func makeModel(profile: UserProfile = UserProfile(),

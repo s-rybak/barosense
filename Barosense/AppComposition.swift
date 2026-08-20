@@ -48,7 +48,10 @@ final class AppServices {
 
     /// The forecast archive. Held for the reason the sensor logs are: an erase has to reach it.
     private let weatherArchive: any WeatherForecastStore
-    private let healthAccess: any HealthAccessReporting
+
+    /// The same Health reporter Settings later reads. Exposed so onboarding can raise that
+    /// sheet through this instance rather than a second one that would disagree about state.
+    let healthAccess: any HealthAccessReporting
 
     init(healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
@@ -195,6 +198,13 @@ struct AppRootView: View {
                 if let profileStore = services.profileStore, let tagStore = services.tagStore {
                     OnboardingFlow(profileStore: profileStore,
                                    tagStore: tagStore,
+                                   // Both system prompts are raised from the flow's Apple
+                                   // Health step and nowhere earlier. It asks through the
+                                   // barometer controller the rest of the app samples with,
+                                   // so the reading that answer produces is the log's first
+                                   // row rather than a duplicate taken beside it.
+                                   sensorAccess: DeviceSensorAccess(health: services.healthAccess,
+                                                                    pressure: pressure),
                                    onFinished: services.onboardingFinished)
                 }
 

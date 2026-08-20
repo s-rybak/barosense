@@ -133,9 +133,10 @@ struct EditProfileScreen: View {
         guard let item else { return }
         // `loadTransferable` hands back the file as it sits in the library; every bit of
         // downscaling and metadata stripping happens in `ProfileAvatarEncoder`, which is
-        // what `setAvatar` runs.
+        // what `setAvatar` runs — off the main actor, so the wait here now covers both the
+        // library read and the re-encode.
         let data = try? await item.loadTransferable(type: Data.self)
-        model.setAvatar(data)
+        await model.setAvatar(data)
     }
 
     // MARK: - Tags

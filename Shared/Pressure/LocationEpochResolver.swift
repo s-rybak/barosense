@@ -93,7 +93,7 @@ enum LocationEpochResolver {
     /// The epoch table is not a list of places — it is a list of *arrivals*. `resolve` only
     /// ever compares a fix against the epoch that is current, so a user who commutes past the
     /// threshold writes a new row every leg: home, work, home again. The third row carries the
-    /// first one's coordinate, because both rounded onto the same 0.1° cell, and treating them
+    /// first one's coordinate, because both rounded onto the same 0.1° cell, and counting them
     /// as different places would throw away half the history of somewhere the user has been
     /// living all along.
     ///

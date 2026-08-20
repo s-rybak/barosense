@@ -148,6 +148,12 @@ actor PressureSampleRecorder {
         return now.timeIntervalSince(lastRecordedAt) >= minimumInterval
     }
 
+    /// Whether the Motion & Fitness prompt has already been shown. `nonisolated` for the
+    /// same reason as `isAvailable`: it is a device fact, and its caller is deciding
+    /// whether it may touch the sensor at all rather than what to do with a reading — see
+    /// `PressureCollectionController.start()`.
+    nonisolated var isAccessRequested: Bool { source.isAccessRequested }
+
     /// Reads the barometer once and persists what it read.
     ///
     /// Returns `nil` when the rate limit declined to sample — an ordinary outcome, not a

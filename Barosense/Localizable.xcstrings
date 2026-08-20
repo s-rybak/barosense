@@ -4,6 +4,70 @@
     "" : {
 
     },
+    "Blood oxygen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blood oxygen"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Рівень кисню у крові"
+          }
+        }
+      }
+    },
+    "Connect your data" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect your data"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Підключи свої дані"
+          }
+        }
+      }
+    },
+    "Pressure from this device's barometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressure from this device's barometer"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тиск із барометра цього пристрою"
+          }
+        }
+      }
+    },
+    "Sleep, heart rate and pressure are read for you — no typing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep, heart rate and pressure are read for you — no typing"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сон, пульс і тиск зчитуються автоматично — без ручного вводу"
+          }
+        }
+      }
+    },
     "…shortened, full text is in the app" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -696,22 +760,6 @@
         }
       }
     },
-    "Activity and blood oxygen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activity and blood oxygen"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Активність та рівень кисню у крові"
-          }
-        }
-      }
-    },
     "Add" : {
       "localizations" : {
         "en" : {
@@ -1002,22 +1050,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Атмосферний тиск і швидкість його зміни"
-          }
-        }
-      }
-    },
-    "Automatic tracking of sleep, heart rate and activity — no typing" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatic tracking of sleep, heart rate and activity — no typing"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Автоматичний трекінг сну, серцевого ритму та активності — без ручного вводу"
           }
         }
       }
@@ -1454,22 +1486,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Підключити"
-          }
-        }
-      }
-    },
-    "Connect Apple Health" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect Apple Health"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Підключи Apple Health"
           }
         }
       }

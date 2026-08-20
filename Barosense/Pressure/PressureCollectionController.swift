@@ -90,12 +90,39 @@ final class PressureCollectionController {
 
     /// Takes the launch reading. Call once from the composition root. Idempotent.
     ///
-    /// Deliberately does **not** arm the background chain — see `armBackgroundRefresh`.
+    /// Deliberately does **not** arm the background chain — see `armBackgroundRefresh` —
+    /// and deliberately does **not** raise the Motion & Fitness prompt. This runs from
+    /// `App.init`, which is before onboarding has drawn a single frame: starting the sensor
+    /// there puts a system permission sheet in front of someone who has not yet been told
+    /// what the app measures or why. Onboarding's Apple Health step is what asks — see
+    /// `requestAccess()` — and every launch after that answer finds the status settled and
+    /// samples as before.
     func start() {
         guard !didStart else { return }
         didStart = true
 
+        guard recorder.isAccessRequested else { return }
+
         sample()
+    }
+
+    /// Raises the Motion & Fitness prompt, and records what the sensor answers with.
+    ///
+    /// `CMAltimeter` has no authorisation call of its own, so the request *is* a reading:
+    /// starting the sensor is what puts the sheet on screen. Awaiting it means the step
+    /// that asked also lands the first row in the log rather than leaving the barometer
+    /// idle until the next activation.
+    ///
+    /// Reports nothing back. A refusal is a gap in the history, not a state the caller can
+    /// repair, and it is indistinguishable here from a device without a barometer — both
+    /// are handled by the coverage features rather than by a screen.
+    func requestAccess() async {
+        // `requestingLocationFix: true` like every other foreground path. It cannot stack a
+        // second system sheet on the Motion & Fitness one: the epoch recorder *reads*
+        // location authorisation and returns the stored epoch when it is not granted, so
+        // onboarding asks for the radio only once the user has been offered it on its own
+        // step.
+        await sampleAndPublish(requestingLocationFix: true)
     }
 
     /// Arms the background-refresh chain. Call from the root view, not from `App.init`.
@@ -116,6 +143,11 @@ final class PressureCollectionController {
     ///
     /// Cheap to call often: the recorder's rate limit decides whether the sensor actually
     /// runs, so a user flipping in and out of the app does not turn into sensor time.
+    ///
+    /// Unguarded, unlike `start()`. Its only caller is the root view, which exists only
+    /// once onboarding is behind the user — so a prompt raised from here is one the user
+    /// skipped rather than one they were never offered, and it lands with the app on
+    /// screen.
     func sceneDidBecomeActive() {
         sample()
     }

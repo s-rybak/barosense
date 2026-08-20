@@ -31,7 +31,7 @@ final class LocalPressureModelTests: XCTestCase {
     /// Measured against the window they inflated the band fivefold: ±22 hPa at six hours, which
     /// then set the whole y-domain of the chart and flattened the user's own line into it.
     /// Measured against the span the log reaches across, a clean day is a clean day.
-    func testACompleteFirstDayIsNotTreatedAsAThreePercentCoveredMonth() {
+    func testACompleteFirstDayIsNotCountedAsAThreePercentCoveredMonth() {
         guard let model = LocalPressureModel.fit(to: hourlyLog(hours: 24, hPaPerHour: -0.3),
                                                  asOf: now) else {
             return XCTFail("one day of hourly readings must be enough to fit")

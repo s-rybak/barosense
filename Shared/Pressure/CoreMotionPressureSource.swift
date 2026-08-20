@@ -48,6 +48,12 @@ actor CoreMotionPressureSource: PressureSource {
         CMAltimeter.isRelativeAltitudeAvailable()
     }
 
+    /// `.notDetermined` is the only status that means the prompt has not been shown yet;
+    /// `.authorized`, `.denied` and `.restricted` are all answers the user has given.
+    nonisolated var isAccessRequested: Bool {
+        CMAltimeter.authorizationStatus() != .notDetermined
+    }
+
     func currentPressure() async throws -> Pressure {
         guard CMAltimeter.isRelativeAltitudeAvailable() else {
             throw PressureSourceError.barometerUnavailable

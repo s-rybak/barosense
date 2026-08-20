@@ -135,7 +135,7 @@ extension LocationEpochResolverTests {
 
     /// The epoch table is a list of *arrivals*, not of places. `resolve` only ever compares a
     /// fix against the current epoch, so a commute past the threshold writes one row per leg
-    /// and coming home writes a **third** row carrying the first one's coordinate. Treating
+    /// and coming home writes a **third** row carrying the first one's coordinate. Counting
     /// those two as different places would throw away half the history of where the user
     /// lives.
     func testComingBackHomeCountsAsTheSamePlaceAsHavingLivedThere() {

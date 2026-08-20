@@ -91,6 +91,14 @@ struct RootView: View {
                 selection = .now
             }
         }
+        // The first activation of this view, which `onChange` below cannot see: the scene was
+        // already `.active` before the root existed, so nothing fires for it. That is the only
+        // moment the barometer would otherwise be missed — `start()` skips the launch reading
+        // until the sensor has been asked about, and a user who skipped onboarding's Health
+        // step has not been, so without this their first pressure row waits for a backgrounding
+        // that may not come for hours. Idempotent: the recorder's fifteen-minute floor decides
+        // whether the sensor runs, and on the connected path onboarding has just sampled.
+        .task { pressure.sceneDidBecomeActive() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 ingest.sceneDidBecomeActive()

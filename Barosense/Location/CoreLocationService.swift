@@ -250,7 +250,7 @@ struct MapKitPlaceNamer: PlaceNaming {
     /// MapKit publishes the city and the country as fields but not the level between them, and
     /// `cityWithContext` is the only place it appears. Taking the remainder is best-effort by
     /// nature: it is the one field of `PlaceName` the geocoder does not hand over whole, and
-    /// `PressureLocationEpoch.place` treats every one of the three as optional precisely
+    /// `PressureLocationEpoch.place` declares every one of the three optional precisely
     /// because a geocode can decline any of them.
     ///
     /// `PlaceName.description` drops a region that merely repeats the city, so a locale where
