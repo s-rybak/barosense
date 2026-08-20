@@ -455,6 +455,12 @@ final class SettingsModelTests: XCTestCase {
                            notifications: any NotificationDelivering = StubNotificationDeliverer(),
                            reminderPreferences: any ReminderPreferenceStore
                                = InMemoryReminderPreferenceStore(),
+                           locationAccess: any LocationAccessReporting
+                               = StubLocationAccessReporter(state: .unavailable),
+                           locationEpochs: any PressureLocationEpochStore
+                               = InMemoryPressureLocationEpochStore(),
+                           weatherPreferences: any WeatherKitPreferenceStore
+                               = InMemoryWeatherKitPreferenceStore(),
                            onDataErased: @escaping () async -> Void = {},
                            onRemindersChanged: @escaping () async -> Void = {}) -> SettingsModel {
         let dependencies = SettingsDependencies(
@@ -463,10 +469,14 @@ final class SettingsModelTests: XCTestCase {
             checkInStore: InMemoryCheckInStore(),
             healthLog: healthLog,
             pressureLog: pressureLog,
+            locationEpochs: locationEpochs,
+            weatherArchive: InMemoryWeatherForecastStore(),
             notificationLog: notificationLog,
             notifications: notifications,
             reminderPreferences: reminderPreferences,
-            healthAccess: access
+            weatherPreferences: weatherPreferences,
+            healthAccess: access,
+            locationAccess: locationAccess
         )
         let now = now
         return SettingsModel(dependencies: dependencies,

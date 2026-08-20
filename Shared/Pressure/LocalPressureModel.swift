@@ -1,0 +1,572 @@
+import Foundation
+
+/// The forecast the app can make from the user's own barometer alone.
+///
+/// ## Why this is small on purpose
+///
+/// One sensor at one point cannot see advection. It has no way to know about a front 200 km
+/// away, and no amount of history changes that — a five-year log and a five-day log are equally
+/// blind to weather that has not arrived yet. On 1–3 h horizons linear extrapolation is close to
+/// unbeatable; past that, skill decays toward climatology.
+///
+/// So the range is **3–6 h** with a band that opens fast, and that is a decision confirmed by a
+/// human rather than a default to be improved on. An agent minded to "finish it off to 24 hours"
+/// has to re-read `.claude/context/pressure-forecast-spec.md` §4.7 and produce a measurement
+/// first.
+///
+/// ## Why AR(3) + two harmonics and not Core ML
+///
+/// The model has one thing to know that persistence does not: the **solar semidiurnal tide**,
+/// `S2`. It is deterministic, it follows from the time of day, and at Kyiv's latitude it is
+/// order 0.3–0.5 hPa (*provisional* — a literature order of magnitude, to be checked against
+/// real traces). Below the 1.0 hPa threshold this app calls meaningful, but it is free skill
+/// that persistence cannot have. Three autoregressive lags carry the local trend and its
+/// curvature.
+///
+/// Eight parameters, closed-form least squares, a 30-day window of 720 hourly points: about
+/// **46 000 multiply-adds**, which is microseconds. A daily refit therefore needs **no new wake
+/// source** and fits inside a foreground activation — `CLAUDE.md` constraint 4 satisfied by
+/// there being nothing to schedule.
+///
+/// ## Eight parameters is the ceiling, not the size
+///
+/// A phone does not record 24 hourly cells a day. iOS grants `BGAppRefreshTask` sparsely and
+/// grants nothing overnight, so a real log is a run of waking hours beside a 12-plus-hour hole,
+/// and a hole restarts the count of consecutive lags a design row needs. A fixed eight-parameter
+/// fit therefore asked for more rows than an ordinary day of use produces, and returned `nil` —
+/// no forward half at all — on exactly the cold start it exists to serve.
+///
+/// So the size is chosen from the data: `specificationLadder` tries AR(3)+S1+S2, then AR(3),
+/// AR(2), AR(1), and takes the first the log supports. Fewer lags cost a parameter *and* buy
+/// rows, which is what makes the ladder work rather than merely lower the bar.
+///
+/// `MLUpdateTask` and Core ML stay in reserve for the day a measurement shows linearity is the
+/// binding constraint. Starting with them would be paying for machinery that holds nothing yet.
+struct LocalPressureModel: Sendable {
+
+    /// Autoregressive order of the **richest** specification: the value depends on the three
+    /// preceding hours.
+    ///
+    /// Three carries level, slope and curvature — enough for the shape of a passing ridge or
+    /// trough. A fourth lag buys little at these horizons and costs a parameter out of a budget
+    /// that is already tight on one day of data.
+    ///
+    /// A fit may land on fewer — see `Specification` and `specificationLadder`.
+    static let autoregressiveOrder = 3
+
+    /// Which terms one candidate fit carries.
+    ///
+    /// The model is fitted at the largest size the log actually supports rather than at one
+    /// fixed size, because the two move in opposite directions: a design row for AR(*k*) needs
+    /// *k* consecutive hours behind it, so **dropping a lag both costs a parameter and buys
+    /// rows**. On a real log — a phone put down overnight, iOS granting no background wakes —
+    /// that difference is the whole feature. Measured on this project's own device log,
+    /// 29 readings over 23 h:
+    ///
+    /// | specification | parameters | design rows | rows/parameter |
+    /// | ------------- | ---------: | ----------: | -------------: |
+    /// | AR(3)+S1+S2   |          8 |           6 |            0.8 |
+    /// | AR(3)         |          4 |           6 |            1.5 |
+    /// | AR(2)         |          3 |           7 |            2.3 |
+    /// | AR(1)         |          2 |           9 |            4.5 |
+    ///
+    /// The fixed 8-parameter fit asked for twelve rows and had six, so that device drew no
+    /// forward half at all — on a day of ordinary use, which is precisely the cold start
+    /// `CLAUDE.md` constraint 5 and `.claude/skills/ml_pipeline/SKILL.md` require to work.
+    struct Specification: Hashable, Sendable {
+
+        /// How many hourly lags the row carries. 1…`autoregressiveOrder`.
+        let autoregressiveOrder: Int
+
+        /// Whether the solar S1/S2 harmonics are fitted.
+        let includesHarmonics: Bool
+
+        /// Intercept + lags + (4 harmonic terms).
+        var parameterCount: Int {
+            1 + autoregressiveOrder + (includesHarmonics ? 4 : 0)
+        }
+
+        /// Rows below which this specification is not attempted.
+        ///
+        /// Two guards, and the lower rungs need both. The ratio is derived from
+        /// `minimumRowsPerParameter` rather than written out per size, so there is one number to
+        /// argue with instead of four, and it reproduces the shipped `minimumTrainingRows` of 12
+        /// exactly at the richest size. On its own, though, it lets AR(1) fit on three rows —
+        /// and four readings is not a model however favourable the ratio looks.
+        ///
+        /// So `absoluteMinimumRows` floors it. The two together give 12 / 6 / 6 / 6 down the
+        /// ladder.
+        var minimumRows: Int {
+            max(LocalPressureModel.absoluteMinimumRows,
+                Int((LocalPressureModel.minimumRowsPerParameter
+                     * Double(parameterCount)).rounded(.up)))
+        }
+    }
+
+    /// Candidate specifications, richest first. The first one the log supports is the fit.
+    ///
+    /// **Harmonics go before lags.** S1/S2 are worth order 0.3–0.5 hPa at this latitude —
+    /// below the 1.0 hPa this app calls meaningful — and they cost **four** parameters, half
+    /// the budget, for the smallest term in the model. The lags carry level, slope and
+    /// curvature, which is the forecast itself. Giving up half the parameters for a term under
+    /// the significance threshold is the cheapest trade available, so it is taken first.
+    static var specificationLadder: [Specification] {
+        isOrderLadderEnabled ? fullLadder : [richestSpecification]
+    }
+
+    static let richestSpecification = Specification(autoregressiveOrder: autoregressiveOrder,
+                                                    includesHarmonics: true)
+
+    private static let fullLadder = [
+        richestSpecification,
+        Specification(autoregressiveOrder: 3, includesHarmonics: false),
+        Specification(autoregressiveOrder: 2, includesHarmonics: false),
+        Specification(autoregressiveOrder: 1, includesHarmonics: false)
+    ]
+
+    /// Feature flag for the ladder (`.claude/skills/swift_conventions/SKILL.md`: anything that
+    /// changes forecast output can be switched off without a release).
+    ///
+    /// `false` restores the single fixed 8-parameter fit, and with it the behaviour of every
+    /// build before this one.
+    static let isOrderLadderEnabled = true
+
+    /// Rows a specification needs per parameter before it is attempted.
+    ///
+    /// **1.5** — not a new number. The shipped gate was 12 rows for 8 parameters, so 1.5 is the
+    /// ratio this model has always been fitted at, now stated once and applied at every size
+    /// instead of only the largest.
+    ///
+    /// It is thin, and it is allowed to be thin only because the band is computed from the
+    /// **residual degrees of freedom** (`design.count − parameterCount`) rather than from the
+    /// row count. A fit with two degrees of freedom left reports a visibly wider band than one
+    /// with thirty-eight, which is the model saying it knows less — the alternative, a narrow
+    /// band from an overfitted residual, is the confidently-wrong output the pipeline rules
+    /// forbid.
+    static let minimumRowsPerParameter: Double = 1.5
+
+    /// Rows no fit may go below, whatever its size.
+    ///
+    /// **Six — the range, in hours.** A design row is one hour at which the model could check
+    /// itself against the hours before it, so this says: a model may not project further ahead
+    /// than the number of transitions it has actually observed. `ForecastSource.localModel`
+    /// speaks six hours out, so six is the fewest checks that can stand behind that claim.
+    ///
+    /// It binds on every rung below the top, where the ratio alone would admit AR(1) on three
+    /// rows. Four readings is not a model — returning `nil` is the honest answer, and the chart
+    /// draws no forward half instead.
+    static let absoluteMinimumRows =
+        Int(ForecastSource.localModel.rangeSeconds / 3600)
+
+    /// How much history the fit sees.
+    ///
+    /// **30 days**, 720 hourly cells. Long enough for the diurnal harmonics to be identifiable
+    /// against weather noise, short enough that a seasonal change in their amplitude is not
+    /// averaged into a year-round compromise — and short enough that the fit stays microseconds.
+    static let trainingWindowDays = 30
+
+    /// Rows below which the **richest** specification is not attempted.
+    ///
+    /// **12.** Eight parameters against fewer rows than that is memorisation with a ridge term
+    /// holding it up.
+    ///
+    /// It used to be the only gate, and the claim attached to it — "reachable on a single day
+    /// of data, 24 hourly cells minus three lost to the lags" — assumed 24 hourly cells a day.
+    /// A phone does not deliver that: iOS grants `BGAppRefreshTask` sparsely and grants nothing
+    /// at all overnight, so a real day is a run of waking hours with a 12-plus-hour hole beside
+    /// it, and a hole restarts the count of consecutive lags. The cold start is met by
+    /// `specificationLadder` now, not by this number.
+    static let minimumTrainingRows = richestSpecification.minimumRows
+
+    /// How often the fit is renewed. Daily: the coefficients move on the timescale of the
+    /// weather regime, not of an activation.
+    static let refitIntervalSeconds: TimeInterval = 24 * 3600
+
+    /// Ridge term, relative to the mean diagonal of the normal matrix.
+    ///
+    /// Tiny, and not there for regularisation in the statistical sense. It is there so that a
+    /// perfectly flat log — a phone on a desk in stable air — produces a solvable system
+    /// instead of a singular one. Without it the §8 zero-variance fixture crashes rather than
+    /// degrading.
+    static let ridge: Double = 1e-6
+
+    /// The residual spread a band of nominal width is quoted against. Above this, the band is
+    /// inflated in proportion.
+    static let referenceResidualHPa: Double = 0.8
+
+    /// Coverage below which the band stops widening further, so a nearly empty log produces a
+    /// very wide band rather than an infinite one.
+    static let minimumCoverageForBand: Double = 0.2
+
+    /// Which terms this fit carries. Everything that reads `coefficients` or `recentValues` has
+    /// to know their width, and the width is no longer fixed.
+    let specification: Specification
+
+    /// `[intercept, lag1 … lagK]` plus `[sinS1, cosS1, sinS2, cosS2]` when
+    /// `specification.includesHarmonics`, fitted on centred values.
+    let coefficients: [Double]
+
+    /// Mean of the training targets, added back on projection.
+    ///
+    /// Centring is not cosmetic: pressure sits near 1000 and the harmonics near 1, so an
+    /// uncentred normal matrix spans six orders of magnitude and the solve loses most of its
+    /// precision to it.
+    let mean: Double
+
+    /// Root-mean-square one-step residual, hPa. What the band is scaled from.
+    let residualStandardDeviationHPa: Double
+
+    /// Fraction of the observed span actually recorded. Feeds the band, so a log full of holes
+    /// produces a visibly less certain forecast rather than a confident one.
+    ///
+    /// Deliberately **not** a fraction of the 30-day window: see
+    /// `HourlyPressureGrid.observedSpan(of:in:)`. Hours before the app was installed are not
+    /// missing data, and a cold start is the state this model exists to serve.
+    let coverage: Double
+
+    let rowCount: Int
+
+    /// The hour the fit ends at — the last cell it saw. Projections step forward from here.
+    let lastHour: Date
+
+    /// The `specification.autoregressiveOrder` most recent values, newest last. The seed for
+    /// the forward iteration.
+    let recentValues: [Double]
+
+    let fittedAt: Date
+}
+
+extension LocalPressureModel {
+
+    /// Fits the model, or `nil` when there is not enough to fit.
+    ///
+    /// `nil` is an ordinary outcome — a fresh install, a phone that was off — and the caller's
+    /// answer to it is to draw no forward half at all. A model fitted on four points would
+    /// produce a line, and a line is a claim.
+    ///
+    /// Pure and synchronous: §8 requires the pipeline to run from XCTest with synthetic input
+    /// and no `CMAltimeter` anywhere.
+    static func fit(to samples: [PressureSample],
+                    asOf now: Date,
+                    windowDays: Int = trainingWindowDays) -> LocalPressureModel? {
+        let window = now.addingTimeInterval(-TimeInterval(windowDays) * 24 * 3600)..<now
+            .addingTimeInterval(3600)
+        let cells = HourlyPressureGrid.cells(from: samples, in: window)
+
+        // Richest first, and the first one the log supports wins. Ordering is the whole
+        // decision: this must never return a smaller fit while a larger one was available.
+        return specificationLadder.lazy
+            .compactMap { fit(cells: cells, to: $0, in: window, asOf: now) }
+            .first
+    }
+
+    /// One candidate fit, or `nil` when the log does not support this specification.
+    private static func fit(cells: [HourlyPressureGrid.Cell],
+                            to specification: Specification,
+                            in window: Range<Date>,
+                            asOf now: Date) -> LocalPressureModel? {
+        let order = specification.autoregressiveOrder
+        guard cells.count > order else { return nil }
+
+        let values = cells.map(\.hectopascals)
+        let mean = values.reduce(0, +) / Double(values.count)
+
+        var design: [[Double]] = []
+        var targets: [Double] = []
+
+        for index in order..<cells.count {
+            // Lags have to be *consecutive hours*. A row whose lags straddle a hole would be
+            // telling the fit that a twelve-hour jump was a one-hour step, which is how a gap
+            // becomes a learned trend.
+            let span = cells[index].hour.timeIntervalSince(cells[index - order].hour)
+            guard abs(span - Double(order) * 3600) < 1 else { continue }
+
+            design.append(row(lags: (1...order).map { values[index - $0] - mean },
+                              hour: cells[index].hour,
+                              specification: specification))
+            targets.append(values[index] - mean)
+        }
+
+        guard design.count >= specification.minimumRows,
+              let coefficients = solveNormalEquations(design: design, targets: targets)
+        else {
+            return nil
+        }
+
+        let residuals = zip(design, targets).map { row, target in
+            target - dot(coefficients, row)
+        }
+        // Divided by the **residual degrees of freedom**, not by the row count. Dividing by `n`
+        // understates the spread by `sqrt(n / (n − p))`, which is 10% on a full 30-day fit and
+        // **73%** on a six-row one — exactly backwards, since the thin fit is the one whose band
+        // has to open. This is what lets `minimumRowsPerParameter` be as low as it is.
+        let degreesOfFreedom = max(1, design.count - specification.parameterCount)
+        let residualSD = (residuals.reduce(0) { $0 + $1 * $1 } / Double(degreesOfFreedom))
+            .squareRoot()
+
+        // The seed obeys the same consecutive-hours rule the design rows do, and for the same
+        // reason: `cells` omits holes, so the last three entries can be an hour apart at one
+        // end and twelve at the other. Handed to the forward iteration as lag1/lag2/lag3, that
+        // says half a day of drift happened in two hours. Measured on a twelve-hour overnight
+        // gap it moved the first step by 1.3 hPa — above the 1.0 hPa this app calls meaningful
+        // — while the band grew 1.5%, because `coverage` is a statement about the whole window
+        // and cannot see a hole at the end of it.
+        guard let seed = seed(in: cells, order: order),
+              let lastHour = seed.last?.hour else { return nil }
+
+        return LocalPressureModel(
+            specification: specification,
+            coefficients: coefficients,
+            mean: mean,
+            residualStandardDeviationHPa: residualSD,
+            // Measured over the span the log reaches across, not over the nominal window.
+            // A one-day-old install has 29 days of window that could not have been recorded,
+            // and counting those as holes was inflating a perfectly complete cold-start log's
+            // band fivefold — ±22 hPa at six hours, which then set the chart's whole y-domain.
+            coverage: HourlyPressureGrid.coverage(
+                of: cells,
+                in: HourlyPressureGrid.observedSpan(of: cells, in: window)
+            ),
+            rowCount: design.count,
+            lastHour: lastHour,
+            recentValues: seed.map(\.hectopascals),
+            fittedAt: now
+        )
+    }
+
+    /// The latest run of `autoregressiveOrder` consecutive hourly cells, oldest first.
+    ///
+    /// Walks back from the end rather than taking the last three outright. After a gap the
+    /// newest cells are not neighbours, and the honest anchor is the last hour at which the
+    /// sensor really did record three in a row — everything after it is a hole, not a trend.
+    ///
+    /// A model anchored before a gap then says very little, because
+    /// `forecast(asOf:horizonSeconds:)` measures its range from the anchor: an anchor eleven
+    /// hours old produces no curve at all, which is the right amount for a model whose whole
+    /// range is six hours to say about a stretch it did not observe.
+    private static func seed(in cells: [HourlyPressureGrid.Cell],
+                             order: Int) -> [HourlyPressureGrid.Cell]? {
+        guard cells.count >= order else { return nil }
+
+        for end in stride(from: cells.count, through: order, by: -1) {
+            let run = Array(cells[(end - order)..<end])
+            guard let first = run.first?.hour, let last = run.last?.hour else { continue }
+
+            let span = last.timeIntervalSince(first)
+            if abs(span - Double(order - 1) * 3600) < 1 { return run }
+        }
+
+        return nil
+    }
+
+    /// The forward curve, hourly, from the first whole hour after `now`.
+    ///
+    /// Clipped to `ForecastSource.localModel.rangeSeconds` whatever is asked for, and clipped
+    /// **from `lastHour`** rather than from `now`. A caller that wants 24 hours gets 6, silently
+    /// and on purpose: the range is a property of what a single barometer can know, not a
+    /// parameter. A caller asking after a long gap gets less than 6, or nothing — the range is
+    /// six hours of extrapolation from the last observed hour, and a gap has already spent some
+    /// of it.
+    ///
+    /// Projections are fed back in as lags, which is what makes the band's growth the honest
+    /// shape — each step inherits the previous step's error as well as its own.
+    /// `includingAnchorHour` adds the hour **containing** `now` — the level every delta in
+    /// `ForecastPressureFeatures` is measured against. The chart does not want it, because that
+    /// hour is behind the `now` divider and the past half of the plot is measurements; the
+    /// feature pipeline cannot do without it, because "change over the next six hours" with no
+    /// starting value is a change over five.
+    ///
+    /// For a fresh fit the anchor is the last hour the model actually observed. For a fit whose
+    /// log has gone quiet it is the model's own projection for that hour, arrived at by the
+    /// same iteration as every other point — which is the honest answer in both cases: the
+    /// anchor is where the model thinks it is standing.
+    func forecast(asOf now: Date,
+                  horizonSeconds: TimeInterval,
+                  includingAnchorHour anchored: Bool = false) -> [ForecastPressurePoint] {
+        let horizon = min(horizonSeconds, ForecastSource.localModel.rangeSeconds)
+        guard horizon >= 3600 else { return [] }
+
+        // The window an anchor may come from: the hour containing `now`, matching
+        // `ForecastPressurePoint.curve`'s own `lowerBound` so both producers anchor alike.
+        let anchorWindow = now.addingTimeInterval(-3600)
+
+        var lags = recentValues.reversed().map { $0 - mean }
+        var hour = lastHour
+        var points: [ForecastPressurePoint] = []
+
+        if anchored, lastHour > anchorWindow, lastHour <= now, let level = recentValues.last {
+            points.append(ForecastPressurePoint(timestamp: lastHour,
+                                                pressure: Pressure(hectopascals: level),
+                                                uncertaintyHPa: uncertaintyHPa(atLeadSeconds: 0),
+                                                source: .localModel,
+                                                issuedAt: now))
+        }
+
+        while true {
+            hour = hour.addingTimeInterval(3600)
+
+            // Two clips, answering two different questions. `stepsAhead` is how far the
+            // iteration has walked from the last hour the model actually saw, and that is what
+            // its range is a statement about — six hours of *extrapolation*, not six hours of
+            // wall clock. `lead` is how far past `now` the point sits, which is what the chart
+            // asked for. A log whose last cell is five hours old therefore speaks one hour into
+            // the future rather than six.
+            let stepsAhead = hour.timeIntervalSince(lastHour)
+            guard stepsAhead <= ForecastSource.localModel.rangeSeconds else { break }
+
+            let lead = hour.timeIntervalSince(now)
+            if lead > horizon { break }
+
+            let projected = dot(coefficients,
+                                Self.row(lags: lags, hour: hour, specification: specification))
+            lags = [projected] + lags.dropLast()
+
+            // Hours already past — the log's last cell can be a couple of hours old — are
+            // stepped through to carry the lags forward, but never drawn: they are not a
+            // forecast, they are a gap the sensor left. The one exception is the anchor hour,
+            // and only when a caller asked for it.
+            guard lead > 0 || (anchored && hour > anchorWindow) else { continue }
+
+            points.append(ForecastPressurePoint(
+                timestamp: hour,
+                pressure: Pressure(hectopascals: projected + mean),
+                // From the anchor, for the reason the clip is: each step feeds its own output
+                // back in as a lag, so a point six steps out carries six steps of compounded
+                // error however recently the user opened the app.
+                uncertaintyHPa: uncertaintyHPa(atLeadSeconds: stepsAhead),
+                source: .localModel,
+                // A local forecast is knowable the moment it is computed, which is `now`. Any
+                // earlier stamp would let a feature at `t` read a curve the device had not
+                // fitted yet — the same leak the archive's `issuedAt` guards against.
+                issuedAt: now
+            ))
+        }
+
+        return points
+    }
+
+    /// Band half-width at a lead time, hPa.
+    ///
+    /// The source's nominal band, inflated by two things the fit actually measured: how badly
+    /// it fits its own history, and how much of that history was there. A log with a
+    /// twelve-hour hole in it produces a visibly wider band, which is the point — the model
+    /// knows less, and the chart says so.
+    func uncertaintyHPa(atLeadSeconds lead: TimeInterval) -> Double {
+        let nominal = ForecastSource.localModel.uncertaintyHPa(atLeadSeconds: lead)
+        let residualInflation = max(1, residualStandardDeviationHPa
+                                    / LocalPressureModel.referenceResidualHPa)
+        let coverageInflation = 1 / max(coverage, LocalPressureModel.minimumCoverageForBand)
+
+        return nominal * residualInflation * coverageInflation
+    }
+
+    /// Whether this fit is old enough to be worth renewing.
+    func isStale(asOf now: Date) -> Bool {
+        now.timeIntervalSince(fittedAt) >= LocalPressureModel.refitIntervalSeconds
+    }
+
+    // MARK: - The fit itself
+
+    /// One design row: intercept, lags, and the two diurnal harmonics.
+    ///
+    /// `lags` is newest-first. The harmonics are functions of the hour being projected, not of
+    /// the lags, which is what lets the model carry a time-of-day shape through a forward
+    /// iteration where the lags are its own output.
+    private static func row(lags: [Double],
+                            hour: Date,
+                            specification: Specification) -> [Double] {
+        guard specification.includesHarmonics else { return [1] + lags }
+
+        // Hour of day as a fraction, from the epoch. UTC rather than the user's calendar: S1
+        // and S2 are solar tides and their phase is a property of the sun's position, and a
+        // model refitted after a time-zone change must not have its harmonics jump by an hour.
+        let secondsIntoDay = hour.timeIntervalSince1970.truncatingRemainder(dividingBy: 86_400)
+        let angle = 2 * Double.pi * secondsIntoDay / 86_400
+
+        return [1] + lags + [sin(angle), cos(angle), sin(2 * angle), cos(2 * angle)]
+    }
+
+    private static func dot(_ lhs: [Double], _ rhs: [Double]) -> Double {
+        zip(lhs, rhs).reduce(0) { $0 + $1.0 * $1.1 }
+    }
+
+    private func dot(_ lhs: [Double], _ rhs: [Double]) -> Double {
+        LocalPressureModel.dot(lhs, rhs)
+    }
+
+    /// `(XᵀX + λI) β = Xᵀy`, solved by Gaussian elimination with partial pivoting.
+    ///
+    /// At most eight by eight — `Specification.parameterCount` wide. Building `XᵀX` costs
+    /// `rows × p²` multiply-adds, about 46 000 over a 30-day window at the richest size, and
+    /// the solve is a fixed ~340. Every smaller specification on the ladder is cheaper again.
+    /// There is no library call here worth the dependency, and Accelerate would not measurably
+    /// beat it at this size.
+    private static func solveNormalEquations(design: [[Double]], targets: [Double]) -> [Double]? {
+        guard let width = design.first?.count, width > 0 else { return nil }
+
+        var normal = [[Double]](repeating: [Double](repeating: 0, count: width), count: width)
+        var moment = [Double](repeating: 0, count: width)
+
+        for (row, target) in zip(design, targets) {
+            for i in 0..<width {
+                moment[i] += row[i] * target
+                for j in i..<width {
+                    normal[i][j] += row[i] * row[j]
+                }
+            }
+        }
+        // Symmetric, so only the upper triangle was accumulated.
+        for i in 0..<width where i > 0 {
+            for j in 0..<i {
+                normal[i][j] = normal[j][i]
+            }
+        }
+
+        let meanDiagonal = (0..<width).reduce(0) { $0 + normal[$1][$1] } / Double(width)
+        for i in 0..<width {
+            normal[i][i] += ridge * max(meanDiagonal, 1)
+        }
+
+        return gaussianSolve(matrix: &normal, vector: &moment, width: width)
+    }
+
+    private static func gaussianSolve(matrix: inout [[Double]],
+                                      vector: inout [Double],
+                                      width: Int) -> [Double]? {
+        for column in 0..<width {
+            // Partial pivoting. Without it a near-zero leading coefficient — an entirely
+            // plausible outcome on a flat log — turns the elimination into noise.
+            guard let pivot = (column..<width).max(by: { abs(matrix[$0][column]) < abs(matrix[$1][column]) }),
+                  abs(matrix[pivot][column]) > 1e-12
+            else {
+                return nil
+            }
+
+            if pivot != column {
+                matrix.swapAt(pivot, column)
+                vector.swapAt(pivot, column)
+            }
+
+            for row in (column + 1)..<width {
+                let factor = matrix[row][column] / matrix[column][column]
+                guard factor != 0 else { continue }
+                for inner in column..<width {
+                    matrix[row][inner] -= factor * matrix[column][inner]
+                }
+                vector[row] -= factor * vector[column]
+            }
+        }
+
+        var solution = [Double](repeating: 0, count: width)
+        for row in stride(from: width - 1, through: 0, by: -1) {
+            var accumulated = vector[row]
+            for column in (row + 1)..<width {
+                accumulated -= matrix[row][column] * solution[column]
+            }
+            solution[row] = accumulated / matrix[row][row]
+            guard solution[row].isFinite else { return nil }
+        }
+
+        return solution
+    }
+}

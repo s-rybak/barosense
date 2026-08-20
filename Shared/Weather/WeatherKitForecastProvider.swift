@@ -1,0 +1,99 @@
+import CoreLocation
+import Foundation
+import WeatherKit
+
+/// `WeatherForecastProviding` on Apple's WeatherKit.
+///
+/// The **only** outbound network path in this app, and it carries a coordinate and a time.
+/// Never a check-in, never a Health value, never anything derived from one — `CLAUDE.md`
+/// constraint 2. The payload is decided entirely by the two arguments below, which is what
+/// makes that claim reviewable rather than a promise.
+///
+/// ## One request, two datasets
+///
+/// `.current` and `.hourly` are asked for together. One `weather(for:including:)` call is one
+/// unit of quota however many datasets it names, so the current conditions — the value the
+/// offset calibrator most needs, because it can be compared with a barometer reading taken at
+/// the same instant — are free.
+///
+/// ## Not testable on this machine, by Apple's design
+///
+/// WeatherKit does not serve the Simulator, and it needs an explicit App ID with WeatherKit
+/// enabled under both App Services and App Capabilities. `DEVELOPMENT_TEAM` in `project.yml`
+/// is empty, which is a human's decision to make. Everything above this file is exercised
+/// against a double instead; this type stays as close to a straight translation as it can be
+/// so that there is as little as possible in it that a test would have wanted to check.
+struct WeatherKitForecastProvider: WeatherForecastProviding {
+
+    func forecast(for coordinate: GeoCoordinate,
+                  asOf now: Date) async throws -> WeatherForecastIssue {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+
+        do {
+            let (current, hourly) = try await WeatherService.shared.weather(
+                for: location, including: .current, .hourly
+            )
+
+            // `now` — the instant the app asked — rather than the response's own metadata
+            // date. The model run behind a response happened earlier, and stamping rows with
+            // it would let a feature computed between the run and this call read a curve the
+            // device did not yet have. See `WeatherForecastPoint.issuedAt`.
+            var points = [point(issuedAt: now,
+                                validAt: current.date,
+                                pressure: current.pressure,
+                                temperature: current.temperature)]
+
+            points += hourly.forecast.map {
+                point(issuedAt: now,
+                      validAt: $0.date,
+                      pressure: $0.pressure,
+                      temperature: $0.temperature)
+            }
+
+            return WeatherForecastIssue(issuedAt: now, points: points)
+        } catch {
+            throw WeatherForecastError.serviceRefused(underlying: error)
+        }
+    }
+
+    func history(for coordinate: GeoCoordinate,
+                 in range: Range<Date>) async throws -> [WeatherObservation] {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+
+        do {
+            let hourly = try await WeatherService.shared.weather(
+                for: location,
+                including: .hourly(startDate: range.lowerBound, endDate: range.upperBound)
+            )
+
+            return hourly.forecast.map {
+                WeatherObservation(validAt: $0.date,
+                                   meanSeaLevelPressureHPa: hectopascals($0.pressure),
+                                   temperatureC: celsius($0.temperature))
+            }
+        } catch {
+            throw WeatherForecastError.serviceRefused(underlying: error)
+        }
+    }
+
+    private func point(issuedAt: Date,
+                       validAt: Date,
+                       pressure: Measurement<UnitPressure>,
+                       temperature: Measurement<UnitTemperature>) -> WeatherForecastPoint {
+        WeatherForecastPoint(issuedAt: issuedAt,
+                             validAt: validAt,
+                             meanSeaLevelPressureHPa: hectopascals(pressure),
+                             temperatureC: celsius(temperature))
+    }
+
+    /// The conversions the whole feature rests on, in `WeatherMeasurement` so that a test can
+    /// reach them. This client cannot itself be exercised here — WeatherKit does not serve the
+    /// Simulator — so the two lines most worth checking are the ones that live elsewhere.
+    private func hectopascals(_ measurement: Measurement<UnitPressure>) -> Double {
+        WeatherMeasurement.hectopascals(measurement)
+    }
+
+    private func celsius(_ measurement: Measurement<UnitTemperature>) -> Double {
+        WeatherMeasurement.celsius(measurement)
+    }
+}

@@ -22,19 +22,38 @@ final class PersistedPressureSample {
     var timestamp: Date
     var hectopascals: Double
 
+    /// Which `PressureLocationEpoch` this reading was taken in.
+    ///
+    /// **Optional in storage, and stays optional.** Every row written before the epoch table
+    /// existed reads back `nil`, which is what makes this a lightweight SwiftData migration
+    /// rather than a history the user loses. `nil` is also the ordinary state of a reading
+    /// taken before the first location fix of an install, or with location refused
+    /// altogether — the barometer works either way, and a sample is never dropped for
+    /// wanting a place.
+    ///
+    /// Not a SwiftData relationship. A relationship would put the epoch's cascade rules and
+    /// its fetch cost on the hot write path of a table that gains a row every fifteen
+    /// minutes, to express a join the calibrator makes once per pass.
+    var locationEpochID: UUID?
+
     init(from sample: PressureSample) {
         self.id = sample.id
         self.timestamp = sample.timestamp
         self.hectopascals = sample.pressure.hectopascals
+        self.locationEpochID = sample.locationEpochID
     }
 
     func apply(_ sample: PressureSample) {
         timestamp = sample.timestamp
         hectopascals = sample.pressure.hectopascals
+        locationEpochID = sample.locationEpochID
     }
 
     func asPressureSample() -> PressureSample {
-        PressureSample(id: id, timestamp: timestamp, pressure: Pressure(hectopascals: hectopascals))
+        PressureSample(id: id,
+                       timestamp: timestamp,
+                       pressure: Pressure(hectopascals: hectopascals),
+                       locationEpochID: locationEpochID)
     }
 }
 
@@ -82,8 +101,18 @@ actor SwiftDataPressureSampleStore: PressureSampleStore {
         SwiftDataPressureSampleStore(modelContainer: try makeContainer(inMemory: true))
     }
 
-    private static func makeContainer(inMemory: Bool) throws -> ModelContainer {
-        let schema = Schema([PersistedPressureSample.self])
+    /// The barometer container, shared with `SwiftDataPressureLocationEpochStore`.
+    ///
+    /// Internal rather than private because the epoch table lives in this same file and this
+    /// same schema — a sample references an epoch, so two containers opened separately could
+    /// disagree about which epochs exist, the way check-ins and the tag vocabulary would. The
+    /// composition root opens it once and hands it to both actors.
+    static func makeContainer(inMemory: Bool) throws -> ModelContainer {
+        // Adding `PersistedPressureLocationEpoch` to an existing store file is a lightweight
+        // SwiftData migration — a new entity and a new optional attribute — so an install
+        // upgrading into this version keeps its barometer history and reads every old row
+        // back with `locationEpochID == nil`.
+        let schema = Schema([PersistedPressureSample.self, PersistedPressureLocationEpoch.self])
         do {
             let configuration = if inMemory {
                 ModelConfiguration("PressureSamples.InMemory",

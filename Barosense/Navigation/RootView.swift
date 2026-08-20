@@ -5,6 +5,15 @@ struct RootView: View {
 
     let ingest: HealthIngestController
     let pressure: PressureCollectionController
+
+    /// Refreshes the forecast archive on activation. Every gate — both switches, the location
+    /// permission, the slot budget — is inside it, so calling this on every activation is
+    /// cheap and usually silent.
+    let weather: WeatherForecastController
+
+    /// The forward half of the pressure chart. Built at the composition root and shared with
+    /// `weather`, so the picture and the feature row read one curve and one cached offset.
+    let forecast: PressureForecastReader
     let checkInStore: any CheckInStore
     let tagStore: any WellbeingTagStore
 
@@ -27,6 +36,13 @@ struct RootView: View {
     /// Raised once per install, before anything asks iOS for permission to notify. See
     /// `CheckInReminderPrimer`.
     @State private var isShowingReminderPrimer = false
+
+    /// Raised once per install, before anything reaches WeatherKit. See `WeatherKitPrimer`.
+    ///
+    /// Sequenced after the reminder primer rather than shown alongside it: two explanatory
+    /// sheets competing for the same first launch would put one behind the other, and the one
+    /// behind would be answered without being read.
+    @State private var isShowingWeatherPrimer = false
 
     /// Bumped when a check-in is written, and handed to the chart as a reload trigger.
     ///
@@ -91,6 +107,10 @@ struct RootView: View {
                 // Cheap to call on every activation: the recorder's fifteen-minute floor
                 // decides whether the sensor runs at all.
                 pressure.sceneDidBecomeActive()
+                // Nothing new is woken for this — it rides the activation the user initiated
+                // and the barometer's existing background task. A pass with no slot due makes
+                // no network call at all.
+                weather.sceneDidBecomeActive()
                 // Nothing wakes the app for this — the system holds the scheduled
                 // notifications and fires them on its own. Activation is simply where the
                 // next week's worth is brought back in step, and on a day when nothing has
@@ -112,10 +132,21 @@ struct RootView: View {
             CheckInReminderPrimer(onAccept: acceptReminderPrimer,
                                   onDecline: declineReminderPrimer)
         }
+        .sheet(isPresented: $isShowingWeatherPrimer) {
+            WeatherKitPrimer(onAccept: { setWeatherKitEnabled(true) },
+                             onDecline: { setWeatherKitEnabled(false) })
+        }
         .task {
-            guard let reminders, await reminders.shouldOfferPrimer() else { return }
+            if let reminders, await reminders.shouldOfferPrimer() {
+                isShowingReminderPrimer = true
+                return
+            }
 
-            isShowingReminderPrimer = true
+            // Only once the notification question is settled. The two are independent, and the
+            // one the user is not looking at can wait for the next launch.
+            if settings?.weatherPreferences.hasOfferedWeatherKit() == false {
+                isShowingWeatherPrimer = true
+            }
         }
         // A tapped notification, which may have arrived before this view existed — see
         // `NotificationRouter`. Read on appearance as well as on change, because a tap that
@@ -132,6 +163,22 @@ struct RootView: View {
         // Follow the system appearance; introduce a dark palette when the design system defines one.
     }
 
+    /// Records the answer to the WeatherKit explanation, whichever way it went.
+    ///
+    /// Both answers set "has been offered", which is what stops the screen reappearing and —
+    /// more importantly — what unblocks `WeatherForecastRefresher`: it refuses to ask WeatherKit
+    /// anything until the trade has been put in front of the user once.
+    private func setWeatherKitEnabled(_ isEnabled: Bool) {
+        isShowingWeatherPrimer = false
+
+        guard let preferences = settings?.weatherPreferences else { return }
+        preferences.setHasOfferedWeatherKit(true)
+        preferences.setWeatherKitEnabled(isEnabled)
+
+        // A yes should show up as a curve on the chart on this launch, not the next one.
+        if isEnabled { Task { await weather.refresh() } }
+    }
+
     /// The remaining destinations are still placeholders. As a real screen lands, add its
     /// case here and route to it.
     @ViewBuilder
@@ -144,6 +191,7 @@ struct RootView: View {
             NowScreen(recorder: ingest.recorder,
                       pressure: pressure,
                       checkIns: checkInStore,
+                      forecast: forecast,
                       checkInRevision: checkInRevision)
         case .history:
             // The calendar is handed over rather than read from the environment: this
@@ -228,6 +276,12 @@ struct RootView: View {
     }
 }
 
+/// One reader for the preview, shared by the two arguments that take it — the same single
+/// instance the app builds, so the canvas exercises the shipped shape rather than a variant.
+private let previewForecast = PressureForecastReader(archive: InMemoryWeatherForecastStore(),
+                                                    samples: InMemoryPressureSampleStore(),
+                                                    epochs: InMemoryPressureLocationEpochStore())
+
 #Preview {
     RootView(ingest: HealthIngestController(
         recorder: HealthSampleRecorder(reader: HealthKitDataReader(),
@@ -237,6 +291,20 @@ struct RootView: View {
                 recorder: PressureSampleRecorder(source: UnavailablePressureSource(),
                                                  log: InMemoryPressureSampleStore()),
                 display: NoOpPressureDisplayLink()),
+             // No network in a preview: the provider throws and the reporter says the device
+             // has no location, so a canvas refresh cannot reach WeatherKit or CoreLocation.
+             weather: WeatherForecastController(
+                refresher: WeatherForecastRefresher(
+                    provider: UnavailableWeatherForecastProvider(),
+                    store: InMemoryWeatherForecastStore(),
+                    epochs: InMemoryPressureLocationEpochStore(),
+                    access: UnavailableLocationAccessReporter(),
+                    preferences: InMemoryWeatherKitPreferenceStore()),
+                forecast: previewForecast,
+                healthLog: InMemoryHealthSampleStore()),
+             // Empty archive, so the preview draws the observed half alone — which is also the
+             // state of every device without a location grant.
+             forecast: previewForecast,
              checkInStore: InMemoryCheckInStore(),
              tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
              // No notification centre in a preview: `NoOpNotificationDeliverer` reports itself

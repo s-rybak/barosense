@@ -87,6 +87,40 @@ final class PressureSampleRecorderTests: XCTestCase {
         XCTAssertEqual(readCount, 2)
     }
 
+    /// The floor, asked rather than discovered. The caller resolves the location epoch before
+    /// recording, and resolving it in the foreground powers the radio — so an activation the
+    /// floor is about to refuse must be knowable *before* paying for it. Twenty activations in
+    /// an hour used to mean twenty fixes and one row.
+    func testTheRateLimitCanBeAskedBeforeItIsSpent() async throws {
+        let recorder = PressureSampleRecorder(source: StubPressureSource(hectopascals: 1013),
+                                              log: InMemoryPressureSampleStore(),
+                                              minimumInterval: 600)
+
+        let beforeAnything = await recorder.admitsReading(asOf: now)
+        _ = try await recorder.record(asOf: now)
+        let insideTheFloor = await recorder.admitsReading(asOf: now.addingTimeInterval(300))
+        let pastTheFloor = await recorder.admitsReading(asOf: now.addingTimeInterval(601))
+
+        XCTAssertTrue(beforeAnything, "a fresh process has nothing to wait for")
+        XCTAssertFalse(insideTheFloor)
+        XCTAssertTrue(pastTheFloor)
+    }
+
+    /// Advisory, not the gate. A caller that never asks must still be rate-limited.
+    func testTheRateLimitStillHoldsForACallerThatNeverAsks() async throws {
+        let source = StubPressureSource(hectopascals: 1013)
+        let recorder = PressureSampleRecorder(source: source,
+                                              log: InMemoryPressureSampleStore(),
+                                              minimumInterval: 600)
+
+        _ = try await recorder.record(asOf: now)
+        let skipped = try await recorder.record(asOf: now.addingTimeInterval(300))
+
+        XCTAssertNil(skipped)
+        let readCount = await source.readCount
+        XCTAssertEqual(readCount, 1)
+    }
+
     /// A rejected reading must not consume the rate-limit slot — otherwise one bad sample
     /// blanks out the next ten minutes of history as well.
     func testARejectedReadingDoesNotStartTheRateLimit() async throws {

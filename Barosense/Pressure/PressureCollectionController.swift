@@ -65,6 +65,12 @@ final class PressureCollectionController {
     private let recorder: PressureSampleRecorder
     private let display: any PressureDisplayLink
 
+    /// Stamps each reading with the place it was taken in. `nil` on a build with no location
+    /// wiring at all — the watch does not sample and previews do not record — and a `nil`
+    /// here simply leaves `PressureSample.locationEpochID` unset, which every consumer already
+    /// reads as ordinary.
+    private let locationEpochs: LocationEpochRecorder?
+
     private var didStart = false
     private var sampleTask: Task<Void, Never>?
 
@@ -73,9 +79,12 @@ final class PressureCollectionController {
     /// launches.
     private var lastPublished: PressureDisplaySnapshot?
 
-    init(recorder: PressureSampleRecorder, display: any PressureDisplayLink) {
+    init(recorder: PressureSampleRecorder,
+         display: any PressureDisplayLink,
+         locationEpochs: LocationEpochRecorder? = nil) {
         self.recorder = recorder
         self.display = display
+        self.locationEpochs = locationEpochs
         self.isBarometerAvailable = recorder.isAvailable
     }
 
@@ -108,7 +117,12 @@ final class PressureCollectionController {
     /// repair, and it is indistinguishable here from a device without a barometer — both
     /// are handled by the coverage features rather than by a screen.
     func requestAccess() async {
-        await sampleAndPublish()
+        // `requestingLocationFix: true` like every other foreground path. It cannot stack a
+        // second system sheet on the Motion & Fitness one: the epoch recorder *reads*
+        // location authorisation and returns the stored epoch when it is not granted, so
+        // onboarding asks for the radio only once the user has been offered it on its own
+        // step.
+        await sampleAndPublish(requestingLocationFix: true)
     }
 
     /// Arms the background-refresh chain. Call from the root view, not from `App.init`.
@@ -145,7 +159,11 @@ final class PressureCollectionController {
     /// a detached task would be killed mid-write. Reschedules before returning — a chain
     /// that forgets to re-arm itself stops after one wake.
     func handleBackgroundRefresh() async {
-        await sampleAndPublish()
+        // `requestingLocationFix: false` is not caution, it is the documented rule: a
+        // when-in-use app's attempt to start location updates in the background fails, and
+        // `BGAppRefreshTask` is not one of the states iOS counts as "in use". The reading is
+        // stamped with whatever the last foreground session resolved.
+        await sampleAndPublish(requestingLocationFix: false)
         scheduleNextRefresh()
     }
 
@@ -160,7 +178,7 @@ final class PressureCollectionController {
         // One attempt in flight at a time. Two overlapping calls would serialise inside the
         // recorder anyway; cancelling is how the older one stops holding the sensor open.
         sampleTask?.cancel()
-        sampleTask = Task { await sampleAndPublish() }
+        sampleTask = Task { await sampleAndPublish(requestingLocationFix: true) }
     }
 
     /// Reads the barometer, writes what it read, and offers it to the watch.
@@ -171,12 +189,22 @@ final class PressureCollectionController {
     /// nothing the card could usefully say about any of them beyond what its empty state
     /// already says. They do reach the log, because from the chart's side every way this
     /// pipeline can fail looks identical.
-    private func sampleAndPublish(asOf now: Date = .now) async {
+    private func sampleAndPublish(asOf now: Date = .now,
+                                  requestingLocationFix: Bool) async {
         defer { hasAttemptedSample = true }
+
+        // Asked before the epoch is resolved, because resolving it in the foreground powers the
+        // radio. The floor lives inside `record(asOf:)`, so an activation it is about to refuse
+        // would otherwise still have paid for a fix — twenty activations in an hour, twenty
+        // fixes, one row. Nothing is skipped that a written row would have used: a declined
+        // reading has nowhere to put an epoch id.
+        let epochID = await recorder.admitsReading(asOf: now)
+            ? await locationEpochID(asOf: now, requestingFix: requestingLocationFix)
+            : nil
 
         let recorded: PressureSample?
         do {
-            recorded = try await recorder.record(asOf: now)
+            recorded = try await recorder.record(asOf: now, locationEpochID: epochID)
         } catch {
             BarosenseLog.pressure.error(
                 "barometer read failed: \(String(describing: error), privacy: .public)"
@@ -192,6 +220,22 @@ final class PressureCollectionController {
         lastUpdateAt = now
 
         await publish(recorded, asOf: now)
+    }
+
+    /// Which epoch this reading belongs to.
+    ///
+    /// On a foreground activation that the sampling floor admits, this may take one fix — the
+    /// only place in the app that ever does — and, on a move past 25 km, spend one geocode. On
+    /// a background wake it reads the stored row and powers nothing. Either way a failure
+    /// yields `nil` and the reading is still taken: the barometer is the feature, and the place
+    /// is context for it.
+    private func locationEpochID(asOf now: Date, requestingFix: Bool) async -> UUID? {
+        guard let locationEpochs else { return nil }
+
+        if requestingFix {
+            return await locationEpochs.currentEpoch(asOf: now)?.id
+        }
+        return await locationEpochs.storedEpoch()?.id
     }
 
     /// Offers the reading and its tendency to the watch.

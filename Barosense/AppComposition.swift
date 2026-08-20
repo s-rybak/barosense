@@ -42,16 +42,26 @@ final class AppServices {
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
 
-    /// Not private, unlike the two logs beside it: the onboarding flow raises the Health
-    /// sheet through this same reporter (`DeviceSensorAccess`), and a second one built
-    /// there would be a second `HKHealthStore` asking about the same read set.
+    /// The epoch table, on the same container as the barometer log. Held for the reason the
+    /// two logs are: an erase has to reach it.
+    private let locationEpochs: any PressureLocationEpochStore
+
+    /// The forecast archive. Held for the reason the sensor logs are: an erase has to reach it.
+    private let weatherArchive: any WeatherForecastStore
+
+    /// The same Health reporter Settings later reads. Exposed so onboarding can raise that
+    /// sheet through this instance rather than a second one that would disagree about state.
     let healthAccess: any HealthAccessReporting
 
     init(healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+         locationEpochs: any PressureLocationEpochStore,
+         weatherArchive: any WeatherForecastStore,
          healthAccess: any HealthAccessReporting = HealthKitAccessReporter()) {
         self.healthLog = healthLog
         self.pressureLog = pressureLog
+        self.locationEpochs = locationEpochs
+        self.weatherArchive = weatherArchive
         self.healthAccess = healthAccess
     }
 
@@ -102,10 +112,13 @@ final class AppServices {
                                                  checkInStore: checkInStore,
                                                  healthLog: healthLog,
                                                  pressureLog: pressureLog,
+                                                 locationEpochs: locationEpochs,
+                                                 weatherArchive: weatherArchive,
                                                  notificationLog: notificationLog,
                                                  notifications: notifications,
                                                  reminderPreferences: reminderPreferences,
-                                                 healthAccess: healthAccess)
+                                                 healthAccess: healthAccess,
+                                                 locationAccess: CoreLocationAccessReporter())
             phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
             phase = .unavailable
@@ -135,6 +148,14 @@ struct AppRootView: View {
     let ingest: HealthIngestController
     let pressure: PressureCollectionController
 
+    /// Refreshes the WeatherKit archive on activation. Built at the composition root because
+    /// it shares the barometer's background task and must exist before the first one fires.
+    let weather: WeatherForecastController
+
+    /// The forward half of the chart. Built at the composition root and passed through rather
+    /// than rebuilt here, so the chart and `weather`'s feature row share one cached offset.
+    let forecast: PressureForecastReader
+
     /// Threaded through rather than built here: it has to outlive this view and exist before it,
     /// because a tap can be delivered while the window is still being built.
     let router: NotificationRouter
@@ -144,14 +165,22 @@ struct AppRootView: View {
 
     init(ingest: HealthIngestController,
          pressure: PressureCollectionController,
+         weather: WeatherForecastController,
+         forecast: PressureForecastReader,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+         locationEpochs: any PressureLocationEpochStore,
+         weatherArchive: any WeatherForecastStore,
          router: NotificationRouter) {
         self.ingest = ingest
         self.pressure = pressure
+        self.weather = weather
+        self.forecast = forecast
         self.router = router
         _services = State(initialValue: AppServices(healthLog: healthLog,
-                                                    pressureLog: pressureLog))
+                                                    pressureLog: pressureLog,
+                                                    locationEpochs: locationEpochs,
+                                                    weatherArchive: weatherArchive))
     }
 
     var body: some View {
@@ -187,6 +216,8 @@ struct AppRootView: View {
                 if let checkInStore = services.checkInStore, let tagStore = services.tagStore {
                     RootView(ingest: ingest,
                              pressure: pressure,
+                             weather: weather,
+                             forecast: forecast,
                              checkInStore: checkInStore,
                              tagStore: tagStore,
                              reminders: services.reminders,

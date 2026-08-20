@@ -39,13 +39,20 @@ struct PressureChartCard: View {
         static let plotHeight: CGFloat = 110
     }
 
+    /// `attribution` defaults to the real provider rather than being threaded down from the
+    /// app: it is asked for only when a WeatherKit curve is already on screen, so a build
+    /// without the entitlement, a preview and the watch all reach it zero times.
     init(collection: PressureCollectionController,
          checkIns: any CheckInStore,
+         forecast: PressureForecastReader? = nil,
+         attribution: any WeatherAttributionProviding = WeatherKitAttributionProvider(),
          checkInRevision: Int = 0) {
         self.checkInRevision = checkInRevision
         self.collection = collection
         _model = State(initialValue: PressureChartModel(collection: collection,
-                                                        checkIns: checkIns))
+                                                        checkIns: checkIns,
+                                                        forecast: forecast,
+                                                        attribution: attribution))
     }
 
     var body: some View {
@@ -57,6 +64,22 @@ struct PressureChartCard: View {
             plot
 
             valueRow
+
+            // Where the forward half of the line is a forecast *for*. Only drawn once there is
+            // a forecast: a place name under a chart with no forward half would be answering a
+            // question nobody had.
+            if let place = model.placeDescription, !model.series.forecast.isEmpty {
+                Text(verbatim: place)
+                    .font(Typography.cardNote)
+                    .foregroundStyle(Palette.inkSubtle)
+                    .lineLimit(1)
+            }
+
+            // Required wherever WeatherKit data is drawn, and drawn only then — the local
+            // model's curve is the user's own barometer and owes Apple nothing.
+            if let attribution = model.attribution {
+                AppleWeatherAttribution(attribution: attribution)
+            }
 
             // Only once there is a dot to explain. A legend for something not on screen is
             // noise, and this card already carries four rows.
@@ -155,6 +178,10 @@ final class PressureChartModel {
     private let collection: PressureCollectionController
     private let checkInStore: any CheckInStore
 
+    /// The forward half. `nil` on a build with no forecast wiring — the watch, a preview —
+    /// and the card then draws exactly what it drew before this feature existed.
+    private let forecastReader: PressureForecastReader?
+
     /// The deepest history any range scrolls over, kept so a range change is a re-slice. At
     /// one row per 15 min twelve days is ~1 150 samples of 40-odd bytes — under 50 kB, and
     /// cheaper to hold than to re-query on every button.
@@ -164,9 +191,27 @@ final class PressureChartModel {
     /// the cadence the cold-start arithmetic assumes, so tens over twelve days.
     private var checkIns: [CheckIn] = []
 
-    init(collection: PressureCollectionController, checkIns: any CheckInStore) {
+    /// The forward curve, held for the same reason the samples are: switching range re-slices
+    /// it rather than re-reading the archive and re-measuring the offset.
+    private var forecast: [ForecastPressurePoint] = []
+
+    /// The place the forecast is about, printed under the value row.
+    private(set) var placeDescription: String?
+
+    /// The Apple Weather mark and legal link. Non-`nil` only while a WeatherKit curve is on
+    /// screen — see `loadAttribution(for:)`.
+    private(set) var attribution: WeatherDataAttribution?
+
+    private let attributionProvider: any WeatherAttributionProviding
+
+    init(collection: PressureCollectionController,
+         checkIns: any CheckInStore,
+         forecast: PressureForecastReader? = nil,
+         attribution: any WeatherAttributionProviding = UnattributedWeatherProvider()) {
         self.collection = collection
         self.checkInStore = checkIns
+        self.forecastReader = forecast
+        self.attributionProvider = attribution
     }
 
     /// Why the plot has nothing to draw. Three states that need three different sentences,
@@ -181,7 +226,36 @@ final class PressureChartModel {
         let now = Date.now
         samples = await collection.samples(trailing: PressureChartRange.widest.historySeconds)
         checkIns = await loadCheckIns(asOf: now)
+        forecast = await loadForecast(asOf: now)
+        placeDescription = await forecastReader?.placeName(asOf: now)?.description
+        attribution = await loadAttribution(for: forecast)
         rebuild(asOf: now)
+    }
+
+    /// The attribution to draw, or `nil` when there is no WeatherKit data on screen to attribute.
+    ///
+    /// Gated on the **source of the curve that is actually drawn**, not on the preference: the
+    /// switch can be on while the chart falls through to the local model — no offset yet, a
+    /// stale archive, a move to a new place — and a mark under a curve Apple did not produce
+    /// would be a false credit rather than a compliant one.
+    private func loadAttribution(for curve: [ForecastPressurePoint]) async -> WeatherDataAttribution? {
+        guard curve.contains(where: { $0.source == .weatherKit }) else { return nil }
+
+        return await attributionProvider.attribution()
+    }
+
+    /// The widest forward window any range draws, so a range change is a re-slice.
+    ///
+    /// An empty result is ordinary rather than a failure: no location grant, WeatherKit off
+    /// before the local model has fitted, an offset that cannot yet be measured. The chart
+    /// renders the observed half alone and says nothing about the future.
+    private func loadForecast(asOf now: Date) async -> [ForecastPressurePoint] {
+        guard let forecastReader else { return [] }
+
+        return await forecastReader.forecast(
+            asOf: now,
+            horizonSeconds: PressureChartRange.widest.forecastSeconds
+        )
     }
 
     /// The check-ins the widest range can reach. Half-open at `now`, which is the instant
@@ -208,7 +282,11 @@ final class PressureChartModel {
     /// in memory, so nothing has been observed since, and moving the divider forward there
     /// would walk the rule and the x-domain on every button tap over unchanged data.
     private func rebuild(asOf now: Date) {
-        series = PressureSeries.make(from: samples, checkIns: checkIns, range: range, asOf: now)
+        series = PressureSeries.make(from: samples,
+                                     forecast: forecast,
+                                     checkIns: checkIns,
+                                     range: range,
+                                     asOf: now)
     }
 
     /// The figure the card prints. One decimal, which is the resolution the barometer
@@ -256,15 +334,6 @@ private struct PressureChartPlot: View {
     /// launched in. See `LanguageController.locale`.
     @Environment(\.locale) private var locale
 
-    /// Above this many points *per screenful* the dots become a smear and the line reads
-    /// better alone. The design draws roughly seven of them, which is a six-hour window at
-    /// the target cadence.
-    ///
-    /// Compared against `PressureChartRange.pointsPerScreen` rather than `observed.count`:
-    /// the latter now counts twelve screenfuls, so every range but the narrowest would lose
-    /// its dots to history the user is not even looking at.
-    private static let maximumVisiblePoints = 12
-
     private static let lineWidth: CGFloat = 3
 
     var body: some View {
@@ -278,14 +347,14 @@ private struct PressureChartPlot: View {
                 .foregroundStyle(Palette.chartLine)
             }
 
-            if series.range.pointsPerScreen <= Self.maximumVisiblePoints {
-                ForEach(series.observed) { sample in
-                    PointMark(x: .value("Time", sample.timestamp),
-                              y: .value("Pressure", sample.pressure.hectopascals))
-                    .symbolSize(40)
-                    .foregroundStyle(Palette.chartLine)
-                }
-            }
+            // The readings are drawn as a line and nothing else, on every range. Marking each
+            // sampled instant told the user when iOS happened to grant a wake, which is a fact
+            // about the scheduler rather than about the weather, and it read as data: a dotted
+            // stretch and a bare one differ in sampling luck, not in pressure. The day range
+            // never drew them and is the one that looked right.
+            //
+            // The only dots left on this plot are the check-ins below, which is now what a dot
+            // means here.
 
             if !series.forecast.isEmpty {
                 RuleMark(x: .value("Now", series.now))
@@ -297,9 +366,48 @@ private struct PressureChartPlot: View {
                             .foregroundStyle(Palette.inkSubtle)
                     }
 
-                ForEach(series.forecast) { sample in
-                    LineMark(x: .value("Time", sample.timestamp),
-                             y: .value("Pressure", sample.pressure.hectopascals),
+                // Declared before the line so the shading sits under it rather than over it.
+                //
+                // The band is the honest part of the forward half: it is how much the producer
+                // knows, and it is what makes a three-hour local curve and a three-day
+                // WeatherKit curve read as different claims instead of the same one drawn
+                // twice. See `ForecastSource.uncertaintyHPa(atLeadSeconds:)`.
+                //
+                // It opens from the last measurement — zero width there, because that value
+                // was observed — so the shading grows out of the line instead of appearing
+                // full-width at the first hour mark. See `PressureSeries.forecastJoin`.
+                if let join = series.forecastJoin {
+                    AreaMark(x: .value("Time", join.timestamp),
+                             yStart: .value("Lowest", join.pressure.hectopascals),
+                             yEnd: .value("Highest", join.pressure.hectopascals))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(Palette.chartLine.opacity(0.14))
+                }
+
+                ForEach(series.forecast) { point in
+                    AreaMark(x: .value("Time", point.timestamp),
+                             yStart: .value("Lowest", point.lowerHPa),
+                             yEnd: .value("Highest", point.upperHPa))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(Palette.chartLine.opacity(0.14))
+                }
+
+                // The dashed line starts at the newest reading, in the same `series` value as
+                // the forward points so Swift Charts joins them into one stroke. Without it
+                // the segment that crosses the `now` divider has no left end — and at the
+                // narrow ranges that segment is the only part of the forecast on screen.
+                if let join = series.forecastJoin {
+                    LineMark(x: .value("Time", join.timestamp),
+                             y: .value("Pressure", join.pressure.hectopascals),
+                             series: .value("Series", "forecast"))
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))
+                    .foregroundStyle(Palette.chartLine.opacity(0.65))
+                }
+
+                ForEach(series.forecast) { point in
+                    LineMark(x: .value("Time", point.timestamp),
+                             y: .value("Pressure", point.pressure.hectopascals),
                              series: .value("Series", "forecast"))
                     .interpolationMethod(.catmullRom)
                     .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))
@@ -309,9 +417,9 @@ private struct PressureChartPlot: View {
 
             // Declared last, so the dots land on top of every line rather than under one.
             //
-            // Unlike the reading dots above, these are never thinned out by range: a
+            // Never thinned out by range, unlike the reading dots this plot used to draw: a
             // check-in is the user's own entry and a few a day is the whole density, so the
-            // smear the `maximumVisiblePoints` gate guards against cannot happen here.
+            // smear that made those unreadable cannot happen here.
             ForEach(series.checkIns) { marker in
                 PointMark(x: .value("Time", marker.timestamp),
                           y: .value("Pressure", marker.hectopascals))

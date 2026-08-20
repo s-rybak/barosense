@@ -20,6 +20,8 @@ enum ErasableStore: String, CaseIterable, Sendable {
     case tagVocabulary
     case healthLog
     case pressureLog
+    case locationEpochs
+    case weatherArchive
     case notificationLog
 }
 
@@ -40,6 +42,9 @@ enum ErasableStore: String, CaseIterable, Sendable {
 /// - `UserDefaults`. The only thing kept there is the language row
 ///   (`UserDefaultsLanguagePreferenceStore`), which holds nothing personal. Clearing it
 ///   would flip the app's language out from under someone mid-flow for no privacy gain.
+/// - The location *permission*. Revoking it is the user's action in Settings, the same way
+///   revoking HealthKit access is theirs in Health. What the erase removes is every
+///   coordinate and place name Barosense stored.
 /// - HealthKit itself. Those rows belong to the Health app, were only ever read, and are
 ///   not ours to delete. Revoking access is a separate action the user takes in Health.
 struct BarosenseDataEraser: Sendable {
@@ -49,6 +54,8 @@ struct BarosenseDataEraser: Sendable {
     private let tagStore: any WellbeingTagStore
     private let healthLog: any HealthSampleStore
     private let pressureLog: any PressureSampleStore
+    private let locationEpochs: any PressureLocationEpochStore
+    private let weatherArchive: any WeatherForecastStore
     private let notificationLog: any NotificationStore
 
     init(profileStore: any UserProfileStore,
@@ -56,12 +63,16 @@ struct BarosenseDataEraser: Sendable {
          tagStore: any WellbeingTagStore,
          healthLog: any HealthSampleStore,
          pressureLog: any PressureSampleStore,
+         locationEpochs: any PressureLocationEpochStore,
+         weatherArchive: any WeatherForecastStore,
          notificationLog: any NotificationStore) {
         self.profileStore = profileStore
         self.checkInStore = checkInStore
         self.tagStore = tagStore
         self.healthLog = healthLog
         self.pressureLog = pressureLog
+        self.locationEpochs = locationEpochs
+        self.weatherArchive = weatherArchive
         self.notificationLog = notificationLog
     }
 
@@ -80,6 +91,23 @@ struct BarosenseDataEraser: Sendable {
         // a foreground activation records one on the way into Settings.
         await attempt(.pressureLog, into: &refused) {
             _ = try await pressureLog.deleteSamples(before: .distantFuture)
+        }
+        // After the readings that point at them, and for the reason check-ins go before the
+        // tag vocabulary: an epoch removed first would leave rows referencing a place that no
+        // longer exists if the sample step then refused. This way a refusal leaves epochs
+        // nothing points at, which is inert and which the next attempt clears.
+        //
+        // These rows are the closest thing in the app to a movement record — a city, an
+        // oblast and a country per place the user has been — so they are squarely inside the
+        // promise the erase makes, not housekeeping alongside it.
+        await attempt(.locationEpochs, into: &refused) {
+            try await locationEpochs.deleteAllEpochs()
+        }
+        // Machine-produced weather rather than anything the user typed — but it is a record
+        // of *where* they were, hour by hour, and it is keyed to the epochs above. Leaving it
+        // behind would leave a week of coordinates on a device the user has just wiped.
+        await attempt(.weatherArchive, into: &refused) {
+            try await weatherArchive.deleteAllForecasts()
         }
         await attempt(.healthLog, into: &refused) {
             _ = try await healthLog.deleteSamples(before: .distantFuture)

@@ -133,6 +133,21 @@ actor PressureSampleRecorder {
     /// be a wait that never ends.
     nonisolated var isAvailable: Bool { source.isAvailable }
 
+    /// Whether `record(asOf:)` would take a reading rather than decline on the rate limit.
+    ///
+    /// Exists so a caller can find out **before** paying for anything the reading needs. The
+    /// only such cost today is the location fix that resolves `locationEpochID`: powering the
+    /// radio for a reading the floor is about to refuse would spend battery on a row that is
+    /// never written, and a user flipping in and out of the app would pay it every time.
+    ///
+    /// Advisory, not the gate. `record(asOf:)` re-checks the floor itself, because a caller
+    /// that forgot to ask must still be rate-limited.
+    func admitsReading(asOf now: Date = .now) -> Bool {
+        guard let lastRecordedAt else { return true }
+
+        return now.timeIntervalSince(lastRecordedAt) >= minimumInterval
+    }
+
     /// Whether the Motion & Fitness prompt has already been shown. `nonisolated` for the
     /// same reason as `isAvailable`: it is a device fact, and its caller is deciding
     /// whether it may touch the sensor at all rather than what to do with a reading — see
@@ -149,8 +164,13 @@ actor PressureSampleRecorder {
     /// — but it is rejected at feature time, on the series, where the neighbouring samples
     /// that identify it are visible (`.claude/context/ml-spec.md` §3). Discarding it here
     /// would delete the evidence and leave a hole the coverage features could not explain.
+    /// `locationEpochID` is resolved by the caller rather than here, because resolving it may
+    /// mean asking CoreLocation for a fix and that is only allowed in the foreground. A `nil`
+    /// is never a reason not to record: the barometer does not depend on a permission, and a
+    /// reading with no place attached is still a reading (`PressureSample.locationEpochID`).
     @discardableResult
-    func record(asOf now: Date = .now) async throws -> PressureSample? {
+    func record(asOf now: Date = .now,
+                locationEpochID: UUID? = nil) async throws -> PressureSample? {
         if let lastRecordedAt, now.timeIntervalSince(lastRecordedAt) < minimumInterval {
             return nil
         }
@@ -160,7 +180,9 @@ actor PressureSampleRecorder {
             throw PressureSourceError.implausibleReading(hectopascals: pressure.hectopascals)
         }
 
-        let sample = PressureSample(timestamp: now, pressure: pressure)
+        let sample = PressureSample(timestamp: now,
+                                    pressure: pressure,
+                                    locationEpochID: locationEpochID)
         try await log.save([sample])
         lastRecordedAt = now
 

@@ -14,6 +14,8 @@ final class BarosenseDataEraserTests: XCTestCase {
         let checkIns = InMemoryCheckInStore()
         let health = InMemoryHealthSampleStore()
         let pressure = InMemoryPressureSampleStore()
+        let epochs = InMemoryPressureLocationEpochStore()
+        let forecasts = InMemoryWeatherForecastStore()
         let notifications = InMemoryNotificationStore()
 
         // Note and medication entry on purpose: this is the free text the erase promise is
@@ -32,6 +34,17 @@ final class BarosenseDataEraserTests: XCTestCase {
         try await pressure.save([PressureSample(id: UUID(),
                                                 timestamp: now,
                                                 pressure: Pressure(hectopascals: 1013))])
+        // A city, an oblast and a country is the nearest thing this app stores to a movement
+        // record, so it is squarely inside what "delete my data" promises.
+        try await epochs.save(PressureLocationEpoch(
+            coordinate: GeoCoordinate(latitude: 50.4, longitude: 30.5),
+            place: PlaceName(locality: "Kyiv", administrativeArea: "Kyiv", country: "Ukraine"),
+            startedAt: now
+        ))
+        try await forecasts.save([WeatherForecastPoint(issuedAt: now,
+                                                       validAt: now.addingTimeInterval(3600),
+                                                       meanSeaLevelPressureHPa: 1013,
+                                                       temperatureC: 12)])
         try await notifications.save(NotificationRecord(kind: .checkInReminder,
                                                         language: .english,
                                                         scheduledFor: now,
@@ -43,6 +56,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: tags,
                                          healthLog: health,
                                          pressureLog: pressure,
+                                         locationEpochs: epochs,
+                                         weatherArchive: forecasts,
                                          notificationLog: notifications)
 
         try await eraser.eraseEverything()
@@ -55,6 +70,9 @@ final class BarosenseDataEraserTests: XCTestCase {
         let remainingProfile = try await profiles.profile()
         let remainingTags = try await tags.allTags()
         let remainingCheckIns = try await checkIns.checkIns(in: Date.distantPast..<Date.distantFuture)
+        let remainingEpochs = try await epochs.allEpochs()
+        let remainingForecasts = try await forecasts.points(
+            issuedAtOrBefore: .distantFuture, validIn: Date.distantPast..<Date.distantFuture)
         let remainingNotifications = try await notifications.records(
             in: Date.distantPast..<Date.distantFuture)
 
@@ -63,6 +81,8 @@ final class BarosenseDataEraserTests: XCTestCase {
         XCTAssertEqual(remainingCheckIns.count, 0)
         XCTAssertEqual(remainingHealth.count, 0)
         XCTAssertEqual(remainingPressure.count, 0)
+        XCTAssertEqual(remainingEpochs.count, 0)
+        XCTAssertEqual(remainingForecasts.count, 0)
         XCTAssertEqual(remainingNotifications.count, 0)
     }
 
@@ -78,6 +98,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: RecordingWellbeingTagStore(order: order),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: InMemoryPressureSampleStore(),
+                                         locationEpochs: InMemoryPressureLocationEpochStore(),
+                                         weatherArchive: InMemoryWeatherForecastStore(),
                                          notificationLog: InMemoryNotificationStore())
 
         try await eraser.eraseEverything()
@@ -92,12 +114,16 @@ final class BarosenseDataEraserTests: XCTestCase {
         let pressure = InMemoryPressureSampleStore()
         let sample = PressureSample(id: UUID(), timestamp: .now, pressure: Pressure(hectopascals: 1013))
         try await pressure.save([sample])
+        let epochs = InMemoryPressureLocationEpochStore()
+        let forecasts = InMemoryWeatherForecastStore()
 
         let eraser = BarosenseDataEraser(profileStore: InMemoryUserProfileStore(),
                                          checkInStore: InMemoryCheckInStore(),
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: pressure,
+                                         locationEpochs: epochs,
+                                         weatherArchive: forecasts,
                                          notificationLog: InMemoryNotificationStore())
 
         try await eraser.eraseEverything()
@@ -116,12 +142,16 @@ final class BarosenseDataEraserTests: XCTestCase {
                                                      intensity: CheckInIntensity(clamping: 4))])
         let pressure = FailingPressureSampleStore()
         let health = InMemoryHealthSampleStore()
+        let epochs = InMemoryPressureLocationEpochStore()
+        let forecasts = InMemoryWeatherForecastStore()
 
         let eraser = BarosenseDataEraser(profileStore: profiles,
                                          checkInStore: checkIns,
                                          tagStore: tags,
                                          healthLog: health,
                                          pressureLog: pressure,
+                                         locationEpochs: epochs,
+                                         weatherArchive: forecasts,
                                          notificationLog: InMemoryNotificationStore())
 
         do {
@@ -148,6 +178,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: FailingWellbeingTagStore(),
                                          healthLog: FailingHealthSampleStore(),
                                          pressureLog: FailingPressureSampleStore(),
+                                         locationEpochs: FailingPressureLocationEpochStore(),
+                                         weatherArchive: FailingWeatherForecastStore(),
                                          notificationLog: FailingNotificationStore())
 
         do {
@@ -165,6 +197,8 @@ final class BarosenseDataEraserTests: XCTestCase {
                                          tagStore: InMemoryWellbeingTagStore(),
                                          healthLog: InMemoryHealthSampleStore(),
                                          pressureLog: InMemoryPressureSampleStore(),
+                                         locationEpochs: InMemoryPressureLocationEpochStore(),
+                                         weatherArchive: InMemoryWeatherForecastStore(),
                                          notificationLog: InMemoryNotificationStore())
 
         try await eraser.eraseEverything()
@@ -188,6 +222,27 @@ private struct FailingCheckInStore: CheckInStore {
     func mostRecentCheckIn(before date: Date) async throws -> CheckIn? { throw StoreRefused() }
     func delete(id: UUID) async throws { throw StoreRefused() }
     func deleteAllCheckIns() async throws { throw StoreRefused() }
+}
+
+private struct FailingPressureLocationEpochStore: PressureLocationEpochStore {
+    func save(_ epoch: PressureLocationEpoch) async throws { throw StoreRefused() }
+    func currentEpoch() async throws -> PressureLocationEpoch? { throw StoreRefused() }
+    func epoch(id: UUID) async throws -> PressureLocationEpoch? { throw StoreRefused() }
+    func allEpochs() async throws -> [PressureLocationEpoch] { throw StoreRefused() }
+    func deleteAllEpochs() async throws { throw StoreRefused() }
+}
+
+private struct FailingWeatherForecastStore: WeatherForecastStore {
+    func save(_ points: [WeatherForecastPoint]) async throws { throw StoreRefused() }
+    func points(issuedAtOrBefore instant: Date,
+                validIn range: Range<Date>) async throws -> [WeatherForecastPoint] {
+        throw StoreRefused()
+    }
+    func mostRecentIssuedAt(atOrBefore instant: Date) async throws -> Date? { throw StoreRefused() }
+    func points(issuedAt: Date) async throws -> [WeatherForecastPoint] { throw StoreRefused() }
+    func issueTimes(in range: Range<Date>) async throws -> [Date] { throw StoreRefused() }
+    func deletePoints(validBefore date: Date) async throws -> Int { throw StoreRefused() }
+    func deleteAllForecasts() async throws { throw StoreRefused() }
 }
 
 private struct FailingWellbeingTagStore: WellbeingTagStore {
