@@ -102,6 +102,50 @@ final class PressureForecastReaderTests: XCTestCase {
         XCTAssertNil(report)
     }
 
+    // MARK: - The updated install
+
+    /// The state every device that has been recording for a while lands in the day this
+    /// feature ships, and the reason the chart's forward half was missing on exactly the
+    /// devices with the most history.
+    ///
+    /// `PressureSample.locationEpochID` arrived with the forecast work, so the log is weeks of
+    /// unstamped readings plus whatever has been recorded since the update. The epoch filter
+    /// dropped every unstamped row as soon as one stamped row existed, which left the fit a
+    /// handful of readings — below `LocalPressureModel.minimumTrainingRows` — and
+    /// `LocalPressureModel.fit` correctly refused to fit them. Measured on a seven-day
+    /// opportunistic log: 83 readings in, 6 surviving the filter, no curve.
+    ///
+    /// The spec asked for this outcome and did not get it: acceptance criterion 5 of the
+    /// location epoch PR is *"семпли, записані до міграції … не втрачаються"*.
+    func testAnUpdatedInstallStillForecastsFromItsUnstampedHistory() async throws {
+        let epoch = PressureLocationEpoch(coordinate: GeoCoordinate(latitude: 50.4, longitude: 30.5),
+                                          startedAt: now.addingTimeInterval(-6 * 3600))
+        let epochs = InMemoryPressureLocationEpochStore()
+        try await epochs.save(epoch)
+
+        // Everything older than six hours predates the update and carries no stamp; the last
+        // six hours were recorded by the new build and are stamped.
+        let log = barometerLog().map { sample in
+            sample.timestamp < now.addingTimeInterval(-6 * 3600)
+                ? sample
+                : PressureSample(id: sample.id,
+                                 timestamp: sample.timestamp,
+                                 pressure: sample.pressure,
+                                 locationEpochID: epoch.id)
+        }
+        let samples = InMemoryPressureSampleStore()
+        try await samples.save(log)
+
+        let reader = PressureForecastReader(archive: InMemoryWeatherForecastStore(),
+                                            samples: samples,
+                                            epochs: epochs)
+
+        let curve = await reader.forecast(asOf: now, horizonSeconds: 6 * 3600)
+
+        XCTAssertFalse(curve.isEmpty, "the unstamped history is this device's whole log")
+        XCTAssertTrue(curve.allSatisfy { $0.source == .localModel })
+    }
+
     // MARK: - Fixtures
 
     /// A device with 48 h of hourly barometer history and one WeatherKit issue over the same

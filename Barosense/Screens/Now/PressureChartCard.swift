@@ -334,15 +334,6 @@ private struct PressureChartPlot: View {
     /// launched in. See `LanguageController.locale`.
     @Environment(\.locale) private var locale
 
-    /// Above this many points *per screenful* the dots become a smear and the line reads
-    /// better alone. The design draws roughly seven of them, which is a six-hour window at
-    /// the target cadence.
-    ///
-    /// Compared against `PressureChartRange.pointsPerScreen` rather than `observed.count`:
-    /// the latter now counts twelve screenfuls, so every range but the narrowest would lose
-    /// its dots to history the user is not even looking at.
-    private static let maximumVisiblePoints = 12
-
     private static let lineWidth: CGFloat = 3
 
     var body: some View {
@@ -356,14 +347,14 @@ private struct PressureChartPlot: View {
                 .foregroundStyle(Palette.chartLine)
             }
 
-            if series.range.pointsPerScreen <= Self.maximumVisiblePoints {
-                ForEach(series.observed) { sample in
-                    PointMark(x: .value("Time", sample.timestamp),
-                              y: .value("Pressure", sample.pressure.hectopascals))
-                    .symbolSize(40)
-                    .foregroundStyle(Palette.chartLine)
-                }
-            }
+            // The readings are drawn as a line and nothing else, on every range. Marking each
+            // sampled instant told the user when iOS happened to grant a wake, which is a fact
+            // about the scheduler rather than about the weather, and it read as data: a dotted
+            // stretch and a bare one differ in sampling luck, not in pressure. The day range
+            // never drew them and is the one that looked right.
+            //
+            // The only dots left on this plot are the check-ins below, which is now what a dot
+            // means here.
 
             if !series.forecast.isEmpty {
                 RuleMark(x: .value("Now", series.now))
@@ -381,12 +372,37 @@ private struct PressureChartPlot: View {
                 // knows, and it is what makes a three-hour local curve and a three-day
                 // WeatherKit curve read as different claims instead of the same one drawn
                 // twice. See `ForecastSource.uncertaintyHPa(atLeadSeconds:)`.
+                //
+                // It opens from the last measurement — zero width there, because that value
+                // was observed — so the shading grows out of the line instead of appearing
+                // full-width at the first hour mark. See `PressureSeries.forecastJoin`.
+                if let join = series.forecastJoin {
+                    AreaMark(x: .value("Time", join.timestamp),
+                             yStart: .value("Lowest", join.pressure.hectopascals),
+                             yEnd: .value("Highest", join.pressure.hectopascals))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(Palette.chartLine.opacity(0.14))
+                }
+
                 ForEach(series.forecast) { point in
                     AreaMark(x: .value("Time", point.timestamp),
                              yStart: .value("Lowest", point.lowerHPa),
                              yEnd: .value("Highest", point.upperHPa))
                     .interpolationMethod(.catmullRom)
                     .foregroundStyle(Palette.chartLine.opacity(0.14))
+                }
+
+                // The dashed line starts at the newest reading, in the same `series` value as
+                // the forward points so Swift Charts joins them into one stroke. Without it
+                // the segment that crosses the `now` divider has no left end — and at the
+                // narrow ranges that segment is the only part of the forecast on screen.
+                if let join = series.forecastJoin {
+                    LineMark(x: .value("Time", join.timestamp),
+                             y: .value("Pressure", join.pressure.hectopascals),
+                             series: .value("Series", "forecast"))
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))
+                    .foregroundStyle(Palette.chartLine.opacity(0.65))
                 }
 
                 ForEach(series.forecast) { point in
@@ -401,9 +417,9 @@ private struct PressureChartPlot: View {
 
             // Declared last, so the dots land on top of every line rather than under one.
             //
-            // Unlike the reading dots above, these are never thinned out by range: a
+            // Never thinned out by range, unlike the reading dots this plot used to draw: a
             // check-in is the user's own entry and a few a day is the whole density, so the
-            // smear the `maximumVisiblePoints` gate guards against cannot happen here.
+            // smear that made those unreadable cannot happen here.
             ForEach(series.checkIns) { marker in
                 PointMark(x: .value("Time", marker.timestamp),
                           y: .value("Pressure", marker.hectopascals))

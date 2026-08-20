@@ -108,6 +108,35 @@ final class LocalPressureModelTests: XCTestCase {
         }
     }
 
+    /// The same §7 comparison, but on the log shape a phone actually produces — a waking-hours
+    /// run beside an overnight hole, fitted on a reduced rung of the ladder. A rung that could
+    /// not beat persistence would be a rung not worth drawing: it costs battery and adds a
+    /// claim for nothing (`.claude/skills/ml_pipeline/SKILL.md`).
+    ///
+    /// The result goes in the PR body whichever way it comes out.
+    func testAReducedRungStillBeatsPersistenceOnATrend() {
+        let log = wakingDayLog(hPaPerHour: -0.25)
+        guard let model = LocalPressureModel.fit(to: log, asOf: now) else {
+            return XCTFail("expected a fit")
+        }
+        XCTAssertLessThan(model.specification.parameterCount,
+                          LocalPressureModel.richestSpecification.parameterCount,
+                          "this fixture is only interesting while it lands below the top rung")
+
+        let curve = model.forecast(asOf: now, horizonSeconds: 6 * 3600)
+        let lastObserved = log.last?.pressure.hectopascals ?? 0
+
+        for point in curve {
+            let hoursAhead = point.timestamp.timeIntervalSince(now) / 3600
+            let truth = lastObserved - 0.25 * hoursAhead
+            let modelError = abs(point.pressure.hectopascals - truth)
+            let persistenceError = abs(lastObserved - truth)
+
+            XCTAssertLessThan(modelError, persistenceError,
+                              "at \(hoursAhead) h the reduced rung must still beat persistence")
+        }
+    }
+
     // MARK: - §8 fixtures
 
     /// Acceptance criterion 5. A 10 hPa step in five minutes is a lift, not weather. It must
@@ -290,7 +319,110 @@ final class LocalPressureModelTests: XCTestCase {
         XCTAssertLessThan(elapsed, 0.1, "refit took \(Int(elapsed * 1000)) ms")
     }
 
+    // MARK: - The specification ladder
+
+    /// The bug this ladder exists for, as the device actually produced it.
+    ///
+    /// A phone used through one afternoon and put down overnight: a run of waking hours beside
+    /// a 14 h hole. 29 readings, 10 observed hourly cells — and **six** AR(3) design rows,
+    /// because a hole restarts the count of consecutive lags and the three cells after one
+    /// yield no row at all. Against the fixed eight-parameter fit that is `nil`: no forward
+    /// half on the chart, on a day of entirely ordinary use.
+    func testItFitsOnAWakingDayBesideAnOvernightGap() {
+        guard let model = LocalPressureModel.fit(to: wakingDayLog(), asOf: now) else {
+            return XCTFail("a waking day beside an overnight gap must produce a forecast")
+        }
+
+        XCTAssertFalse(model.forecast(asOf: now, horizonSeconds: 6 * 3600).isEmpty)
+        // Not the richest size — the log cannot support eight parameters, and saying so is the
+        // point. What it must not do is stay silent.
+        XCTAssertLessThan(model.specification.parameterCount,
+                          LocalPressureModel.richestSpecification.parameterCount)
+    }
+
+    /// The ladder must never trade down while a larger fit was available: a full hourly log
+    /// still gets every term it can pay for.
+    func testAFullLogStillFitsTheRichestSpecification() {
+        guard let model = LocalPressureModel.fit(to: hourlyLog(hours: 72, hPaPerHour: -0.2),
+                                                 asOf: now) else {
+            return XCTFail("three days must fit")
+        }
+
+        XCTAssertEqual(model.specification, LocalPressureModel.richestSpecification)
+        XCTAssertTrue(model.specification.includesHarmonics)
+        XCTAssertEqual(model.coefficients.count, 8)
+    }
+
+    /// Every rung is honestly sized: coefficients and seed are as wide as the specification
+    /// says, never the old fixed three.
+    func testTheFitIsAsWideAsItsSpecification() {
+        guard let model = LocalPressureModel.fit(to: wakingDayLog(), asOf: now) else {
+            return XCTFail("must fit")
+        }
+
+        XCTAssertEqual(model.coefficients.count, model.specification.parameterCount)
+        XCTAssertEqual(model.recentValues.count, model.specification.autoregressiveOrder)
+    }
+
+    /// The row budget is one ratio applied at every size, and it reproduces the shipped gate
+    /// exactly at the top of the ladder. A change to `minimumRowsPerParameter` that quietly
+    /// loosened the richest fit would fail here rather than in review.
+    func testTheRichestRungKeepsTheShippedRowBudget() {
+        XCTAssertEqual(LocalPressureModel.richestSpecification.minimumRows, 12)
+        XCTAssertEqual(LocalPressureModel.minimumTrainingRows, 12)
+    }
+
+    /// A thin fit has to *say* it is thin. The band comes off the residual degrees of freedom,
+    /// so the six-row model cannot report the same confidence as the seventy-row one.
+    func testAThinFitReportsAWiderBandThanAFullOne() {
+        guard let thin = LocalPressureModel.fit(to: wakingDayLog(), asOf: now),
+              let full = LocalPressureModel.fit(to: hourlyLog(hours: 72, hPaPerHour: -0.2),
+                                                asOf: now) else {
+            return XCTFail("both must fit")
+        }
+
+        XCTAssertGreaterThan(thin.uncertaintyHPa(atLeadSeconds: 6 * 3600),
+                             full.uncertaintyHPa(atLeadSeconds: 6 * 3600))
+    }
+
+    /// The floor is still a floor. A log with no run of consecutive hours in it cannot support
+    /// even AR(1), and the honest answer stays `nil` — a line drawn from that is still a claim.
+    func testALogWithNoConsecutiveHoursStillFitsNothing() {
+        // One reading every four hours. `HourlyPressureGrid` bridges holes of up to two hours,
+        // so the spacing has to clear that plus the hour itself before no two cells are ever
+        // neighbours.
+        let scattered = (0..<12).map { step -> PressureSample in
+            PressureSample(timestamp: now.addingTimeInterval(-TimeInterval(step) * 4 * 3600),
+                           pressure: Pressure(hectopascals: 991 + Double(step) * 0.1))
+        }
+
+        XCTAssertNil(LocalPressureModel.fit(to: scattered, asOf: now))
+    }
+
     // MARK: - Fixtures
+
+    /// The shape the device really recorded: a 15 h hole, two hours of readings before it, and
+    /// a nine-hour run of waking-hour sampling ending at `now`. Four readings an hour, which is
+    /// `PressureSamplingPolicy`'s nominal cadence — the log is not thin because the sensor is
+    /// slow, it is thin because iOS grants no wakes overnight.
+    private func wakingDayLog(hPaPerHour: Double = -0.2) -> [PressureSample] {
+        let hoursAgo = Array((22...23).reversed()) + Array((0...8).reversed())
+
+        return hoursAgo.flatMap { hour -> [PressureSample] in
+            (0..<4).map { slot in
+                let instant = now.addingTimeInterval(-TimeInterval(hour) * 3600
+                                                     + TimeInterval(slot) * 900)
+                let secondsIntoDay = instant.timeIntervalSince1970
+                    .truncatingRemainder(dividingBy: 86_400)
+                let tide = 0.4 * sin(2 * 2 * Double.pi * secondsIntoDay / 86_400)
+
+                return PressureSample(
+                    timestamp: instant,
+                    pressure: Pressure(hectopascals: 991 + hPaPerHour * Double(-hour) + tide)
+                )
+            }
+        }
+    }
 
     /// Hourly readings ending at `now`, starting from 991 hPa — Kyiv station pressure — and
     /// moving at a constant rate, with the solar semidiurnal tide laid on top.

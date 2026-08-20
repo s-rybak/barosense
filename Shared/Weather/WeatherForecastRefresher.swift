@@ -171,7 +171,11 @@ actor WeatherForecastRefresher {
             try await store.save(issue.points)
             written += issue.points.count
         } catch {
-            BarosenseLog.pressure.info(
+            // `.error`, not `.info`. This is the one line that says why the whole forward half
+            // of the chart is missing, and iOS keeps `.info` in a memory ring buffer rather
+            // than on disk — by the time anybody goes looking for it, it is gone. The failure
+            // ledger records *that* a request failed; only this records why.
+            BarosenseLog.pressure.error(
                 "weather forecast request failed: \(String(describing: error), privacy: .public)"
             )
             // The slot is spent whichever way the request went. Recorded here rather than
@@ -249,7 +253,7 @@ actor WeatherForecastRefresher {
             // be attempted again on the next launch — not the next slot, because a location
             // whose history the service simply does not serve must not spend a request an hour
             // asking again.
-            BarosenseLog.pressure.info(
+            BarosenseLog.pressure.error(
                 "weather history bootstrap failed: \(String(describing: error), privacy: .public)"
             )
             return false

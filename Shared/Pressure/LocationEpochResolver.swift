@@ -134,13 +134,49 @@ enum LocationEpochResolver {
     /// A batch that *is* stamped, but not with anywhere near here, correctly comes back
     /// short or empty: the caller's answer to that is to report nothing rather than to report
     /// the previous city's number.
+    ///
+    /// The **mixed** batch — some rows stamped, some not — is the case `unstamped` exists for,
+    /// and it is not a corner. `PressureSample.locationEpochID` arrived with this feature, so
+    /// on every install that predates it the log is unstamped history plus stamped rows from
+    /// the update onwards, and `.excluded` throws the whole history away the moment the first
+    /// stamped row lands. See `UnstampedPolicy`.
     static func readings(_ samples: [PressureSample],
-                         takenAt epochIDs: Set<UUID>?) -> [PressureSample] {
+                         takenAt epochIDs: Set<UUID>?,
+                         unstamped: UnstampedPolicy = .excluded) -> [PressureSample] {
         guard let epochIDs, samples.contains(where: { $0.locationEpochID != nil }) else {
             return samples
         }
 
-        return samples.filter { $0.locationEpochID.map(epochIDs.contains) ?? false }
+        return samples.filter {
+            $0.locationEpochID.map(epochIDs.contains) ?? (unstamped == .included)
+        }
+    }
+
+    /// What a reading with no epoch stamp means to the caller doing the filtering.
+    ///
+    /// The two callers want opposite answers and both are right, because they are measuring
+    /// different quantities from the same rows.
+    ///
+    /// `PressureOffsetCalibrator` takes a **median of station − MSLP over 48 h**. Elevation is
+    /// that quantity — at Kyiv's 180 m the offset is ~−22 hPa and at the coast it is 0 — so a
+    /// window blending two places does not return a slightly worse number, it returns a number
+    /// describing nowhere. It wants `.excluded`, and pays at most 48 h of no WeatherKit curve
+    /// after an update for it.
+    ///
+    /// `LocalPressureModel.fit` takes an **autoregressive fit over 30 days** whose forecast
+    /// level comes from the seed — the last three consecutive hours, which are always recent
+    /// and therefore always here. A step in the middle of the window costs the three rows that
+    /// straddle it and widens the residual band, which is the model saying it knows less. It
+    /// wants `.included`, because the alternative on an updated install is a month of silence
+    /// on a log that is sitting right there.
+    enum UnstampedPolicy: Equatable {
+
+        /// An unstamped row is not from here. Correct when a blend would be the whole error.
+        case excluded
+
+        /// An unstamped row says nothing about where it was taken, which is not the same as
+        /// saying elsewhere. The reading is kept.
+        case included
     }
 
     private static func round(_ value: Double, to step: Double) -> Double {

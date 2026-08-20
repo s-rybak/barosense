@@ -419,6 +419,96 @@ final class PressureSeriesTests: XCTestCase {
         XCTAssertEqual(series.forecast.last?.timestamp, now.addingTimeInterval(12 * 3600))
     }
 
+    /// The regression the forward half shipped with: **nothing was drawn on the button the
+    /// card opens on**.
+    ///
+    /// Both producers emit on whole hours — WeatherKit's `hourly.forecast` and
+    /// `LocalPressureModel`'s iteration alike — while the forward window was half a screenful,
+    /// which is 30 min on `.oneHour` and 90 min on `.threeHours`. A 30-minute window holds one
+    /// hour mark or none depending on the minute, and `LineMark` renders nothing at all from a
+    /// single vertex, so the dashed line and the `now` divider were absent from the default
+    /// view whatever the archive or the fit held.
+    ///
+    /// Swept across the hour because that is the variable: on the old window the same data
+    /// drew a line, a stub or nothing at all depending on when the user opened the app.
+    func testEveryRangeDrawsAtLeastATwoPointForwardLine() {
+        // 1_769_997_600 is the hour mark below the fixture's `now`, so the sweep below covers
+        // a whole hour of possible `now`s against one hour-aligned curve.
+        let hourMark = Date(timeIntervalSince1970: 1_769_997_600)
+        let curve = (1...12).map { mark in
+            ForecastPressurePoint(timestamp: hourMark.addingTimeInterval(Double(mark) * 3600),
+                                  pressure: Pressure(hectopascals: 1010),
+                                  uncertaintyHPa: 1,
+                                  source: .weatherKit,
+                                  issuedAt: hourMark)
+        }
+
+        for range in PressureChartRange.allCases {
+            for minute in [0, 1, 29, 30, 59] {
+                let asOf = hourMark.addingTimeInterval(Double(minute) * 60)
+                let series = PressureSeries.make(from: [], forecast: curve, range: range, asOf: asOf)
+
+                XCTAssertGreaterThanOrEqual(
+                    series.forecast.count, 2,
+                    "range \(range.rawValue) at :\(minute) drew \(series.forecast.count) point(s)"
+                )
+            }
+        }
+    }
+
+    /// And the other half of that fix. The forward window is floored at two hours, which on
+    /// the two narrow buttons is wider than the screenful itself — so an opening viewport
+    /// pinned to the forecast's far end would show nothing but forecast, a pressure chart
+    /// whose first paint carries no pressure.
+    func testTheOpeningViewportKeepsMeasuredTimeOnScreenAtTheNarrowRanges() {
+        let hourMark = Date(timeIntervalSince1970: 1_769_997_600)
+        let curve = (1...2).map { mark in
+            ForecastPressurePoint(timestamp: hourMark.addingTimeInterval(Double(mark) * 3600),
+                                  pressure: Pressure(hectopascals: 1010),
+                                  uncertaintyHPa: 1,
+                                  source: .localModel,
+                                  issuedAt: hourMark)
+        }
+
+        for range in [PressureChartRange.oneHour, .threeHours] {
+            let series = PressureSeries.make(from: [sample(hoursAgo: 0.1, hPa: 1013)],
+                                             forecast: curve,
+                                             range: range,
+                                             asOf: now)
+            let viewportEnd = series.initialScrollX.addingTimeInterval(series.visibleSeconds)
+
+            XCTAssertLessThan(series.initialScrollX, now, "range \(range.rawValue)")
+            // At most half the screenful is future — what the forward half occupied before the
+            // floor existed.
+            XCTAssertLessThanOrEqual(viewportEnd.timeIntervalSince(now),
+                                     series.visibleSeconds / 2 + series.trailingHeadroomSeconds,
+                                     "range \(range.rawValue)")
+        }
+    }
+
+    /// The forward half starts on a whole hour, so the segment that crosses the `now` divider
+    /// — at the narrow ranges, the only part of it on screen — has no left end of its own.
+    /// The newest drawn reading is that end.
+    func testTheDashedLineIsAnchoredToTheNewestDrawnReading() {
+        let observed = (1...3).map { sample(hoursAgo: Double($0), hPa: 1013) }
+        let series = PressureSeries.make(from: observed,
+                                         forecast: [forecastPoint(hoursAhead: 1, hPa: 1011)],
+                                         range: .sixHours,
+                                         asOf: now)
+
+        XCTAssertEqual(series.forecastJoin?.timestamp, series.observed.last?.timestamp)
+    }
+
+    /// And no anchor without something to anchor: the card draws exactly what it drew before
+    /// this feature existed on the many devices that will never have a forward half.
+    func testThereIsNoAnchorWithoutAForecast() {
+        let series = PressureSeries.make(from: [sample(hoursAgo: 1, hPa: 1013)],
+                                         range: .sixHours,
+                                         asOf: now)
+
+        XCTAssertNil(series.forecastJoin)
+    }
+
     /// Acceptance criterion 3 of PR 3. The forecast arrives already offset-calibrated into
     /// barometer coordinates, so the domain stays about as tall as the user's own line. Drawn
     /// as raw MSLP it would be ~22 hPa away and the domain would triple, squashing a day's

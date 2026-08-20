@@ -123,7 +123,10 @@ actor PressureForecastReader {
     private func weatherKitForecast(asOf now: Date,
                                     horizonSeconds: TimeInterval,
                                     anchored: Bool) async -> [ForecastPressurePoint] {
-        guard let offset = await offset(asOf: now) else { return [] }
+        guard let offset = await offset(asOf: now) else {
+            BarosenseLog.pressure.debug("forecast: no weatherKit curve — offset not measurable")
+            return []
+        }
 
         // One hour back when the caller wants the anchor hour, so the row covering `now` is in
         // the read as well as in the curve.
@@ -135,15 +138,28 @@ actor PressureForecastReader {
         // It is the same call the feature pipeline makes, so the picture and the model agree
         // about what the app knew.
         let points = (try? await archive.points(issuedAtOrBefore: now, validIn: window)) ?? []
-        guard !points.isEmpty else { return [] }
+        guard !points.isEmpty else {
+            BarosenseLog.pressure.debug("forecast: no weatherKit curve — archive empty in window")
+            return []
+        }
 
         // The staleness gate is `curve`'s, not repeated here: it is the one place both the
         // chart and the feature pipeline pass through.
-        return ForecastPressurePoint.curve(from: points,
-                                           offset: offset,
-                                           asOf: now,
-                                           horizonSeconds: horizonSeconds,
-                                           includingHourAt: anchored)
+        let curve = ForecastPressurePoint.curve(from: points,
+                                                offset: offset,
+                                                asOf: now,
+                                                horizonSeconds: horizonSeconds,
+                                                includingHourAt: anchored)
+        // Counts and states only, never a value — `BarosenseLog`'s rule. An empty curve here
+        // means every archived row was issued past the staleness norm, which is the one gate
+        // in this chain that is invisible from both the screen and the store.
+        if curve.isEmpty {
+            BarosenseLog.pressure.debug(
+                "forecast: no weatherKit curve — \(points.count, privacy: .public) rows, all stale"
+            )
+        }
+
+        return curve
     }
 
     /// The on-device autoregressive fit over the user's own log.
@@ -168,11 +184,32 @@ actor PressureForecastReader {
             // Fitted on the readings taken **here**. A 30-day window that straddles a move
             // holds a step of tens of hPa in the middle of it, and an AR fit reads a step as
             // a trend to continue rather than as a change of address.
-            localModel = LocalPressureModel.fit(
-                to: LocationEpochResolver.readings(readings, takenAt: await samePlaceEpochIDs()),
-                asOf: now
-            )
+            // Unstamped rows are kept. `PressureSample.locationEpochID` shipped with this
+            // feature, so on an install that predates it the 30-day window is unstamped
+            // history plus whatever has been recorded since the update — and dropping the
+            // former leaves a device with weeks of readings unable to fit anything for a week
+            // more. See `LocationEpochResolver.UnstampedPolicy` for why the offset calibrator
+            // answers this differently.
+            let here = LocationEpochResolver.readings(readings,
+                                                      takenAt: await samePlaceEpochIDs(),
+                                                      unstamped: .included)
+            localModel = LocalPressureModel.fit(to: here, asOf: now)
             localModelEpochID = epochID
+
+            // The cold-start gate, made visible. `fit` walks `specificationLadder` and returns
+            // `nil` only when even AR(1) — two parameters, three rows of two consecutive hours —
+            // cannot be supported, which is a log with essentially no consecutive hours in it.
+            // Without this line the chart's forward half is simply absent, with nothing anywhere
+            // saying which of the two producers fell short. Counts only, per `BarosenseLog`.
+            if localModel == nil {
+                // Both counts, because the gap between them is a whole class of failure: a log
+                // full of readings that the epoch filter reduces to a handful looks identical
+                // on screen to a log that is genuinely empty.
+                BarosenseLog.pressure.debug("""
+                    forecast: no local fit — \(readings.count, privacy: .public) readings, \
+                    \(here.count, privacy: .public) after the epoch filter
+                    """)
+            }
         }
 
         return localModel?.forecast(asOf: now,

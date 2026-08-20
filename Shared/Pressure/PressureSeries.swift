@@ -81,9 +81,10 @@ enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
 
     /// Points one screenful holds at the nominal cadence — 4, 12, 12, 24 up the ladder.
     ///
-    /// The plot marks its points only while this is small. Derived from the range rather
-    /// than counted off the data, so the dots do not blink in and out as the scroll passes
-    /// over a densely sampled afternoon.
+    /// The ladder `bucketSeconds` was chosen against, stated as a number so a bucket change
+    /// that quietly puts 60 points on a 92 pt plot fails a test rather than a review. Nothing
+    /// draws from it: the plot used to mark each reading while this was small and no longer
+    /// marks any.
     var pointsPerScreen: Int {
         Int((seconds / bucketSeconds).rounded())
     }
@@ -107,15 +108,28 @@ enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
 
     /// How far past `now` the forecast half of the line is drawn.
     ///
-    /// **Half a screenful**, so the divider lands two-thirds of the way across the viewport and
-    /// both halves are legible at every range: 30 min ahead on the narrowest button, 12 h on
-    /// the widest.
+    /// **Half a screenful, floored at two hours.** A fraction of the window rather than a fixed
+    /// horizon, for the reason the trailing headroom is: what has to stay constant is how much
+    /// of the *plot* the forecast occupies, and a fixed 24 h would be a quarter of the day
+    /// range and twenty-four screenfuls of the one-hour one. The archive holds 240 h; this is
+    /// how much of it the card draws.
     ///
-    /// A fraction of the window rather than a fixed horizon, for the reason the trailing
-    /// headroom is: what has to stay constant is how much of the *plot* the forecast occupies,
-    /// and a fixed 24 h would be a quarter of the day range and twenty-four screenfuls of the
-    /// one-hour one. The archive holds 240 h; this is how much of it the card draws.
-    var forecastSeconds: TimeInterval { seconds / 2 }
+    /// The floor is the part that is not a matter of taste. **Both producers emit points on
+    /// whole hours** — WeatherKit's `hourly.forecast` and `LocalPressureModel`'s own iteration
+    /// alike — so a forward window narrower than two hour marks holds at most one point, and
+    /// one point is not a line: `LineMark` draws segments between vertices and renders nothing
+    /// at all from a single one. Half a screenful was 30 min on the narrowest button and 90 min
+    /// on the next, which put the dashed line at **zero points half the time and one point the
+    /// other half** on the range the card opens on. The feature was invisible on the default
+    /// view whatever the archive held.
+    ///
+    /// Two hours always spans two hour marks whatever the minute is, so every range draws a
+    /// line. On the two narrow buttons that window is wider than the screenful itself, which
+    /// `initialScrollX` is what handles.
+    var forecastSeconds: TimeInterval { max(seconds / 2, Self.minimumForecastSeconds) }
+
+    /// The floor on `forecastSeconds`: two hour marks, the fewest that can form a segment.
+    private static let minimumForecastSeconds: TimeInterval = 2 * 3600
 
     /// The widest option, and therefore the deepest history any range asks for. One store
     /// read of `widest.historySeconds` serves every range, so switching between them is a
@@ -337,6 +351,25 @@ struct PressureSeries: Hashable, Sendable {
 
     var isEmpty: Bool { observed.isEmpty }
 
+    /// The last measurement the dashed line leaves from, or `nil` when there is nothing to
+    /// join.
+    ///
+    /// The forward half is drawn on whole hours, so its first vertex sits up to an hour past
+    /// `now` and the segment before it — the one crossing the divider, the only part of the
+    /// forecast on screen at the narrow ranges — has no left end without this. Starting the
+    /// dashed line at the newest drawn reading gives it one, and makes the two halves read as
+    /// one line broken at `now` rather than as a solid line and a detached dashed stub.
+    ///
+    /// Deliberately a `PressureSample` and deliberately not appended to `forecast`. It is the
+    /// anchor the claim departs from, not part of the claim: the array stays what its own
+    /// documentation says it is — values for times nobody has measured — and no feature can
+    /// pick a measurement out of it.
+    var forecastJoin: PressureSample? {
+        guard !forecast.isEmpty else { return nil }
+
+        return observed.last
+    }
+
     /// Vertical extent to draw, in hPa, padded so the line sits in the middle of the plot
     /// rather than touching its edges.
     ///
@@ -509,6 +542,17 @@ struct PressureSeries: Hashable, Sendable {
         // is on screen.
         let trailingEdge = min(newest.addingTimeInterval(trailingHeadroomSeconds),
                                timeDomain.upperBound)
-        return max(trailingEdge.addingTimeInterval(-visibleSeconds), timeDomain.lowerBound)
+        // …but never further right than half a screenful past `now`. `forecastSeconds` is
+        // floored at two hours so that both producers' hourly points can form a segment at
+        // all, and on the 1 h and 3 h buttons that window is wider than the screenful itself —
+        // an edge pinned to its far end would open the card on a viewport holding no reading,
+        // a pressure chart whose first paint shows no pressure.
+        //
+        // Half a screenful is exactly what the forward half occupied before the floor existed,
+        // so this is a no-op on the 6 h and day buttons and binds only where the floor does.
+        let rightEdge = min(trailingEdge,
+                            now.addingTimeInterval(range.seconds / 2 + trailingHeadroomSeconds))
+
+        return max(rightEdge.addingTimeInterval(-visibleSeconds), timeDomain.lowerBound)
     }
 }

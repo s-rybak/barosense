@@ -182,6 +182,52 @@ extension LocationEpochResolverTests {
         XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [UUID()]).count, 0)
     }
 
+    /// Acceptance criterion 5 of the location epoch PR: *"семпли, записані до міграції,
+    /// читаються з `locationEpochID == nil` і не втрачаються"*.
+    ///
+    /// The all-unstamped log above satisfies it. The **mixed** log did not, and that is the
+    /// shape every existing install takes on the day this feature lands: weeks of unstamped
+    /// history, then one stamped reading, and the strict rule discards the weeks. The AR fit
+    /// then has nothing to fit and the chart draws no forward half — on the device with the
+    /// most history, which is the opposite of what a cold-start rule should do.
+    func testUnstampedReadingsSurviveAMixedLogForTheFit() {
+        let here = UUID()
+        let history = (1...30).map {
+            PressureSample(timestamp: date(daysAgo: $0), pressure: Pressure(hectopascals: 1013))
+        }
+        let sinceUpdate = [PressureSample(timestamp: date(daysAgo: 0),
+                                          pressure: Pressure(hectopascals: 1011),
+                                          locationEpochID: here)]
+        let mixed = history + sinceUpdate
+
+        XCTAssertEqual(
+            LocationEpochResolver.readings(mixed, takenAt: [here], unstamped: .included).count,
+            mixed.count
+        )
+        // A reading stamped with somewhere else is still dropped: "no stamp" and "elsewhere"
+        // are different facts and only one of them is silence.
+        let elsewhere = mixed + [PressureSample(timestamp: date(daysAgo: 0),
+                                                pressure: Pressure(hectopascals: 990),
+                                                locationEpochID: UUID())]
+        XCTAssertEqual(
+            LocationEpochResolver.readings(elsewhere, takenAt: [here], unstamped: .included).count,
+            mixed.count
+        )
+    }
+
+    /// And the calibrator keeps the strict rule, which is why the policy is a parameter rather
+    /// than a change of behaviour. Its quantity is a median of `station − MSLP`, and elevation
+    /// *is* that quantity — a window blending two places returns a number describing nowhere.
+    func testTheOffsetCalibratorStillExcludesUnstampedReadings() {
+        let here = UUID()
+        let mixed = [PressureSample(timestamp: date(daysAgo: 1), pressure: Pressure(hectopascals: 1013)),
+                     PressureSample(timestamp: date(daysAgo: 0),
+                                    pressure: Pressure(hectopascals: 991),
+                                    locationEpochID: here)]
+
+        XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [here]).count, 1)
+    }
+
     private func date(daysAgo: Int) -> Date {
         Date(timeIntervalSince1970: 1_700_000_000).addingTimeInterval(-Double(daysAgo) * 86_400)
     }
