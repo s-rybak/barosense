@@ -31,9 +31,9 @@ struct NoOpHealthChangeObserver: HealthChangeObserving {
 
 /// Collapses a burst of observer firings into one ingest pull.
 ///
-/// Three types can wake within the same second (a night of sleep stages lands as many
-/// rows). Without a coalesce, that is three overlapping 48 h HealthKit reads for one
-/// logical update. The delay is short enough not to matter for training and long enough
+/// The three observed types can wake within the same second (a night of sleep stages
+/// lands as many rows). Without a coalesce, that is three overlapping 48 h HealthKit reads
+/// for one logical update. The delay is short enough not to matter for training and long enough
 /// to absorb a staged sleep write.
 actor HealthIngestSignalCoalescer {
 

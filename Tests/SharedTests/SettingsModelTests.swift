@@ -7,7 +7,8 @@ final class SettingsModelTests: XCTestCase {
 
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
 
-    /// Every type in the read set proven readable — the only state the switch may be on in.
+    /// Every type in the read set proven readable — the state a fully granted user on
+    /// hardware that carries every sensor lands in.
     private static let everythingReadable = HealthAccessState.requested(
         readable: Set(HealthMetricKind.allCases)
     )
@@ -39,11 +40,31 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(model.health.isInteractive)
     }
 
-    /// Partial access is not access. One unreadable type is enough to keep it off, and the
-    /// screen is told which one so its caption does not have to guess.
-    func testTheSwitchIsOffWhileAnyTypeCannotBeRead() async {
+    /// An Apple Watch SE — or a US unit sold between January 2024 and mid-2025 — has no
+    /// blood-oxygen sensor at all, so that probe comes back empty however complete the
+    /// user's grant is. The switch must still be on: holding it off sends them to the
+    /// Health app, where everything is already allowed, and back again for good.
+    func testTheSwitchIsOnWithoutABloodOxygenSensor() async {
         let reporter = StubHealthAccessReporter(
-            state: .requested(readable: [.restingHeartRate, .asleep])
+            state: .requested(readable: [.heartRate, .restingHeartRate, .asleep])
+        )
+        let model = makeModel(access: reporter)
+
+        await model.load()
+
+        XCTAssertTrue(model.health.isConnected)
+        XCTAssertFalse(model.health.hasNothingReadable)
+        // The row still reports what was observed — it is the switch that stops acting
+        // on it, not the observation that disappears.
+        XCTAssertEqual(model.health.unreadableTypes, [.oxygenSaturation])
+    }
+
+    /// A type a working device does produce is a different matter: nothing about the
+    /// hardware explains an empty sleep probe, so the switch stays off and the caption
+    /// has somewhere to send the user.
+    func testTheSwitchIsOffWhileATypeEveryDeviceProducesCannotBeRead() async {
+        let reporter = StubHealthAccessReporter(
+            state: .requested(readable: [.heartRate, .restingHeartRate, .oxygenSaturation])
         )
         let model = makeModel(access: reporter)
 
@@ -51,10 +72,10 @@ final class SettingsModelTests: XCTestCase {
 
         XCTAssertFalse(model.health.isConnected)
         XCTAssertFalse(model.health.hasNothingReadable)
-        XCTAssertEqual(model.health.unreadableTypes, [.oxygenSaturation])
+        XCTAssertEqual(model.health.unreadableTypes, [.asleep])
     }
 
-    func testTheSwitchIsOnOnlyWhenEveryTypeCanBeRead() async {
+    func testTheSwitchIsOnWhenEveryTypeCanBeRead() async {
         let model = makeModel(access: StubHealthAccessReporter(state: Self.everythingReadable))
 
         await model.load()

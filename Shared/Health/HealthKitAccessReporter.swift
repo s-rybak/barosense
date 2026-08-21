@@ -58,9 +58,9 @@ struct HealthKitAccessReporter: HealthAccessReporting {
 
     /// The types a read actually returns something for.
     ///
-    /// Run in parallel: three independent round trips to the Health daemon, and the screen
-    /// waits on all of them. Iterating `allCases` rather than naming the three types keeps
-    /// a fourth metric from being silently omitted from the check that drives the switch.
+    /// Run in parallel: one independent round trip to the Health daemon per kind, and the
+    /// screen waits on all of them. Iterating `allCases` rather than naming the types keeps
+    /// the next metric from being silently omitted from the check that drives the switch.
     private func readableTypes() async -> Set<HealthMetricKind> {
         await withTaskGroup(of: (HealthMetricKind, Bool).self) { group in
             for kind in HealthMetricKind.allCases {

@@ -60,8 +60,9 @@ targets:
           Barosense reads barometric pressure to track weather changes alongside your
           check-ins.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
-          Barosense reads your sleep, resting heart rate and blood oxygen to look for
-          personal patterns between weather and how you feel. It stays on your device.
+          Barosense reads your sleep, heart rate and blood oxygen to show them beside the
+          pressure and to look for personal patterns between weather and how you feel. It
+          stays on your device.
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: >-
           Barosense uses your location to fetch the local pressure forecast.
         # Asks for *coarse* location and never offers the user the precise option. The epochs
@@ -101,8 +102,9 @@ targets:
         # the user is asked to answer for no feature, which is the surgical-permissions rule
         # in CLAUDE.md applied to Motion rather than HealthKit.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
-          Barosense reads your sleep, resting heart rate and blood oxygen to look for
-          personal patterns between weather and how you feel. It stays on your device.
+          Barosense reads your sleep, heart rate and blood oxygen to show them beside the
+          pressure and to look for personal patterns between weather and how you feel. It
+          stays on your device.
     entitlements:
       path: BarosenseWatch/BarosenseWatch.entitlements
       properties:

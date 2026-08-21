@@ -136,8 +136,8 @@ final class SettingsModel {
     /// Two facts, not one, because they answer different questions and can disagree:
     ///
     /// - `access` — what Barosense can demonstrably read from HealthKit right now. This is
-    ///   what the switch shows, and it is off unless every type in the read set came back
-    ///   with data.
+    ///   what the switch shows, and it is off unless every type a working device would
+    ///   have produced came back with data (`HealthAccessState.isFullyReadable`).
     /// - `hasReadings` — has anything landed in the *training log* in the last week. Read
     ///   access can be granted while ingestion has stalled or the user has stopped wearing
     ///   the watch, and that is worth saying without turning the switch off.
@@ -145,14 +145,17 @@ final class SettingsModel {
         var access: HealthAccessState = .unavailable
         var hasReadings = false
 
-        /// On only when every type Barosense reads is proven readable. Never "the user has
-        /// been asked" — being asked says nothing about the answer.
+        /// On only when every type a working device would have produced is proven readable,
+        /// and at least one of them is. Never "the user has been asked" — being asked says
+        /// nothing about the answer. Blood oxygen is deliberately not part of the test; see
+        /// `HealthAccessState.isFullyReadable`.
         var isConnected: Bool { access.isFullyReadable }
 
         var isInteractive: Bool { access != .unavailable }
 
-        /// What the switch is off because of, for the caption. Empty while the sheet has
-        /// not been answered.
+        /// What came back empty, for the caption. Wider than what the switch tests on —
+        /// blood oxygen can appear here with the switch on. Empty while the sheet has not
+        /// been answered.
         var unreadableTypes: [HealthMetricKind] { access.unreadableTypes }
 
         /// Nothing in the read set came back at all. What a refused sheet leaves behind —

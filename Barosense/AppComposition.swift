@@ -241,6 +241,22 @@ struct AppRootView: View {
         .environment(\.locale, languages.locale)
         .environment(\.calendar, languages.calendar)
         .task { await services.start() }
+        // Ingest follows the phase rather than being started once at launch. Keyed on the
+        // Bool and not on the phase itself so the two onboarding-side phases do not retrigger
+        // it, and so the transition that matters — onboarding ending, or "delete my data"
+        // sending the user back to it — is the only thing that moves the gate.
+        .task(id: isIngestAllowed) { await ingest.setEnabled(isIngestAllowed) }
+    }
+
+    /// Whether the Health log may take new readings.
+    ///
+    /// Off through onboarding. On a fresh install that is simply "nothing has been asked
+    /// yet"; after "delete my data" it is what keeps the erase true — the observers stay
+    /// registered and would otherwise refill the log with the same week of readings within
+    /// minutes. See `HealthIngestGate`.
+    private var isIngestAllowed: Bool {
+        if case .ready = services.phase { return true }
+        return false
     }
 }
 

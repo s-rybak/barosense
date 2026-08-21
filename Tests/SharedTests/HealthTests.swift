@@ -163,6 +163,43 @@ final class HealthMetricsSnapshotTests: XCTestCase {
         XCTAssertNil(snapshot.oxygenSaturationFraction)
     }
 
+    /// The Now card's figure comes from `.heartRate` — a reading the watch took — and not
+    /// from the daily resting aggregate that used to fill it.
+    func testThePulseFigureComesFromTheMeasuredRate() {
+        let samples = [instant(1, .heartRateBPM(72)),
+                       instant(1, .restingHeartRateBPM(58))]
+
+        let snapshot = HealthMetricsSnapshot.make(from: samples, asOf: now)
+
+        XCTAssertEqual(snapshot.heartRateBPM, 72)
+        XCTAssertEqual(snapshot.restingHeartRateBPM, 58)
+    }
+
+    /// Two families are measured in bpm now. Selection has to be per kind: picking the
+    /// newest sample overall and then reading it as a pulse hands the card a resting
+    /// aggregate whenever that happens to be the later row — or nothing at all.
+    func testANewerRestingAggregateDoesNotDisplaceThePulse() {
+        // The pulse is the older of the two, and still inside its own 2 h bound.
+        let samples = [instant(1.5, .heartRateBPM(72)),
+                       instant(0.5, .restingHeartRateBPM(58))]
+
+        let snapshot = HealthMetricsSnapshot.make(from: samples, asOf: now)
+
+        XCTAssertEqual(snapshot.heartRateBPM, 72)
+    }
+
+    /// Two hours, against the resting aggregate's 48. A reading from this morning is not
+    /// the current pulse, and a screen headed "now" may not present it as one.
+    func testAPulseOlderThanTwoHoursIsNotShown() {
+        let samples = [instant(3, .heartRateBPM(72)),
+                       instant(3, .restingHeartRateBPM(58))]
+
+        let snapshot = HealthMetricsSnapshot.make(from: samples, asOf: now)
+
+        XCTAssertNil(snapshot.heartRateBPM)
+        XCTAssertEqual(snapshot.restingHeartRateBPM, 58)
+    }
+
     func testAnEmptyHistoryProducesAnEmptySnapshot() {
         let snapshot = HealthMetricsSnapshot.make(from: [], asOf: now)
 
@@ -354,7 +391,7 @@ final class HealthSampleRecorderTests: XCTestCase {
         let store: any HealthSampleStore = InMemoryHealthSampleStore()
         let reader = StubHealthDataReader([.restingHeartRate: [instant(.restingHeartRateBPM(62))],
                                  .oxygenSaturation: [instant(.oxygenSaturationFraction(0.97))]])
-        let recorder = HealthSampleRecorder(reader: reader, log: store)
+        let recorder = HealthSampleRecorder(reader: reader, log: store, gate: HealthIngestGate(isOpen: true))
 
         let snapshot = try await recorder.refresh(asOf: now)
 
@@ -362,6 +399,28 @@ final class HealthSampleRecorderTests: XCTestCase {
         let logged = try await store.samples(of: .restingHeartRate,
                                              in: now.addingTimeInterval(-1)..<now.addingTimeInterval(1))
         XCTAssertEqual(logged.count, 1)
+    }
+
+    /// `.heartRate` is read on every refresh and kept out of the log. Nothing in the
+    /// feature registry consumes beat-to-beat readings, and a worn watch writes one every
+    /// few minutes — see `HealthMetricKind.isLoggedForTraining`.
+    func testAMeasuredHeartRateReachesTheScreenButNotTheLog() async throws {
+        let store: any HealthSampleStore = InMemoryHealthSampleStore()
+        let reader = StubHealthDataReader([.heartRate: [instant(.heartRateBPM(72))],
+                                           .restingHeartRate: [instant(.restingHeartRateBPM(58))]])
+        let recorder = HealthSampleRecorder(reader: reader, log: store, gate: HealthIngestGate(isOpen: true))
+
+        let snapshot = try await recorder.refresh(asOf: now)
+
+        XCTAssertEqual(snapshot.heartRateBPM, 72)
+
+        let window = now.addingTimeInterval(-1)..<now.addingTimeInterval(1)
+        let loggedPulse = try await store.samples(of: .heartRate, in: window)
+        XCTAssertTrue(loggedPulse.isEmpty, "beat-to-beat readings must not enter the training log")
+
+        // The kinds the model does consume are unaffected.
+        let loggedResting = try await store.samples(of: .restingHeartRate, in: window)
+        XCTAssertEqual(loggedResting.count, 1)
     }
 
     func testOneUnavailableMetricDoesNotSinkTheOthers() async throws {
@@ -413,7 +472,8 @@ final class HealthSampleRecorderTests: XCTestCase {
         let store: any HealthSampleStore = InMemoryHealthSampleStore()
         let reading = instant(.restingHeartRateBPM(62))
         let recorder = HealthSampleRecorder(reader: StubHealthDataReader([.restingHeartRate: [reading]]),
-                                            log: store)
+                                            log: store,
+                                            gate: HealthIngestGate(isOpen: true))
 
         try await recorder.refresh(asOf: now)
         try await recorder.refresh(asOf: now)

@@ -1,7 +1,7 @@
 import Foundation
 import HealthKit
 
-/// `HKObserverQuery` + hourly background delivery for the three authorised types.
+/// `HKObserverQuery` + hourly background delivery for the types the training log keeps.
 ///
 /// This is the second HealthKit boundary next to `HealthKitDataReader`. Sample reads stay
 /// on the reader; this type only watches for "something changed" and never looks at
@@ -13,8 +13,10 @@ import HealthKit
 /// target; watchOS does not register this observer (training log lives on phone).
 ///
 /// 1. **What wakes the app, how often?** HealthKit, via background delivery. Frequency
-///    request is `.hourly` — at most one wake per type per hour. Three types ⇒ theoretical
-///    ceiling 3 wakes/h; coalescing collapses near-simultaneous fires to one ingest.
+///    request is `.hourly` — at most one wake per *observed* type per hour. Three logged
+///    types ⇒ theoretical ceiling 3 wakes/h; coalescing collapses near-simultaneous fires
+///    to one ingest. The read set is wider than that and deliberately does not raise the
+///    ceiling — see `observedTypes`.
 /// 2. **Work duration?** Unmeasured. Bound: one sample query over
 ///    `HealthMetricsWindow.backgroundLookback` (48 h) per coalesced wake + SwiftData
 ///    upsert. No barometer, no network, no display.
@@ -36,13 +38,22 @@ actor HealthKitChangeObserver: HealthChangeObserving {
         self.healthStore = healthStore
     }
 
-    /// Same three types as `HealthKitDataReader.readSet` — nothing held "for later".
+    /// The read set minus the kinds that are only ever displayed.
+    ///
+    /// Derived rather than listed, because the two lists stopped matching the moment
+    /// `.heartRate` joined the read set, and the two ways of reconciling that have opposite
+    /// costs. Observing a display-only kind buys an hourly wake for a figure nobody can see
+    /// while the app is in the background — and a worn watch writes beat-to-beat readings
+    /// every few minutes, so that observer would fire on every one of them. Leaving it out
+    /// costs nothing: the Now card reads live.
+    ///
+    /// Expressing that as a filter means a later reader finds the decision instead of a
+    /// mismatch to guess at, and a fifth metric inherits it rather than having to be
+    /// remembered here.
     private static var observedTypes: [HKSampleType] {
-        [
-            HKQuantityType(HKQuantityTypeIdentifier.restingHeartRate),
-            HKQuantityType(HKQuantityTypeIdentifier.oxygenSaturation),
-            HKCategoryType(HKCategoryTypeIdentifier.sleepAnalysis)
-        ]
+        HealthMetricKind.allCases
+            .filter(\.isLoggedForTraining)
+            .map(HealthKitReadSet.sampleType(for:))
     }
 
     func start(onChange: @escaping @Sendable () async -> Void) async {

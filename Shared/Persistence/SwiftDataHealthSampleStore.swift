@@ -21,6 +21,8 @@ final class PersistedHealthSample {
         self.end = sample.end
         self.kindRaw = sample.kind.rawValue
         switch sample.value {
+        case .heartRateBPM(let bpm):
+            self.quantity = bpm
         case .restingHeartRateBPM(let bpm):
             self.quantity = bpm
         case .oxygenSaturationFraction(let fraction):
@@ -35,6 +37,8 @@ final class PersistedHealthSample {
         end = sample.end
         kindRaw = sample.kind.rawValue
         switch sample.value {
+        case .heartRateBPM(let bpm):
+            quantity = bpm
         case .restingHeartRateBPM(let bpm):
             quantity = bpm
         case .oxygenSaturationFraction(let fraction):
@@ -48,6 +52,12 @@ final class PersistedHealthSample {
         guard let kind = HealthMetricKind(rawValue: kindRaw) else { return nil }
         let value: HealthMetricValue
         switch kind {
+        // Reachable only for a row written before `.heartRate` became display-only, or by
+        // a future consumer that decides to keep them. The mapping stays complete either
+        // way — a row that cannot be turned back into a sample is a silently dropped row.
+        case .heartRate:
+            guard let quantity else { return nil }
+            value = .heartRateBPM(quantity)
         case .restingHeartRate:
             guard let quantity else { return nil }
             value = .restingHeartRateBPM(quantity)
