@@ -133,6 +133,24 @@ final class WeatherForecastPointTests: XCTestCase {
         )
     }
 
+    /// The two hours between "96 + 12" and what is actually asked for, pinned.
+    ///
+    /// WeatherKit answers with whole hours strictly inside the window, so a request made at
+    /// `h:mm` comes back reaching `requested − 1 h − mm`. Measured on the device: 108 h asked
+    /// at 22:06:57 returned a max lead of 106.88 h. At `:59` the loss is 1.98 h, so anything
+    /// less than two hours of slack leaves the widest column short at the end of an issue's
+    /// life — the defect this whole horizon exists to have fixed, one boundary further in.
+    func testTheRequestCarriesEnoughSlackForTheServicesHourBoundary() {
+        let worstCaseLossSeconds: TimeInterval = 2 * 3600
+
+        XCTAssertGreaterThanOrEqual(
+            WeatherForecastPolicy.requestedHorizonSeconds - worstCaseLossSeconds,
+            PressureChartRange.widest.maximumForecastSeconds
+                + WeatherForecastPolicy.maximumIssueAgeSeconds,
+            "a request made at :59 would leave the day column short at the end of an issue's life"
+        )
+    }
+
     /// And no further than Apple documents. Asking past the source's own horizon is quota
     /// spent on rows that cannot come back.
     func testTheRequestStaysInsideTheSourcesDocumentedHorizon() {

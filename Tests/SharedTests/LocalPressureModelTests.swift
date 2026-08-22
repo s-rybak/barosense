@@ -567,7 +567,7 @@ final class LocalPressureModelTests: XCTestCase {
         XCTAssertEqual(model.specification.tendencyLags, 1,
                        "the two-lag fit here is the tide wearing the lags")
         XCTAssertFalse(
-            LocalPressureModel.tendencyReversesWhenDrawn(Array(model.coefficients.prefix(1)))
+            LocalPressureModel.tendencyReversesWithinTideHorizon(Array(model.coefficients.prefix(1)))
         )
     }
 
@@ -575,10 +575,10 @@ final class LocalPressureModelTests: XCTestCase {
     /// a negative entry is the model turning a falling hour into a rising one from its own
     /// dynamics. A plain decay never does; a strongly negative second lag does.
     func testAReversalIsDetectedOnlyWhenTheLagsActuallyOscillate() {
-        XCTAssertFalse(LocalPressureModel.tendencyReversesWhenDrawn([0.9]))
-        XCTAssertFalse(LocalPressureModel.tendencyReversesWhenDrawn([0.5, 0.3]))
-        XCTAssertTrue(LocalPressureModel.tendencyReversesWhenDrawn([1.804, -0.899]))
-        XCTAssertTrue(LocalPressureModel.tendencyReversesWhenDrawn([-0.6]))
+        XCTAssertFalse(LocalPressureModel.tendencyReversesWithinTideHorizon([0.9]))
+        XCTAssertFalse(LocalPressureModel.tendencyReversesWithinTideHorizon([0.5, 0.3]))
+        XCTAssertTrue(LocalPressureModel.tendencyReversesWithinTideHorizon([1.804, -0.899]))
+        XCTAssertTrue(LocalPressureModel.tendencyReversesWithinTideHorizon([-0.6]))
     }
 
     /// And the rung that *can* afford the harmonics keeps them, oscillating lags and all. The

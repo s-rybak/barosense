@@ -128,6 +128,27 @@ final class PressureForecastReaderTests: XCTestCase {
         XCTAssertNil(report)
     }
 
+    /// The switch reaches the skill report as well, and for the reason it reaches the curve:
+    /// it says what the app may *use*, and scoring archived rows is using them. Nothing here
+    /// leaves the device — the report is a log line — but a rule applied in one of the two
+    /// places that read the archive is not a rule.
+    func testSwitchingWeatherKitOffAlsoSilencesTheSkillReport() async throws {
+        let issuedAt = now.addingTimeInterval(-3600)
+
+        let enabled = try await makeReader(issuedAt: issuedAt, includingRealisedForecasts: true)
+        let withWeatherKit = await enabled.skillReport(asOf: now)
+        XCTAssertNotNil(withWeatherKit,
+                        "the archive holds forecasts and the readings that met them")
+
+        let disabled = try await makeReader(issuedAt: issuedAt,
+                                            includingRealisedForecasts: true,
+                                            isWeatherKitEnabled: false)
+
+        let report = await disabled.skillReport(asOf: now)
+
+        XCTAssertNil(report)
+    }
+
     // MARK: - The switch
 
     /// Off has to mean off on the next read, not once the archive ages out.

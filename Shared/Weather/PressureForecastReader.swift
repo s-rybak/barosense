@@ -135,8 +135,15 @@ actor PressureForecastReader {
     /// `nil` before an offset can be measured, which is also before there is anything to score.
     /// Only WeatherKit is scored here: the local model's own points are never archived — it is
     /// refitted from the barometer log rather than stored — so there is nothing to look back at.
+    ///
+    /// `nil` as well when the user's switch is off, for the same reason `weatherKitForecast`
+    /// returns empty: the switch is about what the app may *use*, and scoring archived rows is
+    /// using them. Nothing leaves the device either way — the report is a log line — but a rule
+    /// stated in one place and applied in one of two is not a rule, and this is the half that
+    /// would have been quietly wrong.
     func skillReport(asOf now: Date) async -> ForecastSkillReport? {
-        guard let offset = await offset(asOf: now) else { return nil }
+        guard preferences.isWeatherKitEnabled(),
+              let offset = await offset(asOf: now) else { return nil }
 
         return try? await ForecastSkillEvaluator.evaluate(archive: archive,
                                                           samples: samples,

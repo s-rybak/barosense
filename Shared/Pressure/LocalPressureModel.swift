@@ -256,6 +256,25 @@ struct LocalPressureModel: Sendable {
     /// physical, the digit is reasoned. PR 4's realised-skill report is what replaces it.
     static let maximumTendencyPersistence: Double = 0.9
 
+    /// How far the impulse response is scanned for a sign reversal. **24 hours.**
+    ///
+    /// Its own constant, and deliberately not `ForecastSource.localModel.rangeSeconds`, which
+    /// is what it used to read. That made a *display* decision gate which fits are accepted:
+    /// widening the chart back to 36 h — it was 36 h earlier the same day — would have silently
+    /// tightened the fit criterion, and narrowing it would have loosened one. Same coupling
+    /// `absoluteMinimumRows` breaks by reading `skillRangeSeconds`, in the other direction.
+    ///
+    /// 24 h because that is the longest cycle this model names. `row(tendencies:hour:)` fits S1
+    /// at 24 h and S2 at 12 h, and an oscillation first turns negative at half its period — so
+    /// **24 steps catch every cycle up to 48 h**, which covers both harmonics with a factor of
+    /// two in hand. Below that the scan starts missing what it exists to find: 12 steps would
+    /// let a 26-hour oscillation through, and 26 hours is S1 mis-estimated by two.
+    ///
+    /// Measured on this project's fixtures, the choice moves nothing that matters — 12, 18 and
+    /// 24 all put `wakingDayLog` on the one-lag rung — so the argument is the physical one and
+    /// not a tuned number.
+    static let tendencyReversalHorizonHours = 24
+
     /// The residual spread a band of nominal width is quoted against. Above this, the band is
     /// inflated in proportion.
     ///
@@ -403,7 +422,22 @@ extension LocalPressureModel {
         // lags carry trend, and rejecting them costs real skill (0.03 against 0.35 on a flat
         // log). Damping does not change this either way — scaling every root by one factor
         // leaves their arguments alone — so the check reads the same before it and after.
-        if !specification.includesHarmonics, tendencyReversesWhenDrawn(stableLags) {
+        //
+        // **And not applied to the one-lag rung, which is what gives the ladder a floor.**
+        // Falling through only works while there is something to fall through to; applied at
+        // every rung this check could refuse all four and leave the chart with no forward half
+        // at all — measured at 11 runs in 60 on a deliberately noisy quiet-day log, and the
+        // logs it bites are cold-start logs, which `CLAUDE.md` §5 says are the case to serve.
+        // The exemption is not a concession either. A single lag has one real root, so the only
+        // thing it can oscillate at is period **2**, alternating hour by hour; the tide has no
+        // two-hour component, so a negative ψ₁ is anti-persistent noise and not an absorbed
+        // cycle. It is bounded to nothing besides: the level it converges to is
+        // `d · ψ₁ / (1 − ψ₁)`, which at the ψ₁ = −0.9 limit is **0.47 × one hour's change** —
+        // against the 4.3 × a positive 0.81 is allowed. Refusing it bought no safety and cost
+        // the whole forward curve.
+        if specification.tendencyLags > 1,
+           !specification.includesHarmonics,
+           tendencyReversesWithinTideHorizon(stableLags) {
             return nil
         }
 
@@ -485,11 +519,11 @@ extension LocalPressureModel {
     /// there, and `PressureForecastReader.features` cuts the same curve back to
     /// `skillRangeSeconds` before the model ever sees it.
     ///
-    /// The iteration carries a **level and a tendency**. Each step predicts the next hourly
+    /// The iteration carries a **level and a tendency**. Each step estimates the next hourly
     /// change from the changes before it, feeds that change back in as a lag, and adds it to the
     /// running level — so the curve starts from the last hour the sensor actually recorded and
     /// continues the trend it was on, rather than being pulled toward a thirty-day mean that a
-    /// three-day log does not have. Because `tendencyPersistence` is below one, the predicted
+    /// three-day log does not have. Because `tendencyPersistence` is below one, the projected
     /// change decays geometrically and the level converges instead of ramping.
     ///
     /// `includingAnchorHour` adds the hour **containing** `now` — the level every delta in
@@ -635,7 +669,9 @@ extension LocalPressureModel {
     ///
     /// A fit already inside the limit is returned untouched, which is the ordinary case.
     static func stabilised(_ lags: [Double], at persistence: Double) -> [Double] {
-        guard persistence > maximumTendencyPersistence, persistence > 0 else { return lags }
+        // One condition, not two: `maximumTendencyPersistence` is 0.9, so anything above it
+        // is above zero and the divide below is safe by the same test that reached it.
+        guard persistence > maximumTendencyPersistence else { return lags }
 
         let factor = maximumTendencyPersistence / persistence
         return lags.enumerated().map { $1 * pow(factor, Double($0 + 1)) }
@@ -668,20 +704,18 @@ extension LocalPressureModel {
         return high
     }
 
-    /// Whether a shock to the tendency reverses sign anywhere inside the range this curve is
-    /// drawn across.
+    /// Whether a shock to the tendency reverses sign inside `tendencyReversalHorizonHours`.
     ///
     /// The impulse response `hₜ = Σψⱼhₜ₋ⱼ` with `h₀ = 1` — literally what the forward iteration
     /// propagates, so a negative entry at step *t* is the model saying an hour of falling
     /// pressure implies a rising hour *t* hours later, from its own dynamics and not from any
-    /// term it fitted the tide with. Over eighteen steps that is an oscillation, and an
+    /// term it fitted the tide with. Over a day of steps that is an oscillation, and an
     /// oscillation in a tendency is the tide or it is nothing.
     ///
-    /// Measured across `rangeSeconds` rather than a fixed count, because the question is about
-    /// the curve that will be drawn: a cycle whose first reversal falls past the end of the
-    /// curve never appears on screen and is not worth refusing a fit over.
-    static func tendencyReversesWhenDrawn(_ lags: [Double]) -> Bool {
-        let steps = Int(ForecastSource.localModel.rangeSeconds / 3600)
+    /// A pure predicate about a lag vector. Whether a *fit* is refused for it is
+    /// `fit(cells:to:in:asOf:)`'s decision, and it exempts the one-lag rung — see there.
+    static func tendencyReversesWithinTideHorizon(_ lags: [Double]) -> Bool {
+        let steps = tendencyReversalHorizonHours
         guard steps > 0, !lags.isEmpty else { return false }
 
         var response = [1.0]

@@ -38,8 +38,11 @@ struct WeatherKitForecastProvider: WeatherForecastProviding {
             // It starts an hour behind `now` rather than at it, so the hour *containing* `now`
             // is in the response. `ForecastPressurePoint.curve(includingHourAt:)` needs that
             // row: every delta in `ForecastPressureFeatures` is measured against the level at
-            // `now`, and a window opening exactly at `now` would return the next whole hour
-            // first and leave that level to be guessed at.
+            // `now`. A window opening exactly at `now` would not leave that level missing —
+            // the extractor matches within 90 minutes, so the next whole hour would answer for
+            // it — which is worse than missing. Every delta would then be measured from a point
+            // up to an hour *ahead* of `now`, understating each one by that much of the drift
+            // already under way, silently and in the same direction every time.
             let (current, hourly) = try await WeatherService.shared.weather(
                 for: location,
                 including: .current,
