@@ -232,6 +232,8 @@ private struct PreviewHealthDataReader: HealthDataReader {
     func samples(of kind: HealthMetricKind, in range: Range<Date>) async throws -> [HealthSample] {
         let now = Date.now
         switch kind {
+        case .heartRate:
+            return [HealthSample(id: UUID(), start: now, end: now, value: .heartRateBPM(72))]
         case .restingHeartRate:
             return [HealthSample(id: UUID(), start: now, end: now, value: .restingHeartRateBPM(62))]
         case .oxygenSaturation:

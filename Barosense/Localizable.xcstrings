@@ -4223,18 +4223,18 @@
         }
       }
     },
-    "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding." : {
+    "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding. Your Health app keeps its own readings — Barosense reads them again only once you set it up." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding."
+            "value" : "This removes your profile, your check-ins, your tags, and every pressure and Health reading stored on this device. It can't be undone, and Barosense starts again from onboarding. Your Health app keeps its own readings — Barosense reads them again only once you set it up."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Це видалить твій профіль, твої чек-іни, теги та всі виміри тиску і дані Health, збережені на цьому пристрої. Скасувати неможливо — Barosense почне з початкового налаштування."
+            "value" : "Це видалить твій профіль, твої чек-іни, теги та всі виміри тиску і дані Health, збережені на цьому пристрої. Скасувати неможливо — Barosense почне з початкового налаштування. Застосунок «Здоров’я» зберігає власні записи: Barosense прочитає їх знову лише після налаштування."
           }
         }
       }

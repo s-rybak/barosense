@@ -8,19 +8,33 @@ import Foundation
 /// history that was never quite what the user saw, and doubles the number of reads for
 /// nothing.
 ///
-/// A `struct`: both dependencies are `Sendable` protocols and there is no state to guard.
+/// A `struct`: the dependencies are `Sendable` protocols and there is no state to guard —
+/// the one piece of mutable state involved lives in `gate`, which is an actor.
 struct HealthSampleRecorder: Sendable {
 
     private let reader: any HealthDataReader
     private let log: any HealthSampleStore
     private let lookback: HealthMetricsWindow
 
+    /// Whether this recorder may write to the log.
+    ///
+    /// Held by the type that writes rather than by `HealthIngestController`, because the
+    /// controller is not the only caller — the Now screen refreshes through this same
+    /// recorder — and an invariant enforced at some of the call sites is not an invariant.
+    /// `HealthIngestController` opens and closes it; see `HealthIngestGate`.
+    ///
+    /// Closed on creation, so a recorder nobody opens reads and displays but records
+    /// nothing. That is the direction a promise about erased data has to fail in.
+    let gate: HealthIngestGate
+
     init(reader: any HealthDataReader,
          log: any HealthSampleStore,
-         lookback: HealthMetricsWindow = .refreshLookback) {
+         lookback: HealthMetricsWindow = .refreshLookback,
+         gate: HealthIngestGate = HealthIngestGate()) {
         self.reader = reader
         self.log = log
         self.lookback = lookback
+        self.gate = gate
     }
 
     /// Shows the user the Health sheet for the read set.
@@ -47,7 +61,7 @@ struct HealthSampleRecorder: Sendable {
     ///
     /// A failure on one kind does not sink the others: blood oxygen is absent on most
     /// hardware, and losing the whole row because of it would be a worse answer than
-    /// showing the two metrics that are there.
+    /// showing the metrics that are there.
     @discardableResult
     func refresh(asOf now: Date = .now,
                  lookback lookbackWindow: HealthMetricsWindow? = nil) async throws -> HealthMetricsSnapshot {
@@ -60,7 +74,9 @@ struct HealthSampleRecorder: Sendable {
 
         for kind in HealthMetricKind.allCases {
             do {
-                collected += try await reader.samples(of: kind, in: range)
+                collected += try await reader.samples(of: kind, in: Self.range(for: kind,
+                                                                              within: range,
+                                                                              asOf: now))
                 successfulKindCount += 1
             } catch {
                 failures.append(error)
@@ -73,8 +89,31 @@ struct HealthSampleRecorder: Sendable {
             throw failure
         }
 
-        try await log.save(collected)
+        // Only what the model consumes reaches the log. `.heartRate` is read for the Now
+        // card and dropped here — see `HealthMetricKind.isLoggedForTraining` for the row
+        // count that buys. The snapshot below is built from everything that was read, so
+        // the card still gets its figure.
+        //
+        // The gate suppresses this write and nothing else. Reading for display is not
+        // accumulating history, and a screen that went blank while the gate was closed
+        // would be reporting a state the user never asked about.
+        if await gate.isOpen {
+            try await log.save(collected.filter(\.kind.isLoggedForTraining))
+        }
 
         return HealthMetricsSnapshot.make(from: collected, asOf: now)
+    }
+
+    /// One kind's slice of the refresh window.
+    ///
+    /// Identical to the caller's window for every kind the log keeps. A display-only kind
+    /// narrows it to its own staleness bound: reading further back would fetch samples
+    /// that cannot appear anywhere and are not kept.
+    private static func range(for kind: HealthMetricKind,
+                              within range: Range<Date>,
+                              asOf now: Date) -> Range<Date> {
+        guard let cap = kind.readLookbackCap else { return range }
+        let earliest = max(range.lowerBound, now.addingTimeInterval(-cap.seconds))
+        return earliest..<range.upperBound
     }
 }

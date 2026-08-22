@@ -33,11 +33,14 @@ struct HealthMetricsRow: View {
 
     private var cards: [Card] {
         [
-            Card(kind: .restingHeartRate,
+            // The measured rate, not `restingHeartRateBPM`. Resting heart rate is a daily
+            // aggregate HealthKit publishes hours after the day it covers — on a screen
+            // headed "now" it showed a figure from yesterday morning.
+            Card(kind: .heartRate,
                  label: "Heart rate",
                  // Verbatim: a bare figure is a number, not copy, and running it through a
                  // lookup would let a translation change it.
-                 value: snapshot.restingHeartRateBPM.map { Text(verbatim: "\(Int($0.rounded()))") }),
+                 value: snapshot.heartRateBPM.map { Text(verbatim: "\(Int($0.rounded()))") }),
             Card(kind: .oxygenSaturation,
                  label: "SpO2",
                  value: snapshot.oxygenSaturationFraction
@@ -126,7 +129,8 @@ struct HealthMetricsRow: View {
 }
 
 #Preview("With readings") {
-    HealthMetricsRow(snapshot: HealthMetricsSnapshot(restingHeartRateBPM: 62,
+    HealthMetricsRow(snapshot: HealthMetricsSnapshot(heartRateBPM: 72,
+                                                     restingHeartRateBPM: 62,
                                                      oxygenSaturationFraction: 0.97,
                                                      asleepHours: 7 + 20.0 / 60))
     .padding(20)
@@ -140,7 +144,8 @@ struct HealthMetricsRow: View {
 }
 
 #Preview("accessibility3") {
-    HealthMetricsRow(snapshot: HealthMetricsSnapshot(restingHeartRateBPM: 62,
+    HealthMetricsRow(snapshot: HealthMetricsSnapshot(heartRateBPM: 72,
+                                                     restingHeartRateBPM: 62,
                                                      oxygenSaturationFraction: 0.97,
                                                      asleepHours: 7 + 20.0 / 60))
     .padding(20)

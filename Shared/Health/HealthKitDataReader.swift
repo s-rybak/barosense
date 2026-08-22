@@ -44,6 +44,14 @@ struct HealthKitDataReader: HealthDataReader {
                                                     options: [.strictEndDate])
 
         switch kind {
+        case .heartRate:
+            let unit = HKUnit.count().unitDivided(by: .minute())
+            return try await quantitySamples(HKQuantityType(HKQuantityTypeIdentifier.heartRate),
+                                             predicate: predicate,
+                                             in: range) { quantity in
+                .heartRateBPM(quantity.doubleValue(for: unit))
+            }
+
         case .restingHeartRate:
             let unit = HKUnit.count().unitDivided(by: .minute())
             return try await quantitySamples(HKQuantityType(HKQuantityTypeIdentifier.restingHeartRate),

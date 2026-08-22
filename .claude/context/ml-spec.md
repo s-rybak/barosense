@@ -24,14 +24,14 @@ the code change.
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). **Forecast features computed on device, not yet consumed** — `ForecastFeatureExtractor` (§2.2) via `PressureForecastReader.features(asOf:)`, run by `WeatherForecastController` after every request that lands, under `issuedAt <= t`, past the ≤12 h staleness gate, calibrated into barometer coordinates. No model reads them: there is none. Pressure (§2.1) / check-in (§2.4) features still planned |
 | Model | not trained; health and barometer raw samples are now accumulateable on disk. **Nothing on screen is model output.** The Now screen's two meter cards are `WeatherTriggerIndex` (§7 baseline #2, made visible) and `TrainingDataProgress` (rows on disk against §4's blend point) — both display-only, both explained under §2.1. The ⓘ on the second opens `TrainingProgressSheet`, which states in words that the bar counts check-ins and not accuracy |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
-| HealthKit read set | **3 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis`, via `Shared/Health/HealthKitDataReader.swift`. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
-| Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per authorised type + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
+| HealthKit read set | **4 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis` and `.heartRate`, via `Shared/Health/HealthKitDataReader.swift`. `.heartRate` is display-only: read on every refresh for the Now card, dropped before the log, no feature consumes it. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
+| Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per **logged** type (3 of the 4 read; `.heartRate` is display-only and deliberately gets none, or a worn watch would wake the app for readings nothing keeps) + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. **Every write is subject to `HealthIngestGate`**, held by `HealthSampleRecorder` and opened only once onboarding is behind the user — so after "delete my data" the log stays empty instead of refilling from the next observer firing. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
 
 ### Health background delivery — battery note (provisional)
 
 iPhone only. Unmeasured on device; flip `HealthBackgroundDelivery.isEnabled` if drain is bad.
 
-1. Wake: HealthKit, ≤1/h per type (`.hourly`); 3 types, coalesced when near-simultaneous.
+1. Wake: HealthKit, ≤1/h per observed type (`.hourly`); 3 of the 4 read types, coalesced when near-simultaneous.
 2. Work duration: unmeasured; bound = one 48 h sample query + SwiftData upsert.
 3. Powered while awake: HealthKit query only (no barometer, network, display).
 4. Doubling to 2 h: still covers SpO₂'s 24 h feature window; hourly kept for missed-wake margin. Not `.immediate`.
@@ -391,7 +391,7 @@ the day** to the user's own waking hour (already-authorised type, already-read f
 Retention: raw rows 90 days (`WeatherForecastPolicy.rawRetentionDays`), pruned on the write
 path like the barometer's; derived features indefinitely, being four floats a request.
 
-### 2.3 HealthKit — all planned, none authorised
+### 2.3 HealthKit
 
 | name                       | source type                   | unit         | sampling / min coverage                                               | on missing                       | status                                                        |
 | -------------------------- | ----------------------------- | ------------ | --------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------- |
@@ -399,8 +399,19 @@ path like the barometer's; derived features indefinitely, being four floats a re
 | `sleepAwakeningCount`      | `.sleepAnalysis`              | count        | as above; requires `awake` segments to be recorded                    | nil                              | planned — blocked, see below                                  |
 | `hoursSinceWake`           | derived from `.sleepAnalysis` | h            | as above                                                              | nil                              | **shipped** — end of the same session as `sleepDurationHours` |
 | `restingHeartRateBPM`      | `.restingHeartRate`           | bpm          | ~1/day, published late                                                | previous completed day, else nil | **shipped** — previous calendar day by sample `start`         |
+| `heartRateBPM` (display)   | `.heartRate`                  | bpm          | ~1/5 min while the watch is worn; read over a 2 h cap                 | nil                              | **shipped, display-only** — newest reading, not logged        |
 | `hrvSDNNMs`                | `.heartRateVariabilitySDNN`   | ms           | sparse and irregular, a few/day at best                               | nil                              | planned — **not authorised**, no consumer                     |
 | `oxygenSaturationFraction` | `.oxygenSaturation`           | fraction 0–1 | model- and region-dependent; frequently absent; feature lookback 24 h | nil                              | **shipped** — latest with `end <= t` inside 24 h              |
+
+`.heartRate` is the one type read without being kept. Its consumer is the Now screen's
+pulse card, which needs the reading the watch just took; `restingHeartRateBPM` is a daily
+aggregate published hours after the day it covers and read as stale under a "now" heading.
+Nothing in this table consumes beat-to-beat readings, and a worn watch writes one every
+few minutes — logging a foreground refresh of them would add roughly 2 000 rows a week
+that no feature reads. `HealthMetricKind.isLoggedForTraining` is where that is decided,
+and `readLookbackCap` is what keeps the read itself down to the card's 2 h staleness
+window. If a feature ever wants them, both flip in one place — and the row mapping in
+`SwiftDataHealthSampleStore` is already complete for it.
 
 Raw samples are written by `HealthSampleRecorder` into `HealthSampleStore` as `HealthSample`
 rows, one per HealthKit object, keyed by HealthKit's own identifier so a repeated read
@@ -417,8 +428,8 @@ intervals; the most recent session ending ≤24 h before `t` supplies both
 `sleepDurationHours` and `hoursSinceWake`.
 
 The display window definitions live in `HealthMetricsWindow` (`Shared/Health/`) and are
-_provisional_: 48 h staleness for resting heart rate, 24 h for blood oxygen, trailing 24 h
-for sleep, 7 d of lookback per refresh. They govern the Now screen only — a feature
+_provisional_: 2 h staleness for heart rate, 48 h for resting heart rate, 24 h for blood
+oxygen, trailing 24 h for sleep, 7 d of lookback per refresh. They govern the Now screen only — a feature
 computed at `t` re-windows from the store and must not inherit them.
 
 Two rules that apply to this whole family:

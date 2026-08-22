@@ -117,10 +117,16 @@ struct SettingsScreen: View {
             // One literal, joined with line continuations rather than `+`. A `+` between
             // two literals types the expression as `String`, which resolves `Text` to its
             // verbatim initialiser — the key would silently never reach the catalogue.
+            //
+            // The last sentence is the honest half. The erase empties Barosense's copy;
+            // the rows in the Health app belong to Health and were only ever read, so
+            // finishing onboarding again does re-read them. Without saying so, the first
+            // sentence reads as a promise the app cannot keep.
             Text("""
                 This removes your profile, your check-ins, your tags, and every pressure and \
                 Health reading stored on this device. It can't be undone, and Barosense \
-                starts again from onboarding.
+                starts again from onboarding. Your Health app keeps its own readings — \
+                Barosense reads them again only once you set it up.
                 """)
         }
         .alert("Nothing to reset yet", isPresented: $model.isShowingLearnedDataNotice) {

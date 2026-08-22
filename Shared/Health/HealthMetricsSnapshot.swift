@@ -8,7 +8,17 @@ import Foundation
 /// into a blocking state.
 struct HealthMetricsSnapshot: Hashable, Sendable {
 
+    /// Beats per minute, the most recent reading the watch took inside the staleness
+    /// bound. This is what the Now screen's pulse card shows — a figure from minutes ago,
+    /// not `restingHeartRateBPM`, which is a daily aggregate HealthKit publishes hours
+    /// after the day it describes and which read as stale on a screen labelled "now".
+    let heartRateBPM: Double?
+
     /// Beats per minute, most recent reading inside the staleness bound.
+    ///
+    /// HealthKit's daily resting aggregate, not a measurement. Kept because it is what the
+    /// model consumes (`.claude/context/ml-spec.md` §2.3) and it comes out of the same read
+    /// the snapshot is built from; nothing on screen shows it.
     let restingHeartRateBPM: Double?
 
     /// Fraction of 0...1, most recent reading inside the staleness bound.
@@ -17,12 +27,16 @@ struct HealthMetricsSnapshot: Hashable, Sendable {
     /// Hours asleep across the trailing window, overlapping intervals counted once.
     let asleepHours: Double?
 
-    static let empty = HealthMetricsSnapshot(restingHeartRateBPM: nil,
+    static let empty = HealthMetricsSnapshot(heartRateBPM: nil,
+                                             restingHeartRateBPM: nil,
                                              oxygenSaturationFraction: nil,
                                              asleepHours: nil)
 
     var isEmpty: Bool {
-        restingHeartRateBPM == nil && oxygenSaturationFraction == nil && asleepHours == nil
+        heartRateBPM == nil
+            && restingHeartRateBPM == nil
+            && oxygenSaturationFraction == nil
+            && asleepHours == nil
     }
 }
 
@@ -37,30 +51,47 @@ extension HealthMetricsSnapshot {
     /// `samples` may hold every kind at once and need not be sorted.
     static func make(from samples: [HealthSample], asOf now: Date) -> HealthMetricsSnapshot {
         HealthMetricsSnapshot(
-            restingHeartRateBPM: latestHeartRate(in: samples, asOf: now),
+            heartRateBPM: latestHeartRate(in: samples, asOf: now),
+            restingHeartRateBPM: latestRestingHeartRate(in: samples, asOf: now),
             oxygenSaturationFraction: latestSaturation(in: samples, asOf: now),
             asleepHours: asleepHours(in: samples, asOf: now)
         )
     }
 
     private static func latestHeartRate(in samples: [HealthSample], asOf now: Date) -> Double? {
-        let window = HealthMetricsWindow.restingHeartRate.trailing(from: now)
+        latest(.heartRate, in: samples, within: .heartRate, asOf: now) { sample in
+            if case .heartRateBPM(let bpm) = sample.value { bpm } else { nil }
+        }
+    }
+
+    private static func latestRestingHeartRate(in samples: [HealthSample], asOf now: Date) -> Double? {
+        latest(.restingHeartRate, in: samples, within: .restingHeartRate, asOf: now) { sample in
+            if case .restingHeartRateBPM(let bpm) = sample.value { bpm } else { nil }
+        }
+    }
+
+    /// Newest reading of one kind inside its staleness window.
+    ///
+    /// Filters on `kind` before taking the maximum, which the two heart-rate metrics made
+    /// necessary: `samples` now carries two families measured in bpm, and a `max` over all
+    /// of them would hand a resting aggregate to the pulse card whenever it happened to be
+    /// the later row.
+    private static func latest(_ kind: HealthMetricKind,
+                               in samples: [HealthSample],
+                               within staleness: HealthMetricsWindow,
+                               asOf now: Date,
+                               value: (HealthSample) -> Double?) -> Double? {
+        let window = staleness.trailing(from: now)
         return samples
-            .filter { window.contains($0.end) }
+            .filter { $0.kind == kind && window.contains($0.end) }
             .max { $0.end < $1.end }
-            .flatMap { sample in
-                if case .restingHeartRateBPM(let bpm) = sample.value { bpm } else { nil }
-            }
+            .flatMap(value)
     }
 
     private static func latestSaturation(in samples: [HealthSample], asOf now: Date) -> Double? {
-        let window = HealthMetricsWindow.oxygenSaturation.trailing(from: now)
-        return samples
-            .filter { window.contains($0.end) }
-            .max { $0.end < $1.end }
-            .flatMap { sample in
-                if case .oxygenSaturationFraction(let fraction) = sample.value { fraction } else { nil }
-            }
+        latest(.oxygenSaturation, in: samples, within: .oxygenSaturation, asOf: now) { sample in
+            if case .oxygenSaturationFraction(let fraction) = sample.value { fraction } else { nil }
+        }
     }
 
     /// Total time asleep in the trailing window, with overlaps counted once.
@@ -108,6 +139,17 @@ extension HealthMetricsSnapshot {
 /// from a measured distribution. Re-derive them once there is real history and update
 /// `.claude/context/ml-spec.md` in the same change.
 struct HealthMetricsWindow: Hashable, Sendable {
+
+    /// A measured heart rate is only "now" for so long. A worn watch writes one every few
+    /// minutes, so two hours covers an ordinary gap — a meeting, a charge cycle — and
+    /// still refuses to present this morning's reading as the current pulse. A watch that
+    /// has been off the wrist longer than that leaves the card blank, which is the honest
+    /// answer.
+    ///
+    /// Also caps what one refresh reads of it (`HealthMetricKind.readLookbackCap`):
+    /// nothing older can reach the screen, and at roughly one sample per five minutes the
+    /// foreground lookback would otherwise pull about 2 000 readings to show the newest.
+    static let heartRate = HealthMetricsWindow.hours(2)
 
     /// Resting heart rate is a daily aggregate and lands late — often not until the
     /// evening of the day it covers. Two days of slack keeps the card from emptying out

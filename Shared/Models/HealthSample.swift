@@ -66,9 +66,63 @@ extension HealthSample {
 /// Exists so callers can ask the store for one family without pattern-matching on the
 /// value. The raw values are persisted and must not be renamed.
 enum HealthMetricKind: String, CaseIterable, Codable, Sendable {
+    case heartRate
     case restingHeartRate
     case oxygenSaturation
     case asleep
+
+    /// Whether a device that granted everything can still return nothing for this type,
+    /// because the hardware or the region withholds it rather than the user.
+    ///
+    /// Only blood oxygen. The sensor is absent from every Apple Watch SE generation, and
+    /// switched off on units sold in the US between January 2024 and mid-2025. HealthKit
+    /// offers nothing that separates "no sensor" from "read refused" — both are an empty
+    /// query — so an empty result for a type in this set is not evidence about the user's
+    /// answer, and nothing may read it as such.
+    var isOptionalOnSomeDevices: Bool {
+        switch self {
+        case .oxygenSaturation: true
+        case .heartRate, .restingHeartRate, .asleep: false
+        }
+    }
+
+    /// Whether readings of this kind are kept in the durable training log.
+    ///
+    /// False only for `.heartRate`. It exists for the Now card's "now" figure and nothing
+    /// else: the model consumes `restingHeartRateBPM`, a daily aggregate
+    /// (`.claude/context/ml-spec.md` §2.3), and has no feature that wants beat-to-beat
+    /// readings. A watch writes one every few minutes, so persisting a foreground refresh
+    /// of it would add on the order of 2 000 rows per week that nothing reads and every
+    /// query over the log has to skip.
+    var isLoggedForTraining: Bool {
+        switch self {
+        case .heartRate: false
+        case .restingHeartRate, .oxygenSaturation, .asleep: true
+        }
+    }
+
+    /// The furthest back one refresh reads this kind, when that is narrower than the
+    /// caller's lookback.
+    ///
+    /// `nil` for everything the log keeps: those windows exist to fill training history,
+    /// and narrowing them would leave holes. `.heartRate` is the exception because it is
+    /// read for one figure on one screen — its display staleness bound is the whole of
+    /// what is worth fetching.
+    var readLookbackCap: HealthMetricsWindow? {
+        switch self {
+        case .heartRate: .heartRate
+        case .restingHeartRate, .oxygenSaturation, .asleep: nil
+        }
+    }
+
+    /// The types whose absence is worth acting on.
+    ///
+    /// Everything except the hardware-optional ones. This is the set a proof-of-read check
+    /// may hold a user to: requiring the rest as well would leave every SE owner
+    /// permanently short of a bar their watch cannot clear.
+    static var expectedOnEveryDevice: [HealthMetricKind] {
+        allCases.filter { !$0.isOptionalOnSomeDevices }
+    }
 }
 
 /// The measured value, with its unit fixed by the case rather than by a comment.
@@ -79,7 +133,10 @@ enum HealthMetricKind: String, CaseIterable, Codable, Sendable {
 /// both of those cases.
 enum HealthMetricValue: Hashable, Codable, Sendable {
 
-    /// Beats per minute.
+    /// Beats per minute, one reading as the watch took it.
+    case heartRateBPM(Double)
+
+    /// Beats per minute, HealthKit's own daily resting aggregate.
     case restingHeartRateBPM(Double)
 
     /// Fraction of 0...1 — HealthKit's own scale for `.oxygenSaturation` read in
@@ -95,6 +152,7 @@ enum HealthMetricValue: Hashable, Codable, Sendable {
 
     var kind: HealthMetricKind {
         switch self {
+        case .heartRateBPM: .heartRate
         case .restingHeartRateBPM: .restingHeartRate
         case .oxygenSaturationFraction: .oxygenSaturation
         case .asleep: .asleep
@@ -106,6 +164,10 @@ enum HealthMetricValue: Hashable, Codable, Sendable {
     /// taste.
     var isPlausible: Bool {
         switch self {
+        // Same range as the resting aggregate below. A beat-to-beat rate during hard
+        // exercise reaches the top of it where a resting figure never would, but the
+        // bound is there to catch a wrong unit, not to police physiology.
+        case .heartRateBPM(let bpm): (20...250).contains(bpm)
         case .restingHeartRateBPM(let bpm): (20...250).contains(bpm)
         case .oxygenSaturationFraction(let fraction): (0.5...1.0).contains(fraction)
         case .asleep: true

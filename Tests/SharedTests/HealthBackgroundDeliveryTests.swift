@@ -50,10 +50,30 @@ final class HealthSampleRecorderLookbackTests: XCTestCase {
 
         _ = try await recorder.refresh(asOf: now, lookback: .backgroundLookback)
 
-        let range = await reader.lastRange
-        let lower = try XCTUnwrap(range?.lowerBound)
+        let ranges = await reader.ranges
+        let lower = try XCTUnwrap(ranges[.restingHeartRate]?.lowerBound)
         let span = now.timeIntervalSince(lower)
         XCTAssertEqual(span, 48 * 3600, accuracy: 2)
+    }
+
+    /// A display-only kind is not read over the caller's lookback. Heart rate is written
+    /// every few minutes by a worn watch, so a 7 d foreground refresh would fetch on the
+    /// order of 2 000 readings to put one figure on the Now card.
+    func testHeartRateIsReadOverItsDisplayWindowNotTheRefreshLookback() async throws {
+        let reader = WindowSpyHealthDataReader()
+        let recorder = HealthSampleRecorder(reader: reader, log: InMemoryHealthSampleStore())
+
+        _ = try await recorder.refresh(asOf: now, lookback: .refreshLookback)
+
+        let ranges = await reader.ranges
+        let heartRateLower = try XCTUnwrap(ranges[.heartRate]?.lowerBound)
+        XCTAssertEqual(now.timeIntervalSince(heartRateLower),
+                       HealthMetricsWindow.heartRate.seconds,
+                       accuracy: 2)
+
+        // The kinds the log keeps are untouched by the cap.
+        let restingLower = try XCTUnwrap(ranges[.restingHeartRate]?.lowerBound)
+        XCTAssertEqual(now.timeIntervalSince(restingLower), 7 * 24 * 3600, accuracy: 2)
     }
 }
 
@@ -62,17 +82,20 @@ private actor Counter {
     func increment() { value += 1 }
 }
 
-/// Records the range of the first kind queried so lookback overrides are observable.
+/// Records the range each kind was queried over, so lookback overrides and per-kind caps
+/// are both observable.
+///
+/// Keyed by kind rather than "the first one asked for": `.heartRate` is read over its own
+/// capped window (`HealthMetricKind.readLookbackCap`), so whichever kind happens to come
+/// first in `allCases` is not necessarily the caller's lookback.
 private actor WindowSpyHealthDataReader: HealthDataReader {
 
-    private(set) var lastRange: Range<Date>?
+    private(set) var ranges: [HealthMetricKind: Range<Date>] = [:]
 
     func requestAuthorization() async throws {}
 
     func samples(of kind: HealthMetricKind, in range: Range<Date>) async throws -> [HealthSample] {
-        if lastRange == nil {
-            lastRange = range
-        }
+        ranges[kind] = range
         return []
     }
 }
