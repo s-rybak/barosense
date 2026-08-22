@@ -46,6 +46,24 @@ final class StoredCheckIn {
     /// migration nobody noticed writing.
     var medications: [StoredMedication] = []
 
+    /// Whether a health stamp was taken when this row was written.
+    ///
+    /// A flag beside three plain columns rather than one optional struct holding them, because
+    /// SwiftData cannot represent the difference the domain needs: a composite attribute whose
+    /// every field is `nil` reads back as `nil` itself, which silently turns "the app looked
+    /// and the Health store had nothing" into "nothing looked at all" — the one distinction
+    /// `CheckIn.health` exists to keep. `SwiftDataStoreTests` pins it.
+    ///
+    /// Defaults to `false`, so every row written before this attribute existed reads back as
+    /// not stamped, which is exactly what it is.
+    var hasHealthStamp: Bool = false
+
+    /// The stamp's three readings — pulse, blood oxygen, hours of sleep — `nil` wherever the
+    /// Health store had nothing. Meaningless unless `hasHealthStamp`.
+    var healthHeartRateBPM: Double?
+    var healthOxygenSaturationFraction: Double?
+    var healthAsleepHours: Double?
+
     var note: String?
 
     init(checkIn: CheckIn) {
@@ -60,7 +78,25 @@ final class StoredCheckIn {
             .map(StoredWellbeingTag.identityKey(for:))
             .sorted()
         medications = checkIn.medications.map(StoredMedication.init(entry:))
+        hasHealthStamp = checkIn.health != nil
+        healthHeartRateBPM = checkIn.health?.heartRateBPM
+        healthOxygenSaturationFraction = checkIn.health?.oxygenSaturationFraction
+        healthAsleepHours = checkIn.health?.asleepHours
         note = checkIn.note
+    }
+
+    /// The stamp, or `nil` when none was taken.
+    ///
+    /// Built through `CheckInHealthContext`'s own initialiser, which is where the plausibility
+    /// gate lives: a row written by a build that put a percentage where the fraction belongs
+    /// loses that one field on read rather than handing it on, and the stamp survives with
+    /// whatever else it carried — nothing on it is required.
+    private var healthContext: CheckInHealthContext? {
+        guard hasHealthStamp else { return nil }
+
+        return CheckInHealthContext(heartRateBPM: healthHeartRateBPM,
+                                    oxygenSaturationFraction: healthOxygenSaturationFraction,
+                                    asleepHours: healthAsleepHours)
     }
 
     /// `nil` when the stored intensity is not a point on the 1–10 scale — a row written by a
@@ -81,6 +117,7 @@ final class StoredCheckIn {
                        // Same rule, same reason: an entry that will not map is dropped and
                        // the check-in survives.
                        medications: medications.compactMap { $0.entry(fallbackTakenAt: timestamp) },
+                       health: healthContext,
                        note: note)
     }
 }

@@ -240,6 +240,38 @@ final class SwiftDataStoreTests: XCTestCase {
         XCTAssertNil(read.first?.note)
     }
 
+    func testTheHealthStampRoundTripsAndKeepsAnEmptyOneApartFromNoneAtAll() async throws {
+        // Pulse is the field that makes this worth storing: `.heartRate` is never written to
+        // the training log, so a check-in's row is the only place the reading at its moment
+        // survives. The second half is the distinction a coverage count depends on — a stamp
+        // with nothing in it must not read back as a row that was never stamped, which is
+        // exactly what SwiftData does to an optional composite attribute whose every field is
+        // `nil`, and why the stamp is stored as plain columns behind a flag.
+        let store = try makeCheckInStore()
+        let stamped = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 7),
+                              health: CheckInHealthContext(heartRateBPM: 74,
+                                                           oxygenSaturationFraction: 0.98,
+                                                           asleepHours: 6.5))
+        let lookedAndFoundNothing = CheckIn(timestamp: referenceDate.addingTimeInterval(60),
+                                            intensity: CheckInIntensity(clamping: 2),
+                                            health: .empty)
+        let neverStamped = CheckIn(timestamp: referenceDate.addingTimeInterval(120),
+                                   intensity: CheckInIntensity(clamping: 2))
+
+        for checkIn in [stamped, lookedAndFoundNothing, neverStamped] {
+            try await store.save(checkIn)
+        }
+
+        let read = try await store.checkIns(in: window(aroundHours: 1))
+        XCTAssertEqual(read, [stamped, lookedAndFoundNothing, neverStamped])
+        XCTAssertEqual(read.first?.health?.heartRateBPM, 74)
+        XCTAssertEqual(read.first?.health?.oxygenSaturationFraction, 0.98)
+        XCTAssertEqual(read.first?.health?.asleepHours, 6.5)
+        XCTAssertEqual(read.dropFirst().first?.health, .empty)
+        XCTAssertNil(read.last?.health)
+    }
+
     func testMedicationEntriesKeepTheirOrderAndTheirMissingDoses() async throws {
         // Order is what the user typed and is the only thing that distinguishes two entries
         // of the same name, so the store may not sort or de-duplicate them.

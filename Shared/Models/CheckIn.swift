@@ -109,6 +109,20 @@ struct CheckIn: Identifiable, Hashable, Codable, Sendable {
     /// outside the feature registry for the same reason `note` is: unbounded user text.
     let medications: [MedicationEntry]
 
+    /// Pulse, blood oxygen and hours of sleep as they stood when this was saved.
+    ///
+    /// `nil` means no stamp was taken — a row written before check-ins carried one, or by a
+    /// client that does not read Health at all. That is a different state from a stamp whose
+    /// three fields are empty, which means the app did look and the Health store had nothing.
+    /// The two stay distinguishable on purpose: a coverage count over the history that
+    /// merged them could not tell "never asked" from "asked, nothing there".
+    ///
+    /// Recorded, and outside the v1 label for the reason the tags are — it exists so "does
+    /// this signal differ when the user slept badly" becomes answerable once there is enough
+    /// history, not because anything reads it today. See `CheckInHealthContext` for which of
+    /// the three can be recovered from the durable log later and which cannot.
+    let health: CheckInHealthContext?
+
     /// Free-text reflection. Never becomes a feature and never joins an outbound payload:
     /// it is unbounded user text and the only part of a check-in that can contain
     /// anything at all.
@@ -119,12 +133,14 @@ struct CheckIn: Identifiable, Hashable, Codable, Sendable {
          intensity: CheckInIntensity,
          tagIDs: Set<WellbeingTag.ID> = [],
          medications: [MedicationEntry] = [],
+         health: CheckInHealthContext? = nil,
          note: String? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.intensity = intensity
         self.tagIDs = tagIDs
         self.medications = medications
+        self.health = health
         self.note = note
     }
 }

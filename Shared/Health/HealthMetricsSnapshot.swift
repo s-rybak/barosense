@@ -165,6 +165,16 @@ struct HealthMetricsWindow: Hashable, Sendable {
     /// screen is opened, and covers naps on top of it.
     static let asleep = HealthMetricsWindow.hours(24)
 
+    /// Lookback for the read a saved check-in is stamped from
+    /// (`CheckInHealthContext`).
+    ///
+    /// 24 h is the widest of the three windows that stamp quotes — blood oxygen and sleep —
+    /// so nothing it can show is missed, while heart rate narrows itself further to 2 h
+    /// through `HealthMetricKind.readLookbackCap`. Deliberately not `refreshLookback`: a
+    /// check-in should cost a read of one day, not of a week, and the two wider windows are
+    /// already covered by the foreground refresh that runs on every activation.
+    static let checkInContext = HealthMetricsWindow.hours(24)
+
     /// How much history one foreground refresh pulls into the log.
     ///
     /// Wider than any display window, so a few days without opening the app do not leave
