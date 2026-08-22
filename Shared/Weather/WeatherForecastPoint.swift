@@ -136,6 +136,48 @@ enum WeatherForecastPolicy {
     /// issue is a worse input instead of being told they are all the same.
     static let maximumIssueAgeSeconds: TimeInterval = 12 * 3600
 
+    /// How far ahead a request asks for hourly rows. **110 h.**
+    ///
+    /// WeatherKit's hourly dataset is served with a **default range of about 24 hours**, and
+    /// asking for `.hourly` without a range is asking for that default. Measured on the
+    /// connected device on 2026-08-22, the newest issue in the archive held **26 rows reaching
+    /// 23.3 h** — so the 48 h and 96 h columns of `PressureChartRange.forecastSeconds(for:)`
+    /// were drawing everything the archive had and stopping less than a day out, whatever the
+    /// button said. Nothing in the app was wrong downstream; the hours had never been fetched.
+    ///
+    /// Derived rather than written down, because the failure was precisely a number at the
+    /// network boundary drifting away from a number on screen. The widest column is what the
+    /// day button draws (96 h); the staleness norm is how old the issue answering it may be
+    /// (12 h), and a curve is measured forward from `now` rather than from `issuedAt` — so an
+    /// issue at the very end of its usable life still has to reach 96 h past a `now` twelve
+    /// hours after it was fetched. Capped at the source's own documented horizon.
+    ///
+    /// **Cost.** About 110 hourly rows per request instead of 26. Four requests a day is ~440
+    /// rows against ~104, and at the 90-day `rawRetentionDays` horizon the archive settles near
+    /// **40 000 rows, order 5 MB** rather than 9 000. The request itself is one unit of quota
+    /// either way — a range does not cost more than a default — and the response is order
+    /// 60 KB against 14 KB, four times a day.
+    ///
+    /// **96 + 12 + 2, and the last two hours are not padding.** Measured on the connected
+    /// device 2026-08-22 22:06:57, asking for 108 h: the response held 110 rows spanning
+    /// 21:00 to 09:00 five days later — a max lead of **106.88 h**, not 108. The service
+    /// answers with whole hours strictly inside the window, so what comes back is
+    /// `requested − 1 h − (minutes past the hour)`, and at :59 that is 1.98 h short. An issue
+    /// at the end of its twelve-hour life would then reach 94.9 h rather than the 96 h the day
+    /// column draws — the right edge of the widest button, missing for the last minutes before
+    /// the issue ages out. Two hours of slack covers the worst case with margin, and costs two
+    /// rows in 110.
+    ///
+    /// **Written down, not computed.** It used to read
+    /// `PressureChartRange.widest.maximumForecastSeconds + maximumIssueAgeSeconds` live, which
+    /// pointed the dependency the wrong way: this is the network boundary, `PressureChartRange`
+    /// is a chart enum in `Shared/Pressure`, and an outbound request must not change because
+    /// somebody re-labelled a button. It also made the two tests below unfalsifiable — they
+    /// asserted the arithmetic the property itself performed, so neither could ever fail. As a
+    /// constant the arithmetic is still checked, by the only thing that should be checking it:
+    /// change 96 h, 12 h or this number, and `WeatherForecastPointTests` says which.
+    static let requestedHorizonSeconds: TimeInterval = 110 * 3600
+
     /// The oldest issue that may still be read at `now`.
     ///
     /// Enforced in `ForecastPressurePoint.curve` and `ForecastFeatureExtractor`, which is to

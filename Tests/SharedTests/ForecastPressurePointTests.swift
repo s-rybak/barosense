@@ -35,11 +35,22 @@ final class ForecastPressurePointTests: XCTestCase {
         }
     }
 
-    /// The local model sees hours, WeatherKit days. Not a placeholder — a human confirmed the
-    /// 3–6 h range, and extending it needs a skill measurement rather than a wider constant.
-    func testTheLocalModelsRangeIsHoursAndWeatherKitsIsDays() {
-        XCTAssertEqual(ForecastSource.localModel.rangeSeconds, 6 * 3600)
+    /// What each source may be **drawn** to. The local model's 18 h is a display range a human
+    /// confirmed on 2026-08-22; WeatherKit's is Apple's documented horizon.
+    func testTheDrawnRangesAreEighteenHoursAndTenDays() {
+        XCTAssertEqual(ForecastSource.localModel.rangeSeconds, 18 * 3600)
         XCTAssertEqual(ForecastSource.weatherKit.rangeSeconds, 240 * 3600)
+    }
+
+    /// And what each may be **learned from**, which the display range did not move. The local
+    /// fit is argued out to 6 h; raising that needs a skill measurement, not a wider chart.
+    func testTheLocalModelIsDrawnFurtherThanItIsLearnedFrom() {
+        XCTAssertEqual(ForecastSource.localModel.skillRangeSeconds, 6 * 3600)
+        XCTAssertLessThan(ForecastSource.localModel.skillRangeSeconds,
+                          ForecastSource.localModel.rangeSeconds)
+        // WeatherKit makes one claim, so the two are the same number for it.
+        XCTAssertEqual(ForecastSource.weatherKit.skillRangeSeconds,
+                       ForecastSource.weatherKit.rangeSeconds)
     }
 
     func testTheBandEdgesStraddleTheValue() {

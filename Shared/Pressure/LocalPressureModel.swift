@@ -9,92 +9,132 @@ import Foundation
 /// blind to weather that has not arrived yet. On 1–3 h horizons linear extrapolation is close to
 /// unbeatable; past that, skill decays toward climatology.
 ///
-/// So the range is **3–6 h** with a band that opens fast, and that is a decision confirmed by a
-/// human rather than a default to be improved on. An agent minded to "finish it off to 24 hours"
-/// has to re-read `.claude/context/pressure-forecast-spec.md` §4.7 and produce a measurement
-/// first.
+/// So the **skill** range is **3–6 h** with a band that opens fast, and that is a decision
+/// confirmed by a human rather than a default to be improved on. An agent minded to "finish it
+/// off to 24 hours" has to re-read `.claude/context/pressure-forecast-spec.md` §4.7 and produce
+/// a measurement first — `ForecastSource.skillRangeSeconds` is the number that claim attaches
+/// to, and it is what the feature pipeline reads.
 ///
-/// ## Why AR(3) + two harmonics and not Core ML
+/// The curve is **drawn** to 18 h (`ForecastSource.rangeSeconds`, a human decision of
+/// 2026-08-22) so the day button has a forward half at all — three times the skill range, not
+/// six, after the same decision was narrowed from 36 h that day. Those two numbers being
+/// different is the honest arrangement: past ~6 h the band is what the user is looking at, and
+/// by 18 h it is twice a day's whole weather. What must not happen is the model learning from
+/// the far end, and `PressureForecastReader.features` is where that is ruled out.
+///
+/// ## It fits the *change*, not the level
+///
+/// The regression target is the hourly change `y_t − y_{t−1}`, and the regressors are the
+/// changes before it. That is not a refinement of fitting levels — it is what keeps the forward
+/// iteration from diverging, and the first version of this type shipped without it.
+///
+/// Station pressure is very nearly a random walk: its lag-1 autocorrelation over an hour is
+/// ~0.99, so an unconstrained least-squares fit on **levels** is estimating a root that sits
+/// almost exactly on the unit circle, from a handful of rows, with no term stopping it from
+/// landing outside. When it does, the forward iteration compounds it once per step and the
+/// curve leaves the atmosphere. Measured on this project's own device log on 2026-08-22 — 30
+/// observed hourly cells over three days — the fitted level polynomial had a root at
+/// **|λ| = 1.207**, and the drawn curve read 1001 hPa at one hour, 1011 at six and **1139 at
+/// eighteen**. On screen that is a line that starts flat and then leaves the top of the card,
+/// which is exactly what a human reported.
+///
+/// Differencing imposes the unit root instead of estimating it, which is the standard answer
+/// for a near-unit-root series and is also the physically honest one: what the sensor can see
+/// is a **tendency**, and the question is how long a tendency lasts, not where the level is
+/// heading. `maximumTendencyPersistence` then bounds that lifetime, so the model cannot claim
+/// a trend outlives the weather system that made it.
+///
+/// The remaining structure is unchanged: `S1`/`S2` still enter as regressors, because the
+/// derivative of a sinusoid is a sinusoid of the same period — the tide is as visible in the
+/// change as it is in the level, and summing a zero-mean oscillation over the forward window
+/// leaves the curve bounded.
+///
+/// ## Why least squares and not Core ML
 ///
 /// The model has one thing to know that persistence does not: the **solar semidiurnal tide**,
 /// `S2`. It is deterministic, it follows from the time of day, and at Kyiv's latitude it is
 /// order 0.3–0.5 hPa (*provisional* — a literature order of magnitude, to be checked against
 /// real traces). Below the 1.0 hPa threshold this app calls meaningful, but it is free skill
-/// that persistence cannot have. Three autoregressive lags carry the local trend and its
-/// curvature.
+/// that persistence cannot have. Three lagged tendencies carry the trend and its curvature.
 ///
-/// Eight parameters, closed-form least squares, a 30-day window of 720 hourly points: about
-/// **46 000 multiply-adds**, which is microseconds. A daily refit therefore needs **no new wake
+/// Seven parameters, closed-form least squares, a 30-day window of 720 hourly points: about
+/// **35 000 multiply-adds**, which is microseconds. A daily refit therefore needs **no new wake
 /// source** and fits inside a foreground activation — `CLAUDE.md` constraint 4 satisfied by
 /// there being nothing to schedule.
 ///
-/// ## Eight parameters is the ceiling, not the size
+/// ## Seven parameters is the ceiling, not the size
 ///
 /// A phone does not record 24 hourly cells a day. iOS grants `BGAppRefreshTask` sparsely and
 /// grants nothing overnight, so a real log is a run of waking hours beside a 12-plus-hour hole,
-/// and a hole restarts the count of consecutive lags a design row needs. A fixed eight-parameter
-/// fit therefore asked for more rows than an ordinary day of use produces, and returned `nil` —
+/// and a hole restarts the count of consecutive cells a design row needs. A fixed largest fit
+/// therefore asked for more rows than an ordinary day of use produces, and returned `nil` —
 /// no forward half at all — on exactly the cold start it exists to serve.
 ///
-/// So the size is chosen from the data: `specificationLadder` tries AR(3)+S1+S2, then AR(3),
-/// AR(2), AR(1), and takes the first the log supports. Fewer lags cost a parameter *and* buy
+/// So the size is chosen from the data: `specificationLadder` tries 3 lags + S1 + S2, then 3
+/// lags, 2, 1, and takes the first the log supports. Fewer lags cost a parameter *and* buy
 /// rows, which is what makes the ladder work rather than merely lower the bar.
 ///
 /// `MLUpdateTask` and Core ML stay in reserve for the day a measurement shows linearity is the
 /// binding constraint. Starting with them would be paying for machinery that holds nothing yet.
 struct LocalPressureModel: Sendable {
 
-    /// Autoregressive order of the **richest** specification: the value depends on the three
-    /// preceding hours.
+    /// Lagged hourly **changes** in the richest specification: this hour's change depends on
+    /// the three before it.
     ///
-    /// Three carries level, slope and curvature — enough for the shape of a passing ridge or
-    /// trough. A fourth lag buys little at these horizons and costs a parameter out of a budget
-    /// that is already tight on one day of data.
+    /// Three carries trend, its persistence and its curvature — enough for the shape of a
+    /// passing ridge or trough. A fourth buys little at these horizons and costs a parameter
+    /// out of a budget that is already tight on one day of data.
     ///
     /// A fit may land on fewer — see `Specification` and `specificationLadder`.
-    static let autoregressiveOrder = 3
+    static let tendencyLagCount = 3
 
     /// Which terms one candidate fit carries.
     ///
     /// The model is fitted at the largest size the log actually supports rather than at one
-    /// fixed size, because the two move in opposite directions: a design row for AR(*k*) needs
-    /// *k* consecutive hours behind it, so **dropping a lag both costs a parameter and buys
-    /// rows**. On a real log — a phone put down overnight, iOS granting no background wakes —
-    /// that difference is the whole feature. Measured on this project's own device log,
-    /// 29 readings over 23 h:
+    /// fixed size, because the two move in opposite directions: a design row for *k* lagged
+    /// changes needs *k + 2* consecutive hours behind it, so **dropping a lag both costs a
+    /// parameter and buys rows**. On a real log — a phone put down overnight, iOS granting no
+    /// background wakes — that difference is the whole feature. Measured on this project's own
+    /// device log, 30 observed hourly cells over three days:
     ///
-    /// | specification | parameters | design rows | rows/parameter |
-    /// | ------------- | ---------: | ----------: | -------------: |
-    /// | AR(3)+S1+S2   |          8 |           6 |            0.8 |
-    /// | AR(3)         |          4 |           6 |            1.5 |
-    /// | AR(2)         |          3 |           7 |            2.3 |
-    /// | AR(1)         |          2 |           9 |            4.5 |
+    /// | specification    | parameters | design rows | rows/parameter |
+    /// | ---------------- | ---------: | ----------: | -------------: |
+    /// | 3 lags + S1 + S2 |          7 |          20 |            2.9 |
+    /// | 3 lags           |          3 |          20 |            6.7 |
+    /// | 2 lags           |          2 |          23 |           11.5 |
+    /// | 1 lag            |          1 |          26 |           26.0 |
     ///
-    /// The fixed 8-parameter fit asked for twelve rows and had six, so that device drew no
-    /// forward half at all — on a day of ordinary use, which is precisely the cold start
-    /// `CLAUDE.md` constraint 5 and `.claude/skills/ml_pipeline/SKILL.md` require to work.
+    /// One consecutive hour more per row than the level fit this replaced, which is what
+    /// differencing costs: the target is a change, so it spends a cell of its own.
     struct Specification: Hashable, Sendable {
 
-        /// How many hourly lags the row carries. 1…`autoregressiveOrder`.
-        let autoregressiveOrder: Int
+        /// How many lagged hourly changes the row carries. 1…`tendencyLagCount`.
+        let tendencyLags: Int
 
         /// Whether the solar S1/S2 harmonics are fitted.
         let includesHarmonics: Bool
 
-        /// Intercept + lags + (4 harmonic terms).
+        /// Lags + (4 harmonic terms). **No intercept**, and that is a decision rather than an
+        /// omission: a constant in an equation whose target is a change is a permanent drift,
+        /// and eighteen steps of it is a straight ramp with nothing to stop it. The level fit
+        /// this replaced carried one, and its estimate implied a long-run level 21 hPa away
+        /// from the window mean — a number no barometer log of three days can support.
         var parameterCount: Int {
-            1 + autoregressiveOrder + (includesHarmonics ? 4 : 0)
+            tendencyLags + (includesHarmonics ? 4 : 0)
         }
+
+        /// Consecutive hourly cells one design row needs: the target's own hour, the hour
+        /// before it that makes the target a change, and one more per lag.
+        var consecutiveHoursPerRow: Int { tendencyLags + 2 }
 
         /// Rows below which this specification is not attempted.
         ///
         /// Two guards, and the lower rungs need both. The ratio is derived from
         /// `minimumRowsPerParameter` rather than written out per size, so there is one number to
-        /// argue with instead of four, and it reproduces the shipped `minimumTrainingRows` of 12
-        /// exactly at the richest size. On its own, though, it lets AR(1) fit on three rows —
-        /// and four readings is not a model however favourable the ratio looks.
+        /// argue with instead of four. On its own, though, it lets a one-lag fit sit on two rows
+        /// — and three readings is not a model however favourable the ratio looks.
         ///
-        /// So `absoluteMinimumRows` floors it. The two together give 12 / 6 / 6 / 6 down the
+        /// So `absoluteMinimumRows` floors it. The two together give 11 / 6 / 6 / 6 down the
         /// ladder.
         var minimumRows: Int {
             max(LocalPressureModel.absoluteMinimumRows,
@@ -106,36 +146,35 @@ struct LocalPressureModel: Sendable {
     /// Candidate specifications, richest first. The first one the log supports is the fit.
     ///
     /// **Harmonics go before lags.** S1/S2 are worth order 0.3–0.5 hPa at this latitude —
-    /// below the 1.0 hPa this app calls meaningful — and they cost **four** parameters, half
-    /// the budget, for the smallest term in the model. The lags carry level, slope and
-    /// curvature, which is the forecast itself. Giving up half the parameters for a term under
-    /// the significance threshold is the cheapest trade available, so it is taken first.
+    /// below the 1.0 hPa this app calls meaningful — and they cost **four** parameters, more
+    /// than half the budget, for the smallest term in the model. The lags carry the tendency
+    /// and how long it lasts, which is the forecast itself. Giving up most of the parameters
+    /// for a term under the significance threshold is the cheapest trade available, so it is
+    /// taken first.
     static var specificationLadder: [Specification] {
         isOrderLadderEnabled ? fullLadder : [richestSpecification]
     }
 
-    static let richestSpecification = Specification(autoregressiveOrder: autoregressiveOrder,
+    static let richestSpecification = Specification(tendencyLags: tendencyLagCount,
                                                     includesHarmonics: true)
 
     private static let fullLadder = [
         richestSpecification,
-        Specification(autoregressiveOrder: 3, includesHarmonics: false),
-        Specification(autoregressiveOrder: 2, includesHarmonics: false),
-        Specification(autoregressiveOrder: 1, includesHarmonics: false)
+        Specification(tendencyLags: 3, includesHarmonics: false),
+        Specification(tendencyLags: 2, includesHarmonics: false),
+        Specification(tendencyLags: 1, includesHarmonics: false)
     ]
 
     /// Feature flag for the ladder (`.claude/skills/swift_conventions/SKILL.md`: anything that
     /// changes forecast output can be switched off without a release).
     ///
-    /// `false` restores the single fixed 8-parameter fit, and with it the behaviour of every
-    /// build before this one.
+    /// `false` restores the single fixed largest fit.
     static let isOrderLadderEnabled = true
 
     /// Rows a specification needs per parameter before it is attempted.
     ///
-    /// **1.5** — not a new number. The shipped gate was 12 rows for 8 parameters, so 1.5 is the
-    /// ratio this model has always been fitted at, now stated once and applied at every size
-    /// instead of only the largest.
+    /// **1.5** — the ratio this model has always been fitted at, stated once and applied at
+    /// every size instead of only the largest.
     ///
     /// It is thin, and it is allowed to be thin only because the band is computed from the
     /// **residual degrees of freedom** (`design.count − parameterCount`) rather than from the
@@ -147,16 +186,22 @@ struct LocalPressureModel: Sendable {
 
     /// Rows no fit may go below, whatever its size.
     ///
-    /// **Six — the range, in hours.** A design row is one hour at which the model could check
-    /// itself against the hours before it, so this says: a model may not project further ahead
-    /// than the number of transitions it has actually observed. `ForecastSource.localModel`
-    /// speaks six hours out, so six is the fewest checks that can stand behind that claim.
+    /// **Six — the skill range, in hours.** A design row is one hour at which the model could
+    /// check itself against the hours before it, so this says: a model may not project further
+    /// ahead than the number of transitions it has actually observed. `ForecastSource.localModel`
+    /// claims skill six hours out, so six is the fewest checks that can stand behind that claim.
     ///
-    /// It binds on every rung below the top, where the ratio alone would admit AR(1) on three
-    /// rows. Four readings is not a model — returning `nil` is the honest answer, and the chart
-    /// draws no forward half instead.
+    /// Derived from `skillRangeSeconds` and **not** from `rangeSeconds`, which is 18 h.
+    /// Reading the drawn range here would demand eighteen consecutive hourly cells before any
+    /// fit at all — a cold-start gate three times harsher, imposed by a change to how far the
+    /// chart draws, which is exactly the kind of coupling the two constants exist to break. The
+    /// drawn range has already moved twice; this number has not, which is the point.
+    ///
+    /// It binds on every rung below the top, where the ratio alone would admit a one-lag fit on
+    /// two rows. Three readings is not a model — returning `nil` is the honest answer, and the
+    /// chart draws no forward half instead.
     static let absoluteMinimumRows =
-        Int(ForecastSource.localModel.rangeSeconds / 3600)
+        Int(ForecastSource.localModel.skillRangeSeconds / 3600)
 
     /// How much history the fit sees.
     ///
@@ -165,17 +210,14 @@ struct LocalPressureModel: Sendable {
     /// averaged into a year-round compromise — and short enough that the fit stays microseconds.
     static let trainingWindowDays = 30
 
-    /// Rows below which the **richest** specification is not attempted.
-    ///
-    /// **12.** Eight parameters against fewer rows than that is memorisation with a ridge term
-    /// holding it up.
+    /// Rows below which the **richest** specification is not attempted. **11.**
     ///
     /// It used to be the only gate, and the claim attached to it — "reachable on a single day
-    /// of data, 24 hourly cells minus three lost to the lags" — assumed 24 hourly cells a day.
-    /// A phone does not deliver that: iOS grants `BGAppRefreshTask` sparsely and grants nothing
-    /// at all overnight, so a real day is a run of waking hours with a 12-plus-hour hole beside
-    /// it, and a hole restarts the count of consecutive lags. The cold start is met by
-    /// `specificationLadder` now, not by this number.
+    /// of data" — assumed 24 hourly cells a day. A phone does not deliver that: iOS grants
+    /// `BGAppRefreshTask` sparsely and grants nothing at all overnight, so a real day is a run
+    /// of waking hours with a 12-plus-hour hole beside it, and a hole restarts the count of
+    /// consecutive cells. The cold start is met by `specificationLadder` now, not by this
+    /// number.
     static let minimumTrainingRows = richestSpecification.minimumRows
 
     /// How often the fit is renewed. Daily: the coefficients move on the timescale of the
@@ -190,8 +232,55 @@ struct LocalPressureModel: Sendable {
     /// degrading.
     static let ridge: Double = 1e-6
 
+    /// The largest root modulus the fitted tendency polynomial is allowed to keep. **0.9.**
+    ///
+    /// This is the number that bounds the forecast, and it is chosen from a timescale rather
+    /// than from taste. A tendency that decays as `r` per hour has an e-folding life of
+    /// `−1 / ln r` hours: 0.9 gives **9.5 h**, the order of a mid-latitude trough's passage.
+    /// The alternatives are not close. 0.98 grants the tendency a 49-hour memory — still 70%
+    /// alive a full day later, which no barometer trace does — and 0.999 grants it forty days.
+    ///
+    /// It also bounds what the curve may claim, because a geometrically decaying tendency sums
+    /// to `d × r / (1 − r)`: nine times the last hourly change. A 0.6 hPa/h rise, the trace this
+    /// was measured on, therefore tops out near **5 hPa** over the whole 18 h; a barometer
+    /// falling at a violent 2 hPa/h tops out near 18, which is bomb-cyclone scale and inside
+    /// what the atmosphere does. At 0.98 the same two traces would be allowed 28 and 98 hPa.
+    ///
+    /// Enforced by scaling rather than by rejection — `stabilised(_:)` multiplies every root by
+    /// the same factor, which leaves the near-term shape the fit actually measured and only
+    /// shortens the tail. Rejection would put a cliff between a fit at 0.90 and one at 0.91,
+    /// and it would not bound the claim at all: a root at 0.999 is stable and still draws a
+    /// straight ramp for eighteen hours.
+    ///
+    /// *Provisional* in the same sense as the band constants: the shape of the argument is
+    /// physical, the digit is reasoned. PR 4's realised-skill report is what replaces it.
+    static let maximumTendencyPersistence: Double = 0.9
+
+    /// How far the impulse response is scanned for a sign reversal. **24 hours.**
+    ///
+    /// Its own constant, and deliberately not `ForecastSource.localModel.rangeSeconds`, which
+    /// is what it used to read. That made a *display* decision gate which fits are accepted:
+    /// widening the chart back to 36 h — it was 36 h earlier the same day — would have silently
+    /// tightened the fit criterion, and narrowing it would have loosened one. Same coupling
+    /// `absoluteMinimumRows` breaks by reading `skillRangeSeconds`, in the other direction.
+    ///
+    /// 24 h because that is the longest cycle this model names. `row(tendencies:hour:)` fits S1
+    /// at 24 h and S2 at 12 h, and an oscillation first turns negative at half its period — so
+    /// **24 steps catch every cycle up to 48 h**, which covers both harmonics with a factor of
+    /// two in hand. Below that the scan starts missing what it exists to find: 12 steps would
+    /// let a 26-hour oscillation through, and 26 hours is S1 mis-estimated by two.
+    ///
+    /// Measured on this project's fixtures, the choice moves nothing that matters — 12, 18 and
+    /// 24 all put `wakingDayLog` on the one-lag rung — so the argument is the physical one and
+    /// not a tuned number.
+    static let tendencyReversalHorizonHours = 24
+
     /// The residual spread a band of nominal width is quoted against. Above this, the band is
     /// inflated in proportion.
+    ///
+    /// Unchanged by the move to tendencies, and it did not need changing: a one-step residual
+    /// is `y_t − ŷ_t` whether the equation was written about the level or about the change, so
+    /// this is measured against exactly the same quantity as before.
     static let referenceResidualHPa: Double = 0.8
 
     /// Coverage below which the band stops widening further, so a nearly empty log produces a
@@ -202,18 +291,26 @@ struct LocalPressureModel: Sendable {
     /// to know their width, and the width is no longer fixed.
     let specification: Specification
 
-    /// `[intercept, lag1 … lagK]` plus `[sinS1, cosS1, sinS2, cosS2]` when
-    /// `specification.includesHarmonics`, fitted on centred values.
+    /// `[lag1 … lagK]` over hourly **changes**, plus `[sinS1, cosS1, sinS2, cosS2]` when
+    /// `specification.includesHarmonics`. No intercept — see `Specification.parameterCount`.
+    ///
+    /// Already stabilised: the lag block is what `stabilised(_:)` returned, not the raw
+    /// least-squares solution. Nothing downstream has to remember to apply it.
     let coefficients: [Double]
 
-    /// Mean of the training targets, added back on projection.
+    /// Modulus of the largest root of the fitted tendency polynomial, after stabilising.
     ///
-    /// Centring is not cosmetic: pressure sits near 1000 and the harmonics near 1, so an
-    /// uncentred normal matrix spans six orders of magnitude and the solve loses most of its
-    /// precision to it.
-    let mean: Double
+    /// At most `maximumTendencyPersistence`. Stored because it is the one number that says how
+    /// long this fit thinks a trend lasts, and because a fit that had to be pulled a long way
+    /// down is a fit whose own history it now describes less well — which is visible in
+    /// `residualStandardDeviationHPa`, measured after the pull.
+    let tendencyPersistence: Double
 
     /// Root-mean-square one-step residual, hPa. What the band is scaled from.
+    ///
+    /// Computed against the **stabilised** coefficients, so damping an explosive fit widens the
+    /// band it is drawn with instead of hiding behind the residual of a model that is no longer
+    /// the one being projected.
     let residualStandardDeviationHPa: Double
 
     /// Fraction of the observed span actually recorded. Feeds the band, so a log full of holes
@@ -229,8 +326,12 @@ struct LocalPressureModel: Sendable {
     /// The hour the fit ends at — the last cell it saw. Projections step forward from here.
     let lastHour: Date
 
-    /// The `specification.autoregressiveOrder` most recent values, newest last. The seed for
-    /// the forward iteration.
+    /// The `specification.tendencyLags + 1` most recent consecutive hourly levels, newest last.
+    ///
+    /// One more than there are lags, because the seed for the forward iteration is a run of
+    /// **changes** and *k* changes need *k + 1* levels. `last` is also the level the curve is
+    /// anchored at, which is why the two are kept as one array rather than as a level and a
+    /// list of differences that could drift apart.
     let recentValues: [Double]
 
     let fittedAt: Date
@@ -265,31 +366,78 @@ extension LocalPressureModel {
                             to specification: Specification,
                             in window: Range<Date>,
                             asOf now: Date) -> LocalPressureModel? {
-        let order = specification.autoregressiveOrder
-        guard cells.count > order else { return nil }
+        let span = specification.consecutiveHoursPerRow - 1
+        guard cells.count > span else { return nil }
 
         let values = cells.map(\.hectopascals)
-        let mean = values.reduce(0, +) / Double(values.count)
 
         var design: [[Double]] = []
         var targets: [Double] = []
 
-        for index in order..<cells.count {
-            // Lags have to be *consecutive hours*. A row whose lags straddle a hole would be
-            // telling the fit that a twelve-hour jump was a one-hour step, which is how a gap
-            // becomes a learned trend.
-            let span = cells[index].hour.timeIntervalSince(cells[index - order].hour)
-            guard abs(span - Double(order) * 3600) < 1 else { continue }
+        for index in span..<cells.count {
+            // The hours have to be *consecutive*. A row whose lags straddle a hole would be
+            // telling the fit that a twelve-hour jump was a one-hour change, which is how a gap
+            // becomes a learned trend — and on a differenced target it is worse than it was on
+            // a level one, because the whole jump lands in a single value the fit reads as one
+            // hour's weather.
+            let observed = cells[index].hour.timeIntervalSince(cells[index - span].hour)
+            guard abs(observed - Double(span) * 3600) < 1 else { continue }
 
-            design.append(row(lags: (1...order).map { values[index - $0] - mean },
+            let changes = (0...specification.tendencyLags).map {
+                values[index - $0] - values[index - $0 - 1]
+            }
+
+            design.append(row(tendencies: Array(changes.dropFirst()),
                               hour: cells[index].hour,
                               specification: specification))
-            targets.append(values[index] - mean)
+            targets.append(changes[0])
         }
 
         guard design.count >= specification.minimumRows,
-              let coefficients = solveNormalEquations(design: design, targets: targets)
+              let solution = solveNormalEquations(design: design, targets: targets)
         else {
+            return nil
+        }
+
+        // The stabilising step, before anything else reads the coefficients. Everything below
+        // — the residual, the band, the projection — is about the model that will actually be
+        // drawn, not about the one least squares handed back.
+        let lags = Array(solution.prefix(specification.tendencyLags))
+        let persistence = tendencyPersistence(of: lags)
+        let stableLags = stabilised(lags, at: persistence)
+        let coefficients = stableLags + solution.dropFirst(specification.tendencyLags)
+
+        // A rung with no harmonics may not keep an oscillating lag block. There is exactly one
+        // cycle this app claims to know about, and it has four terms of its own; when those are
+        // not affordable the lags are the only place the tide can go, and a lag block that has
+        // absorbed it extrapolates it as its own dynamics. Measured on the waking-day fixture,
+        // which is a fall with the tide flattening it: the two-lag rung identified the tide as
+        // a 20-hour oscillation from a nine-hour window and turned the fall into a **rise** by
+        // the second step, scoring RMSE 0.60 hPa over 1–6 h against persistence's 0.35. The
+        // one-lag rung below it scores 0.22. Falling through is how the ladder already says
+        // "this log does not support this specification", and this is that — read off the fit
+        // rather than off the row count.
+        //
+        // Not applied when the harmonics are fitted: there the tide has its proper home, the
+        // lags carry trend, and rejecting them costs real skill (0.03 against 0.35 on a flat
+        // log). Damping does not change this either way — scaling every root by one factor
+        // leaves their arguments alone — so the check reads the same before it and after.
+        //
+        // **And not applied to the one-lag rung, which is what gives the ladder a floor.**
+        // Falling through only works while there is something to fall through to; applied at
+        // every rung this check could refuse all four and leave the chart with no forward half
+        // at all — measured at 11 runs in 60 on a deliberately noisy quiet-day log, and the
+        // logs it bites are cold-start logs, which `CLAUDE.md` §5 says are the case to serve.
+        // The exemption is not a concession either. A single lag has one real root, so the only
+        // thing it can oscillate at is period **2**, alternating hour by hour; the tide has no
+        // two-hour component, so a negative ψ₁ is anti-persistent noise and not an absorbed
+        // cycle. It is bounded to nothing besides: the level it converges to is
+        // `d · ψ₁ / (1 − ψ₁)`, which at the ψ₁ = −0.9 limit is **0.47 × one hour's change** —
+        // against the 4.3 × a positive 0.81 is allowed. Refusing it bought no safety and cost
+        // the whole forward curve.
+        if specification.tendencyLags > 1,
+           !specification.includesHarmonics,
+           tendencyReversesWithinTideHorizon(stableLags) {
             return nil
         }
 
@@ -305,19 +453,19 @@ extension LocalPressureModel {
             .squareRoot()
 
         // The seed obeys the same consecutive-hours rule the design rows do, and for the same
-        // reason: `cells` omits holes, so the last three entries can be an hour apart at one
-        // end and twelve at the other. Handed to the forward iteration as lag1/lag2/lag3, that
-        // says half a day of drift happened in two hours. Measured on a twelve-hour overnight
-        // gap it moved the first step by 1.3 hPa — above the 1.0 hPa this app calls meaningful
-        // — while the band grew 1.5%, because `coverage` is a statement about the whole window
-        // and cannot see a hole at the end of it.
-        guard let seed = seed(in: cells, order: order),
+        // reason: `cells` omits holes, so the last entries can be an hour apart at one end and
+        // twelve at the other. Handed to the forward iteration as this hour's change, that says
+        // half a day of drift happened in one hour. Measured on a twelve-hour overnight gap it
+        // moved the first step by 1.3 hPa — above the 1.0 hPa this app calls meaningful — while
+        // the band grew 1.5%, because `coverage` is a statement about the whole window and
+        // cannot see a hole at the end of it.
+        guard let seed = seed(in: cells, length: specification.tendencyLags + 1),
               let lastHour = seed.last?.hour else { return nil }
 
         return LocalPressureModel(
             specification: specification,
             coefficients: coefficients,
-            mean: mean,
+            tendencyPersistence: min(persistence, maximumTendencyPersistence),
             residualStandardDeviationHPa: residualSD,
             // Measured over the span the log reaches across, not over the nominal window.
             // A one-day-old install has 29 days of window that could not have been recorded,
@@ -334,26 +482,26 @@ extension LocalPressureModel {
         )
     }
 
-    /// The latest run of `autoregressiveOrder` consecutive hourly cells, oldest first.
+    /// The latest run of `length` consecutive hourly cells, oldest first.
     ///
-    /// Walks back from the end rather than taking the last three outright. After a gap the
+    /// Walks back from the end rather than taking the last few outright. After a gap the
     /// newest cells are not neighbours, and the honest anchor is the last hour at which the
-    /// sensor really did record three in a row — everything after it is a hole, not a trend.
+    /// sensor really did record a run — everything after it is a hole, not a trend.
     ///
     /// A model anchored before a gap then says very little, because
-    /// `forecast(asOf:horizonSeconds:)` measures its range from the anchor: an anchor eleven
+    /// `forecast(asOf:horizonSeconds:)` measures its range from the anchor: an anchor eighteen
     /// hours old produces no curve at all, which is the right amount for a model whose whole
-    /// range is six hours to say about a stretch it did not observe.
+    /// drawn range is eighteen hours to say about a stretch it did not observe.
     private static func seed(in cells: [HourlyPressureGrid.Cell],
-                             order: Int) -> [HourlyPressureGrid.Cell]? {
-        guard cells.count >= order else { return nil }
+                             length: Int) -> [HourlyPressureGrid.Cell]? {
+        guard cells.count >= length else { return nil }
 
-        for end in stride(from: cells.count, through: order, by: -1) {
-            let run = Array(cells[(end - order)..<end])
+        for end in stride(from: cells.count, through: length, by: -1) {
+            let run = Array(cells[(end - length)..<end])
             guard let first = run.first?.hour, let last = run.last?.hour else { continue }
 
-            let span = last.timeIntervalSince(first)
-            if abs(span - Double(order - 1) * 3600) < 1 { return run }
+            let observed = last.timeIntervalSince(first)
+            if abs(observed - Double(length - 1) * 3600) < 1 { return run }
         }
 
         return nil
@@ -362,14 +510,22 @@ extension LocalPressureModel {
     /// The forward curve, hourly, from the first whole hour after `now`.
     ///
     /// Clipped to `ForecastSource.localModel.rangeSeconds` whatever is asked for, and clipped
-    /// **from `lastHour`** rather than from `now`. A caller that wants 24 hours gets 6, silently
-    /// and on purpose: the range is a property of what a single barometer can know, not a
-    /// parameter. A caller asking after a long gap gets less than 6, or nothing — the range is
-    /// six hours of extrapolation from the last observed hour, and a gap has already spent some
-    /// of it.
+    /// **from `lastHour`** rather than from `now`. A caller that wants 96 hours gets 18, silently
+    /// and on purpose: the range is a property of the producer, not a parameter. A caller asking
+    /// after a long gap gets less, or nothing — the range is 18 hours of extrapolation from the
+    /// last observed hour, and a gap has already spent some of it.
     ///
-    /// Projections are fed back in as lags, which is what makes the band's growth the honest
-    /// shape — each step inherits the previous step's error as well as its own.
+    /// 18 h is how far this is **drawn**, not how far it is believed: the band reaches ±11.6 hPa
+    /// there, and `PressureForecastReader.features` cuts the same curve back to
+    /// `skillRangeSeconds` before the model ever sees it.
+    ///
+    /// The iteration carries a **level and a tendency**. Each step estimates the next hourly
+    /// change from the changes before it, feeds that change back in as a lag, and adds it to the
+    /// running level — so the curve starts from the last hour the sensor actually recorded and
+    /// continues the trend it was on, rather than being pulled toward a thirty-day mean that a
+    /// three-day log does not have. Because `tendencyPersistence` is below one, the projected
+    /// change decays geometrically and the level converges instead of ramping.
+    ///
     /// `includingAnchorHour` adds the hour **containing** `now` — the level every delta in
     /// `ForecastPressureFeatures` is measured against. The chart does not want it, because that
     /// hour is behind the `now` divider and the past half of the plot is measurements; the
@@ -384,19 +540,24 @@ extension LocalPressureModel {
                   horizonSeconds: TimeInterval,
                   includingAnchorHour anchored: Bool = false) -> [ForecastPressurePoint] {
         let horizon = min(horizonSeconds, ForecastSource.localModel.rangeSeconds)
-        guard horizon >= 3600 else { return [] }
+        guard horizon >= 3600, let anchorLevel = recentValues.last else { return [] }
 
         // The window an anchor may come from: the hour containing `now`, matching
         // `ForecastPressurePoint.curve`'s own `lowerBound` so both producers anchor alike.
         let anchorWindow = now.addingTimeInterval(-3600)
 
-        var lags = recentValues.reversed().map { $0 - mean }
+        // The observed changes, newest first — the same order the coefficients are in.
+        var tendencies = zip(recentValues.dropFirst(), recentValues)
+            .map { $0 - $1 }
+            .reversed()
+            .map { $0 }
+        var level = anchorLevel
         var hour = lastHour
         var points: [ForecastPressurePoint] = []
 
-        if anchored, lastHour > anchorWindow, lastHour <= now, let level = recentValues.last {
+        if anchored, lastHour > anchorWindow, lastHour <= now {
             points.append(ForecastPressurePoint(timestamp: lastHour,
-                                                pressure: Pressure(hectopascals: level),
+                                                pressure: Pressure(hectopascals: anchorLevel),
                                                 uncertaintyHPa: uncertaintyHPa(atLeadSeconds: 0),
                                                 source: .localModel,
                                                 issuedAt: now))
@@ -407,29 +568,32 @@ extension LocalPressureModel {
 
             // Two clips, answering two different questions. `stepsAhead` is how far the
             // iteration has walked from the last hour the model actually saw, and that is what
-            // its range is a statement about — six hours of *extrapolation*, not six hours of
+            // its range is a statement about — 18 hours of *extrapolation*, not 18 hours of
             // wall clock. `lead` is how far past `now` the point sits, which is what the chart
-            // asked for. A log whose last cell is five hours old therefore speaks one hour into
-            // the future rather than six.
+            // asked for. A log whose last cell is five hours old therefore speaks 13 hours into
+            // the future rather than 18.
             let stepsAhead = hour.timeIntervalSince(lastHour)
             guard stepsAhead <= ForecastSource.localModel.rangeSeconds else { break }
 
             let lead = hour.timeIntervalSince(now)
             if lead > horizon { break }
 
-            let projected = dot(coefficients,
-                                Self.row(lags: lags, hour: hour, specification: specification))
-            lags = [projected] + lags.dropLast()
+            let change = dot(coefficients,
+                             Self.row(tendencies: tendencies,
+                                      hour: hour,
+                                      specification: specification))
+            tendencies = [change] + tendencies.dropLast()
+            level += change
 
             // Hours already past — the log's last cell can be a couple of hours old — are
-            // stepped through to carry the lags forward, but never drawn: they are not a
+            // stepped through to carry the tendency forward, but never drawn: they are not a
             // forecast, they are a gap the sensor left. The one exception is the anchor hour,
             // and only when a caller asked for it.
             guard lead > 0 || (anchored && hour > anchorWindow) else { continue }
 
             points.append(ForecastPressurePoint(
                 timestamp: hour,
-                pressure: Pressure(hectopascals: projected + mean),
+                pressure: Pressure(hectopascals: level),
                 // From the anchor, for the reason the clip is: each step feeds its own output
                 // back in as a lag, so a point six steps out carries six steps of compounded
                 // error however recently the user opened the app.
@@ -467,15 +631,15 @@ extension LocalPressureModel {
 
     // MARK: - The fit itself
 
-    /// One design row: intercept, lags, and the two diurnal harmonics.
+    /// One design row: the lagged hourly changes, and the two diurnal harmonics.
     ///
-    /// `lags` is newest-first. The harmonics are functions of the hour being projected, not of
-    /// the lags, which is what lets the model carry a time-of-day shape through a forward
+    /// `tendencies` is newest-first. The harmonics are functions of the hour being projected,
+    /// not of the lags, which is what lets the model carry a time-of-day shape through a forward
     /// iteration where the lags are its own output.
-    private static func row(lags: [Double],
+    private static func row(tendencies: [Double],
                             hour: Date,
                             specification: Specification) -> [Double] {
-        guard specification.includesHarmonics else { return [1] + lags }
+        guard specification.includesHarmonics else { return tendencies }
 
         // Hour of day as a fraction, from the epoch. UTC rather than the user's calendar: S1
         // and S2 are solar tides and their phase is a property of the sun's position, and a
@@ -483,7 +647,7 @@ extension LocalPressureModel {
         let secondsIntoDay = hour.timeIntervalSince1970.truncatingRemainder(dividingBy: 86_400)
         let angle = 2 * Double.pi * secondsIntoDay / 86_400
 
-        return [1] + lags + [sin(angle), cos(angle), sin(2 * angle), cos(2 * angle)]
+        return tendencies + [sin(angle), cos(angle), sin(2 * angle), cos(2 * angle)]
     }
 
     private static func dot(_ lhs: [Double], _ rhs: [Double]) -> Double {
@@ -494,11 +658,106 @@ extension LocalPressureModel {
         LocalPressureModel.dot(lhs, rhs)
     }
 
+    // MARK: - Stability
+
+    /// The lag coefficients with every root pulled inside `maximumTendencyPersistence`.
+    ///
+    /// Scaling lag *j* by `γ^j` multiplies **every** root of `zᵏ − ψ₁zᵏ⁻¹ − … − ψₖ` by `γ`,
+    /// exactly and without finding any of them: substituting `γz` into the scaled polynomial
+    /// gives `γᵏ` times the original. So one factor, applied per lag, moves the whole root set
+    /// and leaves the fit's shape — the relative weight of one hour against the next — intact.
+    ///
+    /// A fit already inside the limit is returned untouched, which is the ordinary case.
+    static func stabilised(_ lags: [Double], at persistence: Double) -> [Double] {
+        // One condition, not two: `maximumTendencyPersistence` is 0.9, so anything above it
+        // is above zero and the divide below is safe by the same test that reached it.
+        guard persistence > maximumTendencyPersistence else { return lags }
+
+        let factor = maximumTendencyPersistence / persistence
+        return lags.enumerated().map { $1 * pow(factor, Double($0 + 1)) }
+    }
+
+    /// Modulus of the largest root of `zᵏ − ψ₁zᵏ⁻¹ − … − ψₖ`.
+    ///
+    /// Found by bisection on an exact stability test rather than by a root finder, because the
+    /// only thing needed is the modulus of the dominant root and a complex-arithmetic solver
+    /// for the general cubic is a great deal of code to get one number. Scaling the lags by
+    /// `1/c` divides every root by `c`, so "is the scaled polynomial stable" answers "is the
+    /// radius below `c`" — a monotone predicate, which is all bisection needs.
+    ///
+    /// Bounded above by Cauchy's `max(1, Σ|ψⱼ|)`, and 48 halvings put the answer inside 1e-13
+    /// of the true modulus. At `k ≤ 3` the whole thing is a few hundred flops, once per refit.
+    static func tendencyPersistence(of lags: [Double]) -> Double {
+        let cauchy = max(1, lags.reduce(0) { $0 + abs($1) })
+        guard cauchy > 0, lags.contains(where: { $0 != 0 }) else { return 0 }
+
+        var low = 0.0
+        var high = cauchy
+        for _ in 0..<48 {
+            let middle = (low + high) / 2
+            guard middle > 0 else { break }
+
+            let scaled = lags.enumerated().map { $1 / pow(middle, Double($0 + 1)) }
+            if isStable(scaled) { high = middle } else { low = middle }
+        }
+
+        return high
+    }
+
+    /// Whether a shock to the tendency reverses sign inside `tendencyReversalHorizonHours`.
+    ///
+    /// The impulse response `hₜ = Σψⱼhₜ₋ⱼ` with `h₀ = 1` — literally what the forward iteration
+    /// propagates, so a negative entry at step *t* is the model saying an hour of falling
+    /// pressure implies a rising hour *t* hours later, from its own dynamics and not from any
+    /// term it fitted the tide with. Over a day of steps that is an oscillation, and an
+    /// oscillation in a tendency is the tide or it is nothing.
+    ///
+    /// A pure predicate about a lag vector. Whether a *fit* is refused for it is
+    /// `fit(cells:to:in:asOf:)`'s decision, and it exempts the one-lag rung — see there.
+    static func tendencyReversesWithinTideHorizon(_ lags: [Double]) -> Bool {
+        let steps = tendencyReversalHorizonHours
+        guard steps > 0, !lags.isEmpty else { return false }
+
+        var response = [1.0]
+        for step in 1...steps {
+            let value = lags.indices.reduce(0.0) { total, lag in
+                let index = step - 1 - lag
+                return index >= 0 ? total + lags[lag] * response[index] : total
+            }
+            if value < 0 { return true }
+            response.append(value)
+        }
+
+        return false
+    }
+
+    /// Whether every root of `zᵏ − ψ₁zᵏ⁻¹ − … − ψₖ` lies strictly inside the unit circle.
+    ///
+    /// The Schur–Cohn criterion in its Levinson step-down form: peel one lag at a time, and the
+    /// polynomial is stable exactly when every reflection coefficient met on the way down has
+    /// modulus below one. Exact, allocation-light, and no complex arithmetic.
+    static func isStable(_ lags: [Double]) -> Bool {
+        var remaining = lags
+
+        while let reflection = remaining.last {
+            guard abs(reflection) < 1 else { return false }
+            guard remaining.count > 1 else { return true }
+
+            let order = remaining.count
+            let scale = 1 - reflection * reflection
+            remaining = (0..<(order - 1)).map { index in
+                (remaining[index] + reflection * remaining[order - 2 - index]) / scale
+            }
+        }
+
+        return true
+    }
+
     /// `(XᵀX + λI) β = Xᵀy`, solved by Gaussian elimination with partial pivoting.
     ///
-    /// At most eight by eight — `Specification.parameterCount` wide. Building `XᵀX` costs
-    /// `rows × p²` multiply-adds, about 46 000 over a 30-day window at the richest size, and
-    /// the solve is a fixed ~340. Every smaller specification on the ladder is cheaper again.
+    /// At most seven by seven — `Specification.parameterCount` wide. Building `XᵀX` costs
+    /// `rows × p²` multiply-adds, about 35 000 over a 30-day window at the richest size, and
+    /// the solve is a fixed ~230. Every smaller specification on the ladder is cheaper again.
     /// There is no library call here worth the dependency, and Accelerate would not measurably
     /// beat it at this size.
     private static func solveNormalEquations(design: [[Double]], targets: [Double]) -> [Double]? {

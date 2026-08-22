@@ -278,9 +278,12 @@ struct RootView: View {
 
 /// One reader for the preview, shared by the two arguments that take it — the same single
 /// instance the app builds, so the canvas exercises the shipped shape rather than a variant.
-private let previewForecast = PressureForecastReader(archive: InMemoryWeatherForecastStore(),
-                                                    samples: InMemoryPressureSampleStore(),
-                                                    epochs: InMemoryPressureLocationEpochStore())
+private let previewForecast = PressureForecastReader(
+    archive: InMemoryWeatherForecastStore(),
+    samples: InMemoryPressureSampleStore(),
+    epochs: InMemoryPressureLocationEpochStore(),
+    preferences: InMemoryWeatherKitPreferenceStore()
+)
 
 #Preview {
     RootView(ingest: HealthIngestController(

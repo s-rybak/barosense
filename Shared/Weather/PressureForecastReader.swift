@@ -18,6 +18,21 @@ actor PressureForecastReader {
     private let samples: any PressureSampleStore
     private let epochs: any PressureLocationEpochStore
 
+    /// The user's switch, read on **every** forecast rather than at construction.
+    ///
+    /// `WeatherForecastRefresher` reads the same switch to decide whether to make a request,
+    /// and for a while that was thought to be enough. It is not: turning WeatherKit off stops
+    /// new rows arriving and deliberately leaves the archive alone (§5, PR 2, criterion 4), so
+    /// the curve on screen went on being drawn from the last issue until it aged past
+    /// `WeatherForecastPolicy.maximumIssueAgeSeconds`. That is **up to twelve hours** of a
+    /// switch that reads "off" above a chart still showing Apple's forecast, with the Apple
+    /// Weather mark under it. Switched off has to mean off on the next read, and the next read
+    /// is a second away — the barometer drives one on every sample.
+    ///
+    /// Synchronous and unstored, so there is nothing to invalidate: it is a `UserDefaults`
+    /// boolean, and reading it costs less than deciding whether to.
+    private let preferences: any WeatherKitPreferenceStore
+
     /// The offset, and when it was measured.
     ///
     /// Re-measured at most once per `offsetRefreshSeconds`. In memory rather than on disk: it
@@ -55,10 +70,12 @@ actor PressureForecastReader {
 
     init(archive: any WeatherForecastStore,
          samples: any PressureSampleStore,
-         epochs: any PressureLocationEpochStore) {
+         epochs: any PressureLocationEpochStore,
+         preferences: any WeatherKitPreferenceStore) {
         self.archive = archive
         self.samples = samples
         self.epochs = epochs
+        self.preferences = preferences
     }
 
     /// The forward half of the chart, whichever producer can supply it.
@@ -96,7 +113,21 @@ actor PressureForecastReader {
                                    horizonSeconds: ForecastFeatureExtractor.featureHorizonSeconds,
                                    anchoredAtNow: true)
 
-        return ForecastFeatureExtractor.extract(from: curve, at: now)
+        // The one place the picture and the feature row are allowed to differ, and it is a
+        // deliberate difference rather than a drift: a producer may be *drawn* further than it
+        // may be *learned from*. The local model is drawn to 18 h so the chart can say
+        // something about tonight with a band that admits how little it knows; a delta read
+        // off that same 18-hour extrapolation would enter the vector as a plain number, look
+        // exactly like WeatherKit's, and be trained on as if it were one.
+        //
+        // Points past the skill range are dropped rather than downweighted, which is the same
+        // answer §2.2 gives everywhere else: outside a source's range the family is `nil`, not
+        // a value with a caveat attached.
+        let skilful = curve.filter {
+            $0.timestamp <= now.addingTimeInterval($0.source.skillRangeSeconds)
+        }
+
+        return ForecastFeatureExtractor.extract(from: skilful, at: now)
     }
 
     /// How the WeatherKit forecasts of the last 30 days actually did against the barometer.
@@ -104,8 +135,15 @@ actor PressureForecastReader {
     /// `nil` before an offset can be measured, which is also before there is anything to score.
     /// Only WeatherKit is scored here: the local model's own points are never archived — it is
     /// refitted from the barometer log rather than stored — so there is nothing to look back at.
+    ///
+    /// `nil` as well when the user's switch is off, for the same reason `weatherKitForecast`
+    /// returns empty: the switch is about what the app may *use*, and scoring archived rows is
+    /// using them. Nothing leaves the device either way — the report is a log line — but a rule
+    /// stated in one place and applied in one of two is not a rule, and this is the half that
+    /// would have been quietly wrong.
     func skillReport(asOf now: Date) async -> ForecastSkillReport? {
-        guard let offset = await offset(asOf: now) else { return nil }
+        guard preferences.isWeatherKitEnabled(),
+              let offset = await offset(asOf: now) else { return nil }
 
         return try? await ForecastSkillEvaluator.evaluate(archive: archive,
                                                           samples: samples,
@@ -123,6 +161,11 @@ actor PressureForecastReader {
     private func weatherKitForecast(asOf now: Date,
                                     horizonSeconds: TimeInterval,
                                     anchored: Bool) async -> [ForecastPressurePoint] {
+        // First, and before the archive is even opened. The switch is about what the app may
+        // *use*, not only about what it may fetch — see `preferences`. The rows stay on disk
+        // untouched, which is what makes switching back on instant rather than a cold start.
+        guard preferences.isWeatherKitEnabled() else { return [] }
+
         guard let offset = await offset(asOf: now) else {
             BarosenseLog.pressure.debug("forecast: no weatherKit curve — offset not measurable")
             return []

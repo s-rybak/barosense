@@ -406,17 +406,16 @@ final class PressureSeriesTests: XCTestCase {
         XCTAssertEqual(series.forecast.map(\.pressure.hectopascals), [1009])
     }
 
-    /// The archive holds 240 h. A card 92 pt tall that drew all of it would be a horizontal
-    /// smear, and the domain it forced would flatten the user's own line — so the series clips
-    /// to half a screenful ahead, whatever the caller hands over.
+    /// The archive holds 240 h and the caller hands over whatever it has, so the series clips to
+    /// the window the selected button names for the producer that filled it.
     func testForecastIsClippedToTheRangesOwnForwardWindow() {
-        let points = (1...48).map { forecastPoint(hoursAhead: Double($0), hPa: 1010) }
+        let points = (1...240).map { forecastPoint(hoursAhead: Double($0), hPa: 1010) }
 
         let series = PressureSeries.make(from: [], forecast: points, range: .day, asOf: now)
 
-        // Half a day's screenful is 12 h.
-        XCTAssertEqual(series.forecast.count, 12)
-        XCTAssertEqual(series.forecast.last?.timestamp, now.addingTimeInterval(12 * 3600))
+        // The day button asks WeatherKit for four days.
+        XCTAssertEqual(series.forecast.count, 96)
+        XCTAssertEqual(series.forecast.last?.timestamp, now.addingTimeInterval(96 * 3600))
     }
 
     /// The regression the forward half shipped with: **nothing was drawn on the button the
@@ -456,10 +455,10 @@ final class PressureSeriesTests: XCTestCase {
         }
     }
 
-    /// And the other half of that fix. The forward window is floored at two hours, which on
-    /// the two narrow buttons is wider than the screenful itself — so an opening viewport
-    /// pinned to the forecast's far end would show nothing but forecast, a pressure chart
-    /// whose first paint carries no pressure.
+    /// And the other half of that fix. The forward window is floored at 2.5 h, which on the two
+    /// narrow buttons is wider than the screenful itself — so an opening viewport pinned to the
+    /// forecast's far end would show nothing but forecast, a pressure chart whose first paint
+    /// carries no pressure.
     func testTheOpeningViewportKeepsMeasuredTimeOnScreenAtTheNarrowRanges() {
         let hourMark = Date(timeIntervalSince1970: 1_769_997_600)
         let curve = (1...2).map { mark in

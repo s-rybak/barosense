@@ -106,30 +106,72 @@ enum PressureChartRange: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// How far past `now` the forecast half of the line is drawn.
+    /// How far past `now` the forecast half of the line is drawn — **per producer**.
     ///
-    /// **Half a screenful, floored at two hours.** A fraction of the window rather than a fixed
-    /// horizon, for the reason the trailing headroom is: what has to stay constant is how much
-    /// of the *plot* the forecast occupies, and a fixed 24 h would be a quarter of the day
-    /// range and twenty-four screenfuls of the one-hour one. The archive holds 240 h; this is
-    /// how much of it the card draws.
+    /// | Range | WeatherKit | Local model |
+    /// | ----- | ---------- | ----------- |
+    /// | 1 год | 4 h        | 2.5 h       |
+    /// | 3 год | 12 h       | 6 h         |
+    /// | 6 год | 48 h       | 11 h        |
+    /// | День  | 96 h       | 18 h        |
     ///
-    /// The floor is the part that is not a matter of taste. **Both producers emit points on
-    /// whole hours** — WeatherKit's `hourly.forecast` and `LocalPressureModel`'s own iteration
-    /// alike — so a forward window narrower than two hour marks holds at most one point, and
-    /// one point is not a line: `LineMark` draws segments between vertices and renders nothing
-    /// at all from a single one. Half a screenful was 30 min on the narrowest button and 90 min
-    /// on the next, which put the dashed line at **zero points half the time and one point the
-    /// other half** on the range the card opens on. The feature was invisible on the default
-    /// view whatever the archive held.
+    /// Two columns, because the two producers are not making the same kind of claim and one
+    /// horizon for both would have to be either the shorter one — throwing away days of an
+    /// archive that is already on disk — or the longer one, which the local fit cannot fill and
+    /// would silently draw short. The asymmetry is the same one `ForecastSource.rangeSeconds`
+    /// states, applied where it is visible.
     ///
-    /// Two hours always spans two hour marks whatever the minute is, so every range draws a
-    /// line. On the two narrow buttons that window is wider than the screenful itself, which
-    /// `initialScrollX` is what handles.
-    var forecastSeconds: TimeInterval { max(seconds / 2, Self.minimumForecastSeconds) }
+    /// A table rather than a fraction of the window. Half a screenful tied how far the app looks
+    /// ahead to which button is selected and to nothing else, which drew two hours of a 240 h
+    /// archive on the range the card opens on; tapping a wider button asks to see further in
+    /// both directions, and this is what "further" means in each case.
+    ///
+    /// Every entry is at least 2.5 h, and that floor is a hard one rather than a preference.
+    /// **Both producers emit points on whole hours** — WeatherKit's `hourly.forecast` and
+    /// `LocalPressureModel`'s own iteration alike — so a window of length *L* holds ⌊*L*⌋ or
+    /// ⌈*L*⌉ hour marks depending on where `now` falls inside its own hour, and a window under
+    /// 2 h can therefore hold **one**. One point is not a line: `LineMark` draws segments
+    /// between vertices and renders nothing at all from a single one. 2.5 h guarantees two in
+    /// the worst phase and is the reason the local column's narrowest entry is not 2. Half a
+    /// screenful was 30 min on the narrowest button, which put the dashed line at **zero points
+    /// half the time and one point the other half** on the range the card opens on.
+    ///
+    /// Neither column may exceed its source's `rangeSeconds` — `.day` on the local column sits
+    /// exactly on it — and a test says so, because a table entry past the range is a horizon the
+    /// producer silently refuses to fill.
+    ///
+    /// Every entry is wider than **half** its range's screenful, which is the threshold
+    /// `initialScrollX` cares about: past it the card opens on a capped right edge rather than
+    /// on the curve's far end, so the first frame always holds measured and forecast both. The
+    /// plot scrolls, and what the card *opens* on is a separate decision from how far the line
+    /// reaches.
+    func forecastSeconds(for source: ForecastSource) -> TimeInterval {
+        switch source {
+        case .weatherKit:
+            switch self {
+            case .oneHour: 4 * 3600
+            case .threeHours: 12 * 3600
+            case .sixHours: 48 * 3600
+            case .day: 96 * 3600
+            }
+        case .localModel:
+            switch self {
+            case .oneHour: 2.5 * 3600
+            case .threeHours: 6 * 3600
+            case .sixHours: 11 * 3600
+            case .day: 18 * 3600
+            }
+        }
+    }
 
-    /// The floor on `forecastSeconds`: two hour marks, the fewest that can form a segment.
-    private static let minimumForecastSeconds: TimeInterval = 2 * 3600
+    /// The widest forward window this range can draw, whichever producer ends up filling it.
+    ///
+    /// What the card asks the reader for. One read serves every range *and* both producers, so a
+    /// button tap is a re-slice rather than another query — and so is the fall-through to the
+    /// local model, which the caller cannot know before the read.
+    var maximumForecastSeconds: TimeInterval {
+        ForecastSource.allCases.map(forecastSeconds(for:)).max() ?? 0
+    }
 
     /// The widest option, and therefore the deepest history any range asks for. One store
     /// read of `widest.historySeconds` serves every range, so switching between them is a
@@ -426,14 +468,19 @@ struct PressureSeries: Hashable, Sendable {
     /// The allowance on a short or flat series, where half of a nearly-zero span would clip
     /// every band there is.
     ///
-    /// An **uninflated local band at its own range** — 0.8 hPa at issue plus 0.6 per hour, six
-    /// hours out. Read as a rule: a producer quoting no more uncertainty than the shortest-range
-    /// producer quotes at full stretch is drawn whole, and anything wider than that is inflation
-    /// — a thin log, a hole, a fit that does not fit — and is clipped at the edge of the plot
+    /// An **uninflated local band at the lead its fit is argued at** — 0.8 hPa at issue plus 0.6
+    /// per hour, `ForecastSource.localModel.skillRangeSeconds` out, so 4.4. Read as a rule: a
+    /// producer quoting no more uncertainty than the local model quotes where it still claims
+    /// skill is drawn whole, and anything wider than that is clipped at the edge of the plot
     /// instead of being allowed to set its scale. Clipping is the honest failure: a band running
     /// off the top of the chart reads as "wider than this chart", which is what it is.
-    static let bandDomainFloorHPa =
-        ForecastSource.localModel.uncertaintyHPa(atLeadSeconds: 6 * 3600)
+    ///
+    /// Anchored to the **skill** range and not to the drawn one on purpose. The local curve
+    /// reaches 18 h, where the same linear growth quotes ±11.6 hPa; deriving the floor from that
+    /// would hand the whole plot to the least certain producer at its least certain point and
+    /// flatten the user's own line — the failure §4.1 names, arriving through the back door.
+    static let bandDomainFloorHPa = ForecastSource.localModel
+        .uncertaintyHPa(atLeadSeconds: ForecastSource.localModel.skillRangeSeconds)
 
     /// Builds the series for one range.
     ///
@@ -463,15 +510,18 @@ struct PressureSeries: Hashable, Sendable {
 
         let visibleFrom = now.addingTimeInterval(-range.seconds)
 
-        // Clipped to the range's own forward window as well as to `now`. The archive reaches
-        // 240 h and the caller hands over whatever it has; drawing all of it would flatten the
-        // user's own line into the top of the plot.
-        let forecastHorizon = now.addingTimeInterval(range.forecastSeconds)
-
         return PressureSeries(
             observed: drawn,
+            // Clipped to the range's own forward window as well as to `now`, and clipped
+            // **per point**: the window is a property of the producer as well as of the
+            // button, and a curve that changed producer midway would otherwise be cut at
+            // whichever horizon its first row happened to name.
             forecast: forecast
-                .filter { $0.timestamp > now && $0.timestamp <= forecastHorizon }
+                .filter {
+                    let horizon = range.forecastSeconds(for: $0.source)
+                    return $0.timestamp > now
+                        && $0.timestamp <= now.addingTimeInterval(horizon)
+                }
                 .sorted { $0.timestamp < $1.timestamp },
             // Placed against `drawn` rather than `inExtent`, so the dots land on the line the
             // chart actually renders instead of on the raw log behind it.
@@ -542,14 +592,15 @@ struct PressureSeries: Hashable, Sendable {
         // is on screen.
         let trailingEdge = min(newest.addingTimeInterval(trailingHeadroomSeconds),
                                timeDomain.upperBound)
-        // …but never further right than half a screenful past `now`. `forecastSeconds` is
-        // floored at two hours so that both producers' hourly points can form a segment at
-        // all, and on the 1 h and 3 h buttons that window is wider than the screenful itself —
-        // an edge pinned to its far end would open the card on a viewport holding no reading,
-        // a pressure chart whose first paint shows no pressure.
+        // …but never further right than half a screenful past `now`. Every range's forward
+        // window is wider than half its own screenful — 2.5 h against 30 min on the 1 h button,
+        // 96 h against 12 h on the day one — so an edge pinned to the forecast's far end would
+        // open the card on a viewport holding no reading at all, or nearly none: a pressure
+        // chart whose first paint shows no pressure.
         //
-        // Half a screenful is exactly what the forward half occupied before the floor existed,
-        // so this is a no-op on the 6 h and day buttons and binds only where the floor does.
+        // The rest of the curve is a scroll away, which is the point of the plot being longer
+        // than the viewport. What this fixes is the *first* frame, where measured and forecast
+        // both have to be visible for the divider between them to mean anything.
         let rightEdge = min(trailingEdge,
                             now.addingTimeInterval(range.seconds / 2 + trailingHeadroomSeconds))
 
