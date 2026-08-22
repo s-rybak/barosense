@@ -14,21 +14,51 @@ enum ForecastSource: String, Hashable, Codable, Sendable, CaseIterable {
     /// Apple's numerical weather model, offset-calibrated into barometer coordinates.
     case weatherKit
 
-    /// The on-device autoregressive fit over the user's own barometer log. Sees hours, not
-    /// days — one sensor at one point cannot see a front 200 km away, and no amount of history
-    /// changes that (`.claude/context/pressure-forecast-spec.md` §4.7).
+    /// The on-device autoregressive fit over the user's own barometer log. One sensor at one
+    /// point cannot see a front 200 km away, and no amount of history changes that
+    /// (`.claude/context/pressure-forecast-spec.md` §4.7) — which is why it is drawn out to
+    /// `rangeSeconds` but only ever learned from out to `skillRangeSeconds`.
     case localModel
 }
 
 extension ForecastSource {
 
-    /// How far ahead this source is allowed to speak.
+    /// How far ahead this source may be **drawn**.
     ///
-    /// WeatherKit's is Apple's documented 240 h horizon. The local model's **6 h** is a
-    /// decision confirmed by a human, not a placeholder: an agent that wants to extend it has
-    /// to show a skill measurement first, because the limit is physical — advection is not
-    /// visible from a single point — and not a matter of model capacity or data volume.
+    /// WeatherKit's is Apple's documented 240 h horizon. The local model's **18 h** is a display
+    /// range confirmed by a human on 2026-08-22, and it is deliberately not the same number as
+    /// `skillRangeSeconds`: the chart may extrapolate further than the fit is argued to be
+    /// skilful, because the band is what carries that distinction — by 18 h it quotes ±11.6 hPa
+    /// against a day's weather of ~5, which reads as "this producer does not know" rather than
+    /// as a forecast.
+    ///
+    /// Three times the skill range and not six. The first setting of this constant was 36 h and
+    /// was narrowed the same day: a curve is only worth drawing while the band still reads as a
+    /// band, and past ~18 h the linear growth law below is quoting more than twice a day's whole
+    /// weather, which is not a wider claim but a differently shaped one — see
+    /// `uncertaintyGrowthHPaPerHour`.
+    ///
+    /// What may not follow the picture is the training input. See `skillRangeSeconds`.
     var rangeSeconds: TimeInterval {
+        switch self {
+        case .weatherKit: 240 * 3600
+        case .localModel: 18 * 3600
+        }
+    }
+
+    /// How far ahead this source may feed **the model**.
+    ///
+    /// The physical claim, unchanged and unaffected by the drawn range: advection is not visible
+    /// from a single point, so the local fit is argued out to **6 h** and no further
+    /// (`.claude/context/pressure-forecast-spec.md` §4.7, §7.1). An agent that wants to raise
+    /// *this* number still has to show a skill measurement first; widening the chart is not one.
+    ///
+    /// Kept apart from `rangeSeconds` so that widening the picture cannot quietly widen what is
+    /// learned from: a `forecastPressureDeltaHPaPer24h` filled by twenty-four compounding AR
+    /// steps would enter the feature vector looking exactly like WeatherKit's, and the only
+    /// thing telling them apart would be `forecastUncertaintyHPa` — one number against a delta
+    /// the model would read at face value.
+    var skillRangeSeconds: TimeInterval {
         switch self {
         case .weatherKit: 240 * 3600
         case .localModel: 6 * 3600
@@ -54,7 +84,13 @@ extension ForecastSource {
     /// "pressure will fall about 3 hPa" and "pressure will do something", and the chart has to
     /// show which one it is saying.
     ///
-    /// *Provisional*, both of them.
+    /// *Provisional*, both of them — and the local one is extrapolated past the lead it was
+    /// reasoned at: linear growth puts it at ~11.6 hPa by `rangeSeconds`, about twice the
+    /// y-domain an ordinary day sets, so the far end of the band is clipped rather than drawn
+    /// (`PressureSeries.bandDomainAllowance`). Real forecast error grows sub-linearly and
+    /// saturates near the climatological spread of pressure, so this shape is still wrong in the
+    /// far half of the local curve — less wrong than it was at 36 h, where it reached ~22.
+    /// Replacing it is a measurement task (PR 4's skill report), not a constant to guess at.
     var uncertaintyGrowthHPaPerHour: Double {
         switch self {
         case .weatherKit: 0.08

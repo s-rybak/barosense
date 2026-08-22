@@ -44,6 +44,31 @@ final class PressureForecastReaderTests: XCTestCase {
         XCTAssertNil(features.forecastPressureDeltaHPaPer24h)
     }
 
+    /// The one place the picture and the feature row are allowed to differ, and the reason
+    /// `rangeSeconds` and `skillRangeSeconds` are two constants. A device on the local model
+    /// draws 18 h, so the day button has something to show; the vector still stops at 6 h,
+    /// because moving a chart's range is not a skill measurement. Without the clip the same
+    /// eighteen-step extrapolation would fill `Per12h` and be trained on as if it were
+    /// WeatherKit's.
+    func testTheChartIsDrawnFurtherThanTheFeatureRowIsLearnedFrom() async throws {
+        let stale = now.addingTimeInterval(-WeatherForecastPolicy.maximumIssueAgeSeconds - 3600)
+        let reader = try await makeReader(issuedAt: stale)
+
+        let widest = PressureChartRange.widest.maximumForecastSeconds
+        let curve = await reader.forecast(asOf: now, horizonSeconds: widest)
+        let features = await reader.features(asOf: now)
+
+        XCTAssertEqual(curve.first?.source, .localModel)
+        // Hourly points from the last observed hour, which is inside the hour before `now`.
+        let reach = curve.last?.timestamp.timeIntervalSince(now) ?? 0
+        XCTAssertGreaterThan(reach, ForecastSource.localModel.rangeSeconds - 3600)
+        XCTAssertLessThanOrEqual(reach, ForecastSource.localModel.rangeSeconds)
+
+        XCTAssertNotNil(features.forecastPressureDeltaHPaPer6h)
+        XCTAssertNil(features.forecastPressureDeltaHPaPer12h,
+                     "the drawn range moved; the learned range did not")
+    }
+
     /// And the chart agrees with the feature row about who is speaking — that is the whole
     /// reason both go through `forecast(asOf:horizonSeconds:anchoredAtNow:)`.
     func testTheChartAndTheFeatureRowNameTheSameProducer() async throws {
@@ -95,11 +120,55 @@ final class PressureForecastReaderTests: XCTestCase {
     func testNoOffsetMeansNoSkillReport() async {
         let reader = PressureForecastReader(archive: InMemoryWeatherForecastStore(),
                                             samples: InMemoryPressureSampleStore(),
-                                            epochs: InMemoryPressureLocationEpochStore())
+                                            epochs: InMemoryPressureLocationEpochStore(),
+                                            preferences: InMemoryWeatherKitPreferenceStore())
 
         let report = await reader.skillReport(asOf: now)
 
         XCTAssertNil(report)
+    }
+
+    // MARK: - The switch
+
+    /// Off has to mean off on the next read, not once the archive ages out.
+    ///
+    /// Turning WeatherKit off stops requests and deliberately leaves the rows already fetched
+    /// on disk, so switching back on does not pay a cold start again (§5, PR 2, criterion 4).
+    /// Nothing, though, was stopping those rows being *drawn*: the chart went on showing
+    /// Apple's curve, with Apple's attribution under it, until the issue passed
+    /// `WeatherForecastPolicy.maximumIssueAgeSeconds` — up to **twelve hours** after the user
+    /// had switched it off. This is the same archive and the same instant, read twice.
+    func testSwitchingWeatherKitOffFallsToTheLocalModelOnTheNextRead() async throws {
+        let issuedAt = now.addingTimeInterval(-3600)
+
+        let enabled = try await makeReader(issuedAt: issuedAt, isWeatherKitEnabled: true)
+        let withWeatherKit = await enabled.forecast(asOf: now, horizonSeconds: 6 * 3600)
+        XCTAssertTrue(withWeatherKit.contains { $0.source == .weatherKit },
+                      "an issue an hour old is well inside the staleness norm")
+
+        let disabled = try await makeReader(issuedAt: issuedAt, isWeatherKitEnabled: false)
+        let withoutWeatherKit = await disabled.forecast(asOf: now, horizonSeconds: 6 * 3600)
+
+        XCTAssertFalse(withoutWeatherKit.isEmpty, "the local model answers instead")
+        XCTAssertTrue(withoutWeatherKit.allSatisfy { $0.source == .localModel })
+    }
+
+    /// The rows stay. The switch decides what may be *used*, and an erase is what deletes.
+    ///
+    /// Without this the fix would be a regression dressed as one: dropping the archive on the
+    /// way past would make switching back on re-measure the offset from nothing and wait for
+    /// the next slot before the chart said anything about tomorrow.
+    func testSwitchingOffLeavesTheArchiveIntactForSwitchingBackOn() async throws {
+        let issuedAt = now.addingTimeInterval(-3600)
+
+        let disabled = try await makeReader(issuedAt: issuedAt, isWeatherKitEnabled: false)
+        _ = await disabled.forecast(asOf: now, horizonSeconds: 6 * 3600)
+
+        let switchedBackOn = try await makeReader(issuedAt: issuedAt, isWeatherKitEnabled: true)
+        let curve = await switchedBackOn.forecast(asOf: now, horizonSeconds: 6 * 3600)
+
+        XCTAssertTrue(curve.contains { $0.source == .weatherKit },
+                      "the same issue is still on disk and still inside the norm")
     }
 
     // MARK: - The updated install
@@ -138,7 +207,8 @@ final class PressureForecastReaderTests: XCTestCase {
 
         let reader = PressureForecastReader(archive: InMemoryWeatherForecastStore(),
                                             samples: samples,
-                                            epochs: epochs)
+                                            epochs: epochs,
+                                            preferences: InMemoryWeatherKitPreferenceStore())
 
         let curve = await reader.forecast(asOf: now, horizonSeconds: 6 * 3600)
 
@@ -155,7 +225,8 @@ final class PressureForecastReaderTests: XCTestCase {
     /// `includingRealisedForecasts` adds earlier issues whose hours have already arrived, which
     /// is what the skill report scores.
     private func makeReader(issuedAt: Date,
-                            includingRealisedForecasts: Bool = false) async throws
+                            includingRealisedForecasts: Bool = false,
+                            isWeatherKitEnabled: Bool = true) async throws
         -> PressureForecastReader {
         let samples = InMemoryPressureSampleStore()
         try await samples.save(barometerLog())
@@ -175,9 +246,12 @@ final class PressureForecastReaderTests: XCTestCase {
         let archive = InMemoryWeatherForecastStore()
         try await archive.save(rows)
 
-        return PressureForecastReader(archive: archive,
-                                      samples: samples,
-                                      epochs: InMemoryPressureLocationEpochStore())
+        return PressureForecastReader(
+            archive: archive,
+            samples: samples,
+            epochs: InMemoryPressureLocationEpochStore(),
+            preferences: InMemoryWeatherKitPreferenceStore(isWeatherKitEnabled: isWeatherKitEnabled)
+        )
     }
 
     /// Hourly station-pressure readings for the last 48 h, with the solar semidiurnal tide on

@@ -136,6 +136,32 @@ enum WeatherForecastPolicy {
     /// issue is a worse input instead of being told they are all the same.
     static let maximumIssueAgeSeconds: TimeInterval = 12 * 3600
 
+    /// How far ahead a request asks for hourly rows. **108 h.**
+    ///
+    /// WeatherKit's hourly dataset is served with a **default range of about 24 hours**, and
+    /// asking for `.hourly` without a range is asking for that default. Measured on the
+    /// connected device on 2026-08-22, the newest issue in the archive held **26 rows reaching
+    /// 23.3 h** — so the 48 h and 96 h columns of `PressureChartRange.forecastSeconds(for:)`
+    /// were drawing everything the archive had and stopping less than a day out, whatever the
+    /// button said. Nothing in the app was wrong downstream; the hours had never been fetched.
+    ///
+    /// Derived rather than written down, because the failure was precisely a number at the
+    /// network boundary drifting away from a number on screen. The widest column is what the
+    /// day button draws (96 h); the staleness norm is how old the issue answering it may be
+    /// (12 h), and a curve is measured forward from `now` rather than from `issuedAt` — so an
+    /// issue at the very end of its usable life still has to reach 96 h past a `now` twelve
+    /// hours after it was fetched. Capped at the source's own documented horizon.
+    ///
+    /// **Cost.** About 110 hourly rows per request instead of 26. Four requests a day is ~440
+    /// rows against ~104, and at the 90-day `rawRetentionDays` horizon the archive settles near
+    /// **40 000 rows, order 5 MB** rather than 9 000. The request itself is one unit of quota
+    /// either way — a range does not cost more than a default — and the response is order
+    /// 60 KB against 14 KB, four times a day.
+    static var requestedHorizonSeconds: TimeInterval {
+        min(ForecastSource.weatherKit.rangeSeconds,
+            PressureChartRange.widest.maximumForecastSeconds + maximumIssueAgeSeconds)
+    }
+
     /// The oldest issue that may still be read at `now`.
     ///
     /// Enforced in `ForecastPressurePoint.curve` and `ForecastFeatureExtractor`, which is to

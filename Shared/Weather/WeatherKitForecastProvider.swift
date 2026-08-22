@@ -30,8 +30,23 @@ struct WeatherKitForecastProvider: WeatherForecastProviding {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
 
         do {
+            // **The range is explicit, and it has to be.** Bare `.hourly` is served with
+            // WeatherKit's own default window of about 24 hours, so the app was archiving a day
+            // and drawing chart buttons that promised two and four — see
+            // `WeatherForecastPolicy.requestedHorizonSeconds` for the measurement.
+            //
+            // It starts an hour behind `now` rather than at it, so the hour *containing* `now`
+            // is in the response. `ForecastPressurePoint.curve(includingHourAt:)` needs that
+            // row: every delta in `ForecastPressureFeatures` is measured against the level at
+            // `now`, and a window opening exactly at `now` would return the next whole hour
+            // first and leave that level to be guessed at.
             let (current, hourly) = try await WeatherService.shared.weather(
-                for: location, including: .current, .hourly
+                for: location,
+                including: .current,
+                .hourly(
+                    startDate: now.addingTimeInterval(-3600),
+                    endDate: now.addingTimeInterval(WeatherForecastPolicy.requestedHorizonSeconds)
+                )
             )
 
             // `now` — the instant the app asked — rather than the response's own metadata

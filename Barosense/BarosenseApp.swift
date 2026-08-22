@@ -117,9 +117,16 @@ struct BarosenseApp: App {
         }
         self.weatherArchive = weatherArchive
 
+        // One instance, read by both halves of the feature. The refresher asks it whether a
+        // request may go out; the reader asks it whether the rows already on disk may be drawn.
+        // Two instances would answer alike — it is a `UserDefaults` key — but one makes it
+        // visible that they are the same switch.
+        let weatherPreferences = UserDefaultsWeatherKitPreferenceStore()
+
         let forecast = PressureForecastReader(archive: weatherArchive,
                                               samples: pressureLog,
-                                              epochs: locationEpochs)
+                                              epochs: locationEpochs,
+                                              preferences: weatherPreferences)
         self.forecast = forecast
 
         weather = WeatherForecastController(
@@ -130,7 +137,7 @@ struct BarosenseApp: App {
                 store: weatherArchive,
                 epochs: locationEpochs,
                 access: CoreLocationAccessReporter(),
-                preferences: UserDefaultsWeatherKitPreferenceStore()
+                preferences: weatherPreferences
             ),
             // The §2.2 feature row and the realised-skill comparison are read off this after
             // every request that lands — see `WeatherForecastController.refresh(asOf:)`.

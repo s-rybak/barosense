@@ -103,6 +103,43 @@ final class WeatherForecastPointTests: XCTestCase {
                              WeatherForecastPolicy.maximumIssueAgeSeconds)
     }
 
+    // MARK: - The requested horizon
+
+    /// The number at the network boundary against the numbers on screen.
+    ///
+    /// The defect this pins: the provider asked for `.hourly` with no range, WeatherKit served
+    /// its ~24 h default, and the 48 h and 96 h chart columns drew the archive dry less than a
+    /// day out. Nothing downstream was wrong — the hours had never been fetched — and nothing
+    /// anywhere said so, because the two numbers lived in different files with no relation
+    /// between them. This is that relation.
+    func testTheRequestReachesFurtherThanTheWidestColumnDraws() {
+        for range in PressureChartRange.allCases {
+            XCTAssertLessThanOrEqual(
+                range.forecastSeconds(for: .weatherKit),
+                WeatherForecastPolicy.requestedHorizonSeconds,
+                "the \(range.rawValue) column draws hours the request never asks for"
+            )
+        }
+    }
+
+    /// A curve is measured forward from `now`, not from `issuedAt`, so the request has to
+    /// cover the widest column **plus** the age an issue may reach and still be drawn. Twelve
+    /// hours after it was fetched, the same issue is still expected to fill the day button.
+    func testTheRequestCoversTheWidestColumnFromAnIssueAtTheEndOfItsLife() {
+        XCTAssertGreaterThanOrEqual(
+            WeatherForecastPolicy.requestedHorizonSeconds,
+            PressureChartRange.widest.maximumForecastSeconds
+                + WeatherForecastPolicy.maximumIssueAgeSeconds
+        )
+    }
+
+    /// And no further than Apple documents. Asking past the source's own horizon is quota
+    /// spent on rows that cannot come back.
+    func testTheRequestStaysInsideTheSourcesDocumentedHorizon() {
+        XCTAssertLessThanOrEqual(WeatherForecastPolicy.requestedHorizonSeconds,
+                                 ForecastSource.weatherKit.rangeSeconds)
+    }
+
     private func point(validAt: Date) -> WeatherForecastPoint {
         WeatherForecastPoint(issuedAt: now,
                              validAt: validAt,

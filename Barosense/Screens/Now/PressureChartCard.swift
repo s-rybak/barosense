@@ -246,6 +246,13 @@ final class PressureChartModel {
 
     /// The widest forward window any range draws, so a range change is a re-slice.
     ///
+    /// `maximumForecastSeconds` rather than one producer's column, because which producer
+    /// answers is not knowable before the read: the reader falls through to the local model on
+    /// a stale archive or an unmeasurable offset. Asking for WeatherKit's 96 h and receiving an
+    /// 18 h local curve costs nothing — the local model clips to its own range — while asking
+    /// for the shorter of the two would cut a WeatherKit curve at 18 h and never draw the days
+    /// already sitting in the archive.
+    ///
     /// An empty result is ordinary rather than a failure: no location grant, WeatherKit off
     /// before the local model has fitted, an offset that cannot yet be measured. The chart
     /// renders the observed half alone and says nothing about the future.
@@ -254,7 +261,7 @@ final class PressureChartModel {
 
         return await forecastReader.forecast(
             asOf: now,
-            horizonSeconds: PressureChartRange.widest.forecastSeconds
+            horizonSeconds: PressureChartRange.widest.maximumForecastSeconds
         )
     }
 
