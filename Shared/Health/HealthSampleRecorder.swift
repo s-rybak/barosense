@@ -73,11 +73,20 @@ struct HealthSampleRecorder: Sendable {
         var successfulKindCount = 0
 
         for kind in HealthMetricKind.allCases {
+            try Task.checkCancellation()
             do {
-                collected += try await reader.samples(of: kind, in: Self.range(for: kind,
-                                                                              within: range,
-                                                                              asOf: now))
+                let samples = try await reader.samples(of: kind,
+                                                       in: Self.range(for: kind,
+                                                                      within: range,
+                                                                      asOf: now))
+                try Task.checkCancellation()
+                collected += samples
                 successfulKindCount += 1
+            } catch is CancellationError {
+                // Cancellation is a control-flow request, not one unavailable Health kind.
+                // Swallowing it here would run the remaining queries and could write their
+                // samples after the check-in deadline had already moved on.
+                throw CancellationError()
             } catch {
                 failures.append(error)
             }
@@ -97,7 +106,9 @@ struct HealthSampleRecorder: Sendable {
         // The gate suppresses this write and nothing else. Reading for display is not
         // accumulating history, and a screen that went blank while the gate was closed
         // would be reporting a state the user never asked about.
+        try Task.checkCancellation()
         if await gate.isOpen {
+            try Task.checkCancellation()
             try await log.save(collected.filter(\.kind.isLoggedForTraining))
         }
 

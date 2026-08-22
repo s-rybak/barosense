@@ -79,7 +79,12 @@ struct RootView: View {
         // tab bar). The raised centre action opens it; dismissing returns them where they
         // were.
         .sheet(isPresented: $isLoggingCheckIn) {
-            LogScreen(checkInStore: checkInStore, tagStore: tagStore) {
+            // Stamped from the same recorder the Now screen reads, so the three figures on
+            // the check-in are the ones the user could have seen a tab away — and so one
+            // read serves both the stamp and the training log.
+            LogScreen(checkInStore: checkInStore,
+                      tagStore: tagStore,
+                      health: ingest.recorder) {
                 isLoggingCheckIn = false
                 checkInRevision += 1
                 // Today's reminder is no longer wanted — the user has just done the thing it
