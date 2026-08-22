@@ -42,8 +42,13 @@ exempt='(not medical|non-medical|isn.t medical|no medical|\.prediction\(|Predict
 # `xcstrings` is on the list because the string catalogue is where UI copy actually lives
 # now: a Swift file holds the base-language key, and every translation of it sits in the
 # catalogue where nothing else would look at it.
+#
+# `md` is on the list for the same reason one step further: the FAQ, the privacy policy and
+# the terms of use ship as Markdown resources under Barosense/Resources/*.lproj, and between
+# them they are the longest user-facing copy in the app. Repo documentation is not caught by
+# this — CLAUDE.md and AGENTS.md sit at the root, outside `product_paths`.
 files=$(git ls-files -- "${product_paths[@]}" \
-    | grep -E '\.(swift|yml|yaml|strings|stringsdict|xcstrings|entitlements|plist|json)$' || true)
+    | grep -E '\.(swift|yml|yaml|strings|stringsdict|xcstrings|entitlements|plist|json|md)$' || true)
 
 if [ -z "$files" ]; then
     echo "no product files to scan"

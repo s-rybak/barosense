@@ -82,6 +82,18 @@ extension AppLanguage {
         return nil
     }
 
+    /// The language a rendering `Locale` stands for.
+    ///
+    /// For views that need the chosen language but are handed only the SwiftUI environment's
+    /// locale — the composition root puts `LanguageController.locale` there, so this reads
+    /// back the Settings choice without threading the controller through another initialiser.
+    ///
+    /// Falls back to `.english` for the same reason `LanguageSelection.resolved` does: it is
+    /// the base language, and it is the one that cannot be missing a translation.
+    init(_ locale: Locale) {
+        self = AppLanguage(rawValue: locale.language.languageCode?.identifier ?? "") ?? .english
+    }
+
     /// Locale to render dates, numbers and localised strings against.
     ///
     /// Region-less on purpose. The user picked a language, not a country, and pinning a
