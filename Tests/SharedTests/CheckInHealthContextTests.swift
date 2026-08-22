@@ -160,19 +160,39 @@ final class CheckInHealthContextTests: XCTestCase {
         XCTAssertEqual(stored.first?.health, .empty)
     }
 
-    func testTheStampIsReadOnceForTheSheetAndAtItsOwnClock() async throws {
+    func testLoadingDoesNotReadHealthAndSavingReadsOnce() async throws {
         let health = RecordingHealthContext(CheckInHealthContext(heartRateBPM: 74))
         let model = makeModel(health: health)
 
-        // `.task` re-runs whenever the view is rebuilt. A second read would stamp the row at
-        // a later instant than the one the sheet was opened at, and cost a second four-query
-        // round trip for it.
+        // `.task` re-runs whenever the view is rebuilt. Merely opening the form must not pay
+        // for four HealthKit queries, especially when the user dismisses without saving.
         await model.load()
         await model.load()
+        let beforeSave = await health.requestedInstants
+        XCTAssertTrue(beforeSave.isEmpty)
+
         await save(model)
 
         let instants = await health.requestedInstants
         XCTAssertEqual(instants, [referenceDate])
+    }
+
+    func testAStalledHealthReadCannotBlockSaving() async throws {
+        let store = InMemoryCheckInStore()
+        let health = HangingHealthContext()
+        let model = makeModel(store: store,
+                              health: health,
+                              healthReadTimeout: .milliseconds(20))
+
+        await save(model)
+
+        let stored = await store.checkIns(in: Date.distantPast..<Date.distantFuture)
+        XCTAssertEqual(stored.first?.health, .empty)
+
+        // The stand-in deliberately ignores task cancellation so the test proves the save
+        // deadline itself is hard. Release its continuation after the assertion so the test
+        // leaves no suspended work behind.
+        await health.finish()
     }
 
     func testACheckInSavedBeforeTheSheetLoadedIsStillStamped() async throws {
@@ -195,10 +215,12 @@ final class CheckInHealthContextTests: XCTestCase {
     private lazy var saved = expectation(description: "check-in written")
 
     private func makeModel(store: any CheckInStore = InMemoryCheckInStore(),
-                           health: any CheckInHealthContextProviding) -> LogModel {
+                           health: any CheckInHealthContextProviding,
+                           healthReadTimeout: Duration = .seconds(2)) -> LogModel {
         LogModel(checkInStore: store,
                  tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
                  health: health,
+                 healthReadTimeout: healthReadTimeout,
                  now: { [referenceDate] in referenceDate },
                  onSaved: { [saved] in saved.fulfill() })
     }
@@ -226,5 +248,30 @@ private actor RecordingHealthContext: CheckInHealthContextProviding {
     func healthContext(asOf now: Date) async -> CheckInHealthContext {
         requestedInstants.append(now)
         return context
+    }
+}
+
+/// A provider that never answers until the test releases it, even after cancellation.
+///
+/// This is intentionally less cooperative than the real HealthKit provider: the model's
+/// deadline must protect the save without depending on an implementation detail of its
+/// dependency.
+private actor HangingHealthContext: CheckInHealthContextProviding {
+
+    private var continuation: CheckedContinuation<CheckInHealthContext, Never>?
+    private var isFinished = false
+
+    func healthContext(asOf now: Date) async -> CheckInHealthContext {
+        if isFinished { return .empty }
+
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func finish() {
+        isFinished = true
+        continuation?.resume(returning: .empty)
+        continuation = nil
     }
 }

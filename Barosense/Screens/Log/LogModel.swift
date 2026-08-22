@@ -79,27 +79,20 @@ final class LogModel {
     private let checkInStore: any CheckInStore
     private let tagStore: any WellbeingTagStore
     private let health: any CheckInHealthContextProviding
+    private let healthReadTimeout: Duration
     private let now: @Sendable () -> Date
     private let onSaved: () -> Void
-
-    /// The Health read this check-in will be stamped with, started when the sheet opens and
-    /// collected at save.
-    ///
-    /// Started early rather than run at save because it is four HealthKit round trips and
-    /// the user is going to spend seconds on the form anyway — by the time they commit, the
-    /// answer is usually already here. The stamp is therefore taken at the instant the sheet
-    /// opened rather than at the instant of the write, which is inside every window it
-    /// quotes: the narrowest is two hours.
-    private var healthRead: Task<CheckInHealthContext, Never>?
 
     init(checkInStore: any CheckInStore,
          tagStore: any WellbeingTagStore,
          health: any CheckInHealthContextProviding,
+         healthReadTimeout: Duration = .seconds(2),
          now: @escaping @Sendable () -> Date = { Date() },
          onSaved: @escaping () -> Void) {
         self.checkInStore = checkInStore
         self.tagStore = tagStore
         self.health = health
+        self.healthReadTimeout = healthReadTimeout
         self.now = now
         self.onSaved = onSaved
     }
@@ -113,10 +106,6 @@ final class LogModel {
     var canSave: Bool { !isSaving }
 
     func load() async {
-        // Ahead of the vocabulary read and outside its guard: the two are independent, and
-        // this one has the whole time the sheet is open to gain by starting first.
-        startHealthRead()
-
         guard knownTags.isEmpty else { return }
 
         // A vocabulary that will not load costs the tag section and nothing else — the
@@ -130,17 +119,6 @@ final class LogModel {
         // Same rule: a history that will not load costs the chips and nothing else. The
         // medication sheet still takes free text.
         medicationHistory = await loadMedicationHistory()
-    }
-
-    /// Asks Health for what this check-in will carry — pulse, blood oxygen, sleep.
-    ///
-    /// Idempotent: `.task` re-runs whenever the view is rebuilt, and a second read would
-    /// stamp the check-in with a later instant than the one the sheet was opened at.
-    private func startHealthRead() {
-        guard healthRead == nil else { return }
-
-        let instant = now()
-        healthRead = Task { [health] in await health.healthContext(asOf: instant) }
     }
 
     /// The last `medicationHistoryDays` days of recorded entries, flattened out of their
@@ -257,20 +235,11 @@ final class LogModel {
         failure = nil
         defer { isSaving = false }
 
-        // Idempotent, and here as well as in `load()` so a save that somehow lands before the
-        // sheet's `.task` has run is still stamped. It costs the read's own latency in that
-        // case and nothing at all in the ordinary one, where the answer is already in.
-        startHealthRead()
-
-        // Awaited rather than read for whatever has already arrived. On a fast save the read
-        // started when the sheet opened may still be in flight, and the pulse is the one of
-        // the three figures that exists nowhere else once the moment has passed — heart rate
-        // is never written to the log (`HealthMetricKind.isLoggedForTraining`).
-        //
-        // A read that came back with nothing still stamps: `.empty` records that the app
-        // looked, which is not the same as the `nil` a row written by something that does not
-        // read Health carries. Never blocks the save — `healthContext(asOf:)` does not throw.
-        let stamp: CheckInHealthContext = await healthRead?.value ?? .empty
+        // Health is sampled only after the user commits. Opening and abandoning the sheet
+        // therefore costs no HealthKit queries and cannot leave an unstructured read behind.
+        // The deadline also makes the provider best-effort in practice, not just because its
+        // API is nonthrowing: a stalled HealthKit/XPC request cannot hold the user's check-in.
+        let stamp = await healthContext(asOf: now())
 
         // `note` is left unset: the form no longer asks for one. `CheckIn.note` stays on the
         // domain type rather than being deleted with the field — it is stored, tested, and
@@ -290,6 +259,46 @@ final class LogModel {
         }
 
         onSaved()
+    }
+
+    /// Returns the Health stamp that wins a race with the save-path deadline.
+    ///
+    /// The tasks are intentionally unstructured. A task group waits for a cancelled child
+    /// before leaving its scope, which would let a provider that is slow to observe
+    /// cancellation defeat the deadline. The stream lets the save continue immediately;
+    /// both losing tasks are cancelled on exit, and the real provider propagates that
+    /// cancellation through `HealthSampleRecorder.refresh` before it can query another kind
+    /// or write to the training log.
+    private func healthContext(asOf instant: Date) async -> CheckInHealthContext {
+        let (results, continuation) = AsyncStream.makeStream(
+            of: CheckInHealthContext.self,
+            bufferingPolicy: .bufferingOldest(1)
+        )
+
+        let read = Task { [health] in
+            continuation.yield(await health.healthContext(asOf: instant))
+            continuation.finish()
+        }
+        let deadline = Task { [healthReadTimeout] in
+            do {
+                try await Task.sleep(for: healthReadTimeout)
+            } catch {
+                return
+            }
+            continuation.yield(.empty)
+            continuation.finish()
+        }
+
+        defer {
+            read.cancel()
+            deadline.cancel()
+            continuation.finish()
+        }
+
+        for await result in results {
+            return result
+        }
+        return .empty
     }
 
     /// Shipped tags in the order `WellbeingTag.seeds` declares them, with anything the user

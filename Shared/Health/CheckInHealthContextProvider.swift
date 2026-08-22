@@ -14,6 +14,10 @@ protocol CheckInHealthContextProviding: Sendable {
     /// comes back empty — no Health store on the device, access refused, nothing recorded —
     /// is indistinguishable from the others by design, and none of them is a reason to
     /// refuse to save a check-in the user has already written.
+    ///
+    /// Implementations must return promptly after task cancellation. The save path has a
+    /// deadline and cancels a read that loses it so an abandoned or stalled query does not
+    /// continue spending HealthKit work in the background.
     func healthContext(asOf now: Date) async -> CheckInHealthContext
 }
 

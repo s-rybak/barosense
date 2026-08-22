@@ -378,6 +378,21 @@ private actor StubHealthDataReader: HealthDataReader {
     }
 }
 
+/// Holds the first query until it is cancelled and records whether the recorder tried to
+/// continue through the remaining kinds afterward.
+private actor CancellationTrackingHealthDataReader: HealthDataReader {
+
+    private(set) var requestedKinds: [HealthMetricKind] = []
+
+    func requestAuthorization() async throws {}
+
+    func samples(of kind: HealthMetricKind, in range: Range<Date>) async throws -> [HealthSample] {
+        requestedKinds.append(kind)
+        try await Task.sleep(for: .seconds(60))
+        return []
+    }
+}
+
 /// One pass has to feed the screen and the training log from the same read.
 final class HealthSampleRecorderTests: XCTestCase {
 
@@ -464,6 +479,34 @@ final class HealthSampleRecorderTests: XCTestCase {
         let snapshot = try await recorder.refresh(asOf: now)
 
         XCTAssertEqual(snapshot, .empty)
+    }
+
+    func testCancellationStopsTheRefreshBeforeAnotherKindOrLogWrite() async throws {
+        let reader = CancellationTrackingHealthDataReader()
+        let store = InMemoryHealthSampleStore()
+        let recorder = HealthSampleRecorder(reader: reader,
+                                            log: store,
+                                            gate: HealthIngestGate(isOpen: true))
+        let refreshInstant = now
+        let refresh = Task { try await recorder.refresh(asOf: refreshInstant) }
+
+        while await reader.requestedKinds.isEmpty {
+            await Task.yield()
+        }
+        refresh.cancel()
+
+        do {
+            _ = try await refresh.value
+            XCTFail("a cancelled refresh must surface cancellation")
+        } catch {
+            XCTAssertTrue(error is CancellationError)
+        }
+
+        let requestedKinds = await reader.requestedKinds
+        XCTAssertEqual(requestedKinds.count, 1)
+        let logged = await store.samples(of: .restingHeartRate,
+                                         in: now.addingTimeInterval(-1)..<now.addingTimeInterval(1))
+        XCTAssertTrue(logged.isEmpty)
     }
 
     func testRepeatedRefreshesDoNotMultiplyTheLog() async throws {
