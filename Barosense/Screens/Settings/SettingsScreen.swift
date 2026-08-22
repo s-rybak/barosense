@@ -6,6 +6,9 @@ enum SettingsRoute: Hashable {
     case report
     case language
     case contact
+    case faq
+    case privacyPolicy
+    case termsOfUse
 }
 
 /// M6 · Settings (Figma `7:1246`).
@@ -93,7 +96,7 @@ struct SettingsScreen: View {
                 WeatherKitCard(model: model)
                 RemindersCard(model: model)
                 reportCard
-                contactCard
+                helpCard
                 destructiveActions
             }
             .padding(.horizontal, SettingsMetrics.screenInset)
@@ -229,8 +232,33 @@ struct SettingsScreen: View {
         }
     }
 
-    private var contactCard: some View {
+    /// Everything that explains the app rather than changes it: the answers, the two
+    /// documents the user accepted at onboarding, and the way to reach a person.
+    ///
+    /// One card rather than four, because none of these rows changes any state. Grouping
+    /// them keeps the switches above readable as "things that do something" — and the two
+    /// legal rows in particular have to be findable by someone who is looking for them, which
+    /// a row buried between Language and Report is not.
+    private var helpCard: some View {
         SettingsCard {
+            SettingsNavigationRow(title: ShippedDocument.faq.screenTitle) {
+                path.append(.faq)
+            }
+
+            SettingsRowDivider()
+
+            SettingsNavigationRow(title: ShippedDocument.privacyPolicy.screenTitle) {
+                path.append(.privacyPolicy)
+            }
+
+            SettingsRowDivider()
+
+            SettingsNavigationRow(title: ShippedDocument.termsOfUse.screenTitle) {
+                path.append(.termsOfUse)
+            }
+
+            SettingsRowDivider()
+
             SettingsNavigationRow(title: "Contact us") {
                 path.append(.contact)
             }
@@ -339,6 +367,21 @@ struct SettingsScreen: View {
 
         case .contact:
             ContactScreen(back: { path.removeLast() })
+
+        case .faq:
+            FAQScreen(language: languages.language, back: { path.removeLast() })
+
+        case .privacyPolicy:
+            LegalDocumentScreen(document: .privacyPolicy,
+                                language: languages.language,
+                                back: { path.removeLast() },
+                                title: ShippedDocument.privacyPolicy.screenTitle)
+
+        case .termsOfUse:
+            LegalDocumentScreen(document: .termsOfUse,
+                                language: languages.language,
+                                back: { path.removeLast() },
+                                title: ShippedDocument.termsOfUse.screenTitle)
         }
     }
 }

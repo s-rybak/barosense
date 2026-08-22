@@ -12,6 +12,15 @@ struct TermsStep: View {
 
     @Bindable var model: OnboardingModel
 
+    /// The chosen app language, read back out of the locale the composition root put in the
+    /// environment. Onboarding is not handed the `LanguageController`, and threading it
+    /// through four initialisers to reach one sheet is a worse trade than this.
+    @Environment(\.locale) private var locale
+
+    /// Which document the sheet is showing, or `nil` for none. One piece of state rather than
+    /// two Booleans: two could both be true, and there is only one sheet.
+    @State private var reading: ShippedDocument?
+
     var body: some View {
         OnboardingStepScaffold(
             completedSteps: model.step.completedSteps,
@@ -32,7 +41,15 @@ struct TermsStep: View {
                 )
 
                 consentCard
+
+                documentLinks
             }
+        }
+        .sheet(item: $reading) { document in
+            LegalDocumentScreen(document: document,
+                                language: AppLanguage(locale),
+                                back: { reading = nil },
+                                title: document.screenTitle)
         }
     }
 
@@ -48,6 +65,37 @@ struct TermsStep: View {
                     .frame(width: 28, height: 28)
             }
             .accessibilityHidden(true)
+    }
+
+    /// The way to actually read what the checkbox above accepts.
+    ///
+    /// **Not optional polish.** The consent sentence names two documents; without a way to
+    /// open them, the step asks the user to accept text they cannot see — which is both a bad
+    /// deal and the kind of thing App Review looks for on a screen that gates the app.
+    ///
+    /// Below the card rather than as links inside its sentence: the card is one large toggle,
+    /// and a tappable link inside a tappable row means every attempt to read the terms is a
+    /// coin flip that may instead tick the box.
+    private var documentLinks: some View {
+        HStack(spacing: 18) {
+            documentLink(.termsOfUse)
+            documentLink(.privacyPolicy)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func documentLink(_ document: ShippedDocument) -> some View {
+        Button {
+            reading = document
+        } label: {
+            Text(document.screenTitle)
+                .font(Typography.linkAction)
+                .foregroundStyle(Palette.link)
+                .underline()
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
     }
 
     private var consentCard: some View {
