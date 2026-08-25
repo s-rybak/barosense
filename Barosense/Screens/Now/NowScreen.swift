@@ -29,6 +29,10 @@ struct NowScreen: View {
     /// state this screen is never shown in.
     private let forecast: PressureForecastReader?
 
+    /// The two-stage risk model behind the chart's percentage and its marked stretch. `nil`
+    /// before the stores are open, and on any build without the wiring.
+    private let risk: WellbeingRiskEngine?
+
     /// Bumped by the root when a check-in is written. Passed straight through to the chart,
     /// which re-reads its markers on a change — see `PressureChartCard`.
     private let checkInRevision: Int
@@ -44,12 +48,14 @@ struct NowScreen: View {
          pressure: PressureCollectionController,
          checkIns: any CheckInStore,
          forecast: PressureForecastReader? = nil,
+         risk: WellbeingRiskEngine? = nil,
          checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         _meters = State(initialValue: NowMetersModel(pressure: pressure, checkIns: checkIns))
         self.pressure = pressure
         self.checkIns = checkIns
         self.forecast = forecast
+        self.risk = risk
         self.checkInRevision = checkInRevision
     }
 
@@ -59,6 +65,7 @@ struct NowScreen: View {
                 PressureChartCard(collection: pressure,
                                   checkIns: checkIns,
                                   forecast: forecast,
+                                  risk: risk,
                                   checkInRevision: checkInRevision)
 
                 VStack(alignment: .leading, spacing: 12) {

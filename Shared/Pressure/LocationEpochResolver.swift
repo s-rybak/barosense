@@ -135,20 +135,56 @@ enum LocationEpochResolver {
     /// short or empty: the caller's answer to that is to report nothing rather than to report
     /// the previous city's number.
     ///
-    /// The **mixed** batch — some rows stamped, some not — is the case `unstamped` exists for,
-    /// and it is not a corner. `PressureSample.locationEpochID` arrived with this feature, so
-    /// on every install that predates it the log is unstamped history plus stamped rows from
-    /// the update onwards, and `.excluded` throws the whole history away the moment the first
-    /// stamped row lands. See `UnstampedPolicy`.
+    /// ## The unstamped era
+    ///
+    /// The **mixed** batch — some rows stamped, some not — is not a corner.
+    /// `PressureSample.locationEpochID` arrived after the barometer log did, so every install
+    /// that predates it holds unstamped history followed by stamped rows from the update
+    /// onwards, and the boundary between the two moves through the window one reading at a time.
+    ///
+    /// Rows **earlier than the batch's first stamp** are therefore kept whatever `unstamped`
+    /// says. They were written by a build that could not stamp them; "no stamp" there is a
+    /// statement about the recorder, not about the place. Reading that silence as "elsewhere"
+    /// made the first stamped row discard every row behind it — measured on the connected
+    /// iPhone 2026-08-25: one stamped row against 188 unstamped ones inside the calibrator's
+    /// 48 h window, which took `PressureOffsetCalibrator` from 47 usable pairs to **one**, below
+    /// its `minimumPairCount`, and silently dropped the whole WeatherKit curve to the local
+    /// model's 18 h an hour after the update was installed. That was a documented cost here
+    /// ("at most 48 h of no WeatherKit curve after an update") and it was the wrong trade: the
+    /// filter exists to reject a **move**, and a move announces itself with an epoch.
+    ///
+    /// Which is the one thing that revokes the leniency. If any stamped row in the batch names
+    /// somewhere other than here, the batch spans a change of place and cannot vouch for its own
+    /// unstamped half — the boundary could fall on either side of it. The history then goes,
+    /// which is the case `testAWindowEntirelyFromElsewhereYieldsNoOffset` describes from the
+    /// other end.
+    ///
+    /// An unstamped row **after** stamping began still means what `unstamped` says it means: the
+    /// recorder had no fix at that instant, and that genuinely is an unknown place.
     static func readings(_ samples: [PressureSample],
                          takenAt epochIDs: Set<UUID>?,
                          unstamped: UnstampedPolicy = .excluded) -> [PressureSample] {
-        guard let epochIDs, samples.contains(where: { $0.locationEpochID != nil }) else {
-            return samples
+        guard let epochIDs else { return samples }
+
+        // One pass for both facts: when this batch's stamping era starts, and whether anything
+        // in it was recorded somewhere else.
+        var stampingBegan: Date?
+        var spansAMove = false
+        for sample in samples {
+            guard let id = sample.locationEpochID else { continue }
+            stampingBegan = min(stampingBegan ?? sample.timestamp, sample.timestamp)
+            if !epochIDs.contains(id) { spansAMove = true }
         }
 
-        return samples.filter {
-            $0.locationEpochID.map(epochIDs.contains) ?? (unstamped == .included)
+        // Nothing stamped at all — the pre-epoch install, and there is nothing to filter on.
+        guard let stampingBegan else { return samples }
+
+        return samples.filter { sample in
+            guard let id = sample.locationEpochID else {
+                return unstamped == .included || (!spansAMove && sample.timestamp < stampingBegan)
+            }
+
+            return epochIDs.contains(id)
         }
     }
 
@@ -160,8 +196,12 @@ enum LocationEpochResolver {
     /// `PressureOffsetCalibrator` takes a **median of station − MSLP over 48 h**. Elevation is
     /// that quantity — at Kyiv's 180 m the offset is ~−22 hPa and at the coast it is 0 — so a
     /// window blending two places does not return a slightly worse number, it returns a number
-    /// describing nowhere. It wants `.excluded`, and pays at most 48 h of no WeatherKit curve
-    /// after an update for it.
+    /// describing nowhere. It wants `.excluded`.
+    ///
+    /// Note what that costs and what it no longer costs. It applies to rows recorded **after**
+    /// stamping began, where a missing stamp means the recorder had no fix; the unstamped era
+    /// behind the first stamp is kept by `readings(_:takenAt:unstamped:)` itself, so an update
+    /// no longer blacks the WeatherKit curve out for two days.
     ///
     /// `LocalPressureModel.fit` takes an **autoregressive fit over 30 days** whose forecast
     /// level comes from the seed — the last three consecutive hours, which are always recent

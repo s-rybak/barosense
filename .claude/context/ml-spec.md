@@ -22,7 +22,8 @@ the code change.
 | Local pressure model | **shipped** — `Shared/Pressure/LocalPressureModel.swift` + `HourlyPressureGrid.swift`. **Regression target is the hourly change, not the level**: `Δyₜ = Σψⱼ Δyₜ₋ⱼ` plus solar S1/S2 harmonics at the top size, **no intercept**, closed-form least squares over a 30-day hourly grid, ridge `1e-6` so a flat log degrades instead of going singular. Differencing is not a refinement — it is what keeps the forward iteration bounded. Station pressure has lag-1 hourly autocorrelation ~0.99, so an unconstrained fit on levels estimates a root sitting on the unit circle from a handful of rows and nothing stops it landing outside; measured on the real device log 2026-08-22 (30 observed cells / 3 days) the level polynomial had a root at **|λ| = 1.207** and the drawn curve read 1001 hPa at 1 h, 1011 at 6 h and **1139 at 18 h**. Differencing imposes the unit root instead of estimating it; dropping the intercept refuses to extrapolate a drift, which on that same log implied a long-run level 21 hPa from the window mean. **Tendency persistence is capped at 0.9** (`maximumTendencyPersistence`): the e-folding life of a tendency is `−1/ln r` hours, so 0.9 is 9.5 h — the order of a mid-latitude trough — where 0.98 would grant it 49 h; it also bounds the whole curve at `d × r/(1−r)` = nine times the last hourly change (≈5 hPa on a 0.6 hPa/h trace, ≈18 on a violent 2 hPa/h one). Enforced by scaling lag *j* by `γʲ`, which multiplies every root by `γ` exactly and leaves the fit's shape, rather than by rejection — a root at 0.999 is stable and still draws an 18-hour ramp. Radius found by bisection on the Schur–Cohn step-down test, no root finder. **The size is chosen from the log, not fixed**: `specificationLadder` tries 3 lags+S1+S2 (7 params) → 3 lags (3) → 2 lags (2) → 1 lag (1) and takes the first the data supports, gated on `max(6 rows, 1.5 x parameters)`. A design row for *k* lagged changes needs *k+2* consecutive hours — one more than the level fit, which is what differencing costs. **A rung with no harmonics may not keep an oscillating lag block**: there is one cycle this app knows about and it has four terms of its own, so when those are unaffordable the tide leaks into the lags and is extrapolated as their own dynamics. Measured on the waking-day fixture the 2-lag rung read the tide as a 20 h oscillation from a 9 h window and turned a fall into a rise by step 2 — RMSE 0.60 hPa over 1–6 h against persistence's 0.35, where the 1-lag rung below scores 0.22. Checked on the impulse response `hₜ = Σψⱼhₜ₋ⱼ` across the drawn range; not applied where harmonics are fitted, since rejecting them there costs real skill (0.03 vs 0.35 on a flat log). Behind `LocalPressureModel.isOrderLadderEnabled`. Skill range **3–6 h** (`ForecastSource.localModel.skillRangeSeconds`) — a human decision, not a default: one sensor at one point cannot see advection, so extending it needs a measurement first. **Drawn** range **18 h** (`ForecastSource.localModel.rangeSeconds`, human decision 2026-08-22, narrowed from 36 h the same day) so the chart's day button has a forward half; the two are separate constants and `PressureForecastReader.features` clips the curve back to the skill range before the feature vector sees it, so no §2.2 delta is ever filled by an 18-step extrapolation. Fits from **one waking day** of history; the absolute floor of 6 rows is the **skill** range in hours (not the drawn one — reading 18 there would triple the cold-start gate, and the drawn range has already moved twice). The forward iteration carries a level and a tendency, seeded from the latest run of **`k+1` consecutive** hourly cells and anchored at the last level the sensor recorded, so the curve joins the user's own line instead of being pulled toward a 30-day mean a three-day log does not have; its range is measured from that anchor, not from the clock. Altitude excursions are rejected before the fit by the §3 rate gate; gaps ≤2 h are bridged and never counted as coverage. Coverage is measured over the **span the log reaches across**, not over the nominal 30-day window. The band is scaled from the **residual degrees of freedom** (`rows - parameters`), not the row count, and the residual is measured **after** stabilising — so pulling an explosive fit down widens the band it is drawn with. Against persistence, scored on each fixture's own continuation (trend **plus** tide, not the trend alone): a full log wins at every hour 1–6; the thin waking-day log loses the first four hours and wins the last two, RMSE 0.22 against 0.35 — which is what the literature says, not a defect. Refit at most daily, on a foreground activation — **no new wake source** |
 | Forecast skill | **shipped** — `Shared/Features/ForecastSkillReport.swift`, run by `WeatherForecastController` after every request that lands and logged through `BarosenseLog.pressure` (never shown: nothing on screen may present model output as a claim). Scores past forecasts against what the barometer went on to record, per horizon (1/3/6 h), against **persistence**. This is the first §7 baseline comparison the app can actually run: the ground truth arrives by itself a few hours later, so no dataset is needed. Derived from the 90-day raw archive — there is deliberately no second table of realised forecasts |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). **Forecast features computed on device, not yet consumed** — `ForecastFeatureExtractor` (§2.2) via `PressureForecastReader.features(asOf:)`, run by `WeatherForecastController` after every request that lands, under `issuedAt <= t`, past the ≤12 h staleness gate, calibrated into barometer coordinates. No model reads them: there is none. Pressure (§2.1) / check-in (§2.4) features still planned |
-| Model | not trained; health and barometer raw samples are now accumulateable on disk. **Nothing on screen is model output.** The Now screen's two meter cards are `WeatherTriggerIndex` (§7 baseline #2, made visible) and `TrainingDataProgress` (rows on disk against §4's blend point) — both display-only, both explained under §2.1. The ⓘ on the second opens `TrainingProgressSheet`, which states in words that the bar counts check-ins and not accuracy |
+| Model | **The two-stage risk model is shipped and on screen** — see the row below. The wellbeing model of §1 (`intensity >= 7`) is still not trained: the two labels are different questions and only the second has been answered. The Now screen's two meter cards remain `WeatherTriggerIndex` (§7 baseline #2, made visible) and `TrainingDataProgress` (rows on disk against §4's blend point) — both display-only, both explained under §2.1. The ⓘ on the second opens `TrainingProgressSheet`, which states in words that the bar counts check-ins and not accuracy |
+| Risk model | **shipped, iPhone only** — `Shared/Risk/`, drawn by `PressureChartCard` + `RiskSummaryRow`. Two stages over the §1.1 label (§2.5 features): a **day** stage (4 day-level columns, one row per day, Platt-calibrated — the only number on screen expressed as a percentage) and a **window** stage (9 columns, trained only on days that held an entry, ranking only). Both are logistic regressions fitted on device by penalised Newton, `C = 0.3`, `class_weight='balanced'`, verified against scikit-learn to 1e-3 on the coefficients and 1e-6 on the calibration (`RiskNumericsTests`). A **shipped prior** (`WellbeingRiskPrior`, the research notebook's own coefficients) is blended with the personal fit by §4's `w(n)`. The **gate** — the app's right to stay silent — sits on the window stage, not the day stage, and is a quantile tuned to `messagesPerWeekTarget = 2.5`. Scored over **every waking day the forward curve reaches** (96 h, the widest the chart draws), each day gated and ranked on its own — see §2.6. Refit at most daily on a foreground activation — **no new wake source**. Kill switches: `WellbeingRiskEngine.isEnabled`, `WellbeingRiskPrior.isEnabled` |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
 | HealthKit read set | **4 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis` and `.heartRate`, via `Shared/Health/HealthKitDataReader.swift`. `.heartRate` is display-only: read on every refresh for the Now card, dropped before the log, no feature consumes it. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
 | Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per **logged** type (3 of the 4 read; `.heartRate` is display-only and deliberately gets none, or a worn watch would wake the app for readings nothing keeps) + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. **Every write is subject to `HealthIngestGate`**, held by `HealthSampleRecorder` and opened only once onboarding is behind the user — so after "delete my data" the log stays empty instead of refilling from the next observer firing. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
@@ -60,6 +61,28 @@ iPhone only, and there is nothing scheduled to budget.
    quotes is unchanged. Staleness costs accuracy, not correctness.
 5. Daily drain %: not separately measurable. 17 ms once a day is below the noise floor of any
    instrument that would measure it.
+
+### Risk model — battery note
+
+iPhone only, and there is nothing scheduled to budget.
+
+1. Wake: **none**. Both paths ride work the app was already doing — a foreground activation, or
+   the barometer's existing `BGAppRefreshTask` landing a reading and the chart reloading. No
+   timer, no observer, no second background task identifier.
+2. Work duration: the refit is at most **once a day** (`WellbeingRiskEngine.refitIntervalSeconds`,
+   the same cadence and the same reasoning as `LocalPressureModel`). It is a penalised Newton
+   solve on a 10×10 system over at most ~1 000 window rows — on the order of 10⁵ multiply–adds,
+   an order of magnitude above `LocalPressureModel`'s measured 16.6 ms. **Not yet measured on
+   device**; measure with Instruments before this number is quoted as fact.
+3. Between refits a forecast is memoised for 15 min (`forecastCacheSeconds`), which is
+   `PressureSamplingPolicy`'s own floor — below it there cannot be a new reading to change the
+   answer. A chart reload inside that window costs nothing.
+4. Powered while awake: nothing. No sensor, no network, no location, no HealthKit — it reads rows
+   already on disk and the forward curve the chart asked for anyway.
+5. If the refit never runs: the previous day's coefficients keep being used, and below the
+   validation floor the shipped prior is used unchanged. Staleness costs accuracy, not
+   correctness.
+6. Daily drain %: unknown until Instruments on device.
 
 ### WeatherKit requests — battery and quota note
 
@@ -206,6 +229,34 @@ poorWellbeing(checkIn) = checkIn.intensity >= 7    // 1–10 scale, 10 = worst
     Anything tag-derived has to be a fixed-width summary (count, "any", per-seeded-id).
 - Changing the threshold invalidates every stored metric. Re-run the baselines in the
   same PR and put both sets of numbers in the body.
+
+### 1.1 The second label: check-in occurrence
+
+There are **two** labels in this app and they answer different questions. Confusing them is the
+single easiest way to make a false claim on screen.
+
+```
+checkInOccurred(window) = any CheckIn with timestamp in [window.start, window.end)
+```
+
+- Defined by `RiskWindowGeometry.windowStart(containing:)` and consumed as
+  `RiskWindowRow.isLogged`. No threshold, no intensity: the event is that the user **made an
+  entry**, whatever they recorded in it.
+- It is a label about **behaviour**, not about the body. Every surface built on it says so — the
+  chart's row reads "Check-in likely today", never "a harder day ahead"
+  (`../skills/appstore_compliance/SKILL.md`).
+- Why it exists at all: the §1 label needs the user to have logged *and* to have logged a 7+. On
+  a 120-day trace that is a rare event inside a rare event. Occurrence is the outer one, it is
+  what the research notebook found a barometric signal for, and it is the honest thing to
+  forecast with the data that exists. Extending the risk model to condition on intensity is an
+  open question, not a small change — see §9.
+- **Prediction unit: one row per two-hour window of the waking day**, not one per check-in. That
+  is a different unit from §1's and the two are not interchangeable: the base rate here is
+  ~1 window in 9 on a day that holds an entry, and it is defined on days with no entry at all.
+- The waking day is a restriction of the **domain**, not a feature. See `RiskWindowGeometry`: the
+  boundary comes from this user's *earliest* entry, never from their most frequent hour, because
+  the latter is a time-of-day feature and time of day is measured separately and deliberately
+  excluded (`RiskBaseline.timeOfDay`).
 
 Prediction unit: one row per check-in, features computed at the check-in timestamp `t`.
 The advance-warning variant predicts "will any check-in in `[t + 6 h, t + 30 h]` be poor";
@@ -497,6 +548,87 @@ weather signal is not doing any work and that must be reported.
 
 ---
 
+### 2.5 Risk windows — the only family with a trained consumer
+
+`RiskFeature`, in registry order. One row per two-hour window of the waking day; the five
+window-level quantities are computed **per hour** and only then averaged over the window, because
+averaging pressure first and differencing afterwards is a low-pass filter in front of the one
+feature that carries the signal.
+
+| name                  | source                     | unit | sampling / min coverage                       | on missing         | status  |
+| --------------------- | -------------------------- | ---- | --------------------------------------------- | ------------------ | ------- |
+| `pressureHPa`         | barometer + forecast curve | hPa  | hourly grid; ≥1 cell in the window            | median-imputed     | **shipped** |
+| `levelDeficitHPa`     | derived                    | hPa  | as above                                      | median-imputed     | **shipped** |
+| `drop6hHPa`           | derived                    | hPa  | needs a cell at exactly `t − 6 h`             | nil → imputed      | **shipped** |
+| `drop24hHPa`          | derived                    | hPa  | needs a cell at exactly `t − 24 h`            | nil → imputed      | **shipped** |
+| `low7dHPa`            | derived                    | hPa  | expanding from the first cell                 | 0                  | **shipped** |
+| `dayLevelDeficitHPa`  | derived                    | hPa  | mean over the day's windows; ≥50% of them     | nil → imputed      | **shipped** |
+| `dayDrop6hHPa`        | derived                    | hPa  | as above                                      | nil → imputed      | **shipped** |
+| `dayDrop24hHPa`       | derived                    | hPa  | as above                                      | nil → imputed      | **shipped** |
+| `dayLow7dHPa`         | derived                    | hPa  | as above                                      | nil → imputed      | **shipped** |
+
+Four things about this table that are not obvious from it:
+
+1. **Every quantity appears twice, per window and per day, and they answer different questions.**
+   The day copies are constant inside a day by construction, so they cannot rank one window above
+   another — measured, window columns alone reach hit@1 = 0.43 and day columns alone 0.11 at
+   ROC-AUC 0.535, which is a coin. That is why there are two models and not one.
+2. **The series is re-centred before any of this is computed.** `RiskPressureBaseline` shifts
+   every reading by `1013 − median(trailing 30 days)`. The notebook's `1013` is the mean of the
+   synthetic series it was fitted on, not a constant of nature; `CMAltimeter` reports *station*
+   pressure, which near Kyiv is ~991 hPa, and an unshifted `1013 − p` would read a permanent
+   22 hPa "deficit" on an ordinary day. The two change features are untouched by the shift, which
+   is a useful check that it does what it claims.
+3. **The grid is hourly, not quarter-hourly as in the notebook.** Forced by the forward half:
+   WeatherKit publishes hourly and `LocalPressureModel` iterates hourly, so a finer grid behind
+   `now` would still be hourly ahead of it, and a window's features have to mean the same thing
+   on both sides of the join. The notebook's own width sweep says this is not where the signal
+   lives — ROC-AUC holds 0.764–0.799 from 30 min to 4 h.
+4. **Sensor and forecast stay distinguishable.** `RiskGridCell.isMeasured` / `.isForecast` travel
+   to `RiskWindowRow.coverage` / `.forecastShare` and out to `WellbeingRiskForecast.forecastShare`,
+   so a caller can tell a morning that rests on WeatherKit from an evening that rests on
+   measurements. **Training rejects any row with `forecastShare > 0`** — fitting on a forecast
+   teaches the model the forecaster's biases and then applies them again at inference, twice.
+
+**The known train/serve difference.** At training time the day-level columns are averages over a
+day that has fully happened; at inference the later windows come from the forward curve. That is
+what makes an *advance* forecast possible at all, and it is a real difference in input quality
+between fit and use, not a leak — a feature at `t` still reads only what was knowable at `t`.
+`forecastShare` is what makes it visible rather than assumed.
+
+### 2.6 What reaches the screen
+
+The model scores windows; three rules decide which of them a surface may draw. They are one
+place — `WellbeingRiskModel.forecast(for:asOf:)` and `WellbeingRiskForecast` — because a chart
+and a caption disagreeing about the same day is worse than neither being there.
+
+1. **Every covered day ahead is scored, each on its own.** The horizon is
+   `WellbeingRiskEngine.forecastHorizonSeconds` = **96 h**, deliberately the same number as
+   `PressureChartRange.day.forecastSeconds(for: .weatherKit)`: every hour of forward line the
+   chart can put on screen is an hour the model is asked about. The day stage runs per day and
+   the top `markedWindowCount` windows are picked **within** a day, never globally — the window
+   stage is a *conditional* answer to "if an entry happens that day, when", and letting a strong
+   Tuesday take Wednesday's marks would compose two different conditionals. Costs no new wake
+   source and no second read: the chart already asks the same reader for the same 96 h.
+2. **A day is scored whole or not at all.** `RiskWindowBuilder.minimumDayCoverage` (50%) is
+   applied per day; a day under it contributes no windows, rather than windows carrying a day
+   average that is really the mean of a morning. Today failing that gate is not the forecast
+   failing — `checkInProbability` is `nil` and the days behind it are still scored.
+3. **Nothing is drawn that has no percentage.** `WellbeingRiskModel.isPrintable` — the joint
+   figure rounds to at least one whole point — gates both the number the row prints and whether a
+   window may be marked at all. Ranking always produces a best window; marking one the model puts
+   under half a point would be the chart claiming a stretch the row cannot put a number on.
+
+**The figure on screen is the strongest window of today, not the day stage's own output.**
+`checkInProbability = max(combined)` over today's windows, where
+`combined = P(entry today) × P(this window | entry)` — the same quantity per window as
+`ScoredRiskWindow.combined`. The two answer different questions and only one of them has
+something drawn under it: the day stage's number is a frequency the user cannot locate anywhere
+on the plot, while this is the strongest thing the model will point at on it. Being a joint
+probability it is always at or below the day stage's figure, and it is the only number in this
+subsystem a surface may render as a percentage — the window stage's `confidence` is a rank and
+stays one (§2.5).
+
 ## 3. Altitude contamination
 
 Raw barometer output is _station_ pressure. Near sea level ≈ **8.3 m/hPa** (0.12 hPa/m),
@@ -554,7 +686,12 @@ Consequences, not opinions:
 - Day 7 output is essentially the **population prior**, nudged. A genuinely personal model
   is not statistically meaningful before roughly 3–4 weeks of positives.
 - Blend: `w(n) = n / (n + k)`, `n` = labelled rows with usable coverage (not calendar
-  days), `k = 30` _provisional_. `k` lives in **one** named constant in `Shared/`.
+  days), `k = 30` _provisional_. `k` lives in **one** named constant in `Shared/`:
+  `WellbeingRiskModel.priorBlendConstant`. `n` is `labelledEntryCount` — entries that landed in a
+  usable window — which is the same quantity `TrainingDataProgress` counts on the Now screen, so
+  the bar the user watches and the weight the model applies cannot drift apart. The blend is
+  taken in **log-odds**, not in probability: averaging 0.02 and 0.30 directly gives 0.16, a
+  stronger claim than either model made.
 - **Feature budget: ≤6 features in the personal component.** More parameters than events
   is memorisation. The prior may be richer; the personal part may not.
 - The UI states reduced confidence during cold start. Wording per
@@ -612,6 +749,44 @@ Baseline 3 is the honest one: self-reported wellbeing is autocorrelated, and a w
 model that cannot beat "yesterday repeated" has not demonstrated a weather signal. A model
 that loses to a threshold rule costs battery and adds risk for nothing.
 
+### 7.1 What the risk model measured
+
+`WellbeingRiskTrainer` runs all four baselines on every validation pass and writes the result to
+`BarosenseLog.pressure`; `RiskModelReport.beatsEveryBaseline` is the summary. The numbers below
+are from `WellbeingRiskPipelineTests` on the research notebook's own 120-day synthetic trace,
+rebuilt on this app's hourly grid, four forward-chaining folds, 60 evaluated days:
+
+| | value | read against |
+| --- | --- | --- |
+| window PR-AUC | **0.407** | base rate 0.098 (lift 4.15) |
+| window ROC-AUC | 0.784 | 0.5 |
+| hit@1 / day | **0.358** | 0.111 picking at random |
+| hit@2 / day (what the chart marks) | **0.604** | 0.222 picking at random |
+| day ROC-AUC | 0.747 | 0.5 |
+| day Brier | 0.124 | 0.197 uncalibrated, **0.103 always answering the base rate** |
+| gate | **2.45 messages/week at precision 0.810**, 95% CI [0.60, 0.92] | recall 0.321, fired 21/60 days |
+
+Baselines, PR-AUC: pressure rule 0.175, time of day 0.134, persistence 0.107, majority 0.102.
+The learned window stage beats all four.
+
+**Two results that are not flattering and are recorded here rather than left to be discovered.**
+
+1. **The day stage does not beat a constant.** Its calibrated Brier is 0.124 against 0.103 for
+   simply answering the base rate. That is a property of the trace — 53 of the 60 evaluated days
+   hold an entry, so there is almost nothing to discriminate — and the stage still *ranks* days
+   at ROC-AUC 0.747, which is what the "quiet day" filter uses it for. But the percentage on
+   screen is, on this data, worth less than a constant would be.
+   `RiskModelReport.Stage.beatsConstantBrier` carries it every run.
+2. **Every number here is a ceiling.** The trace is synthetic and its generator has an explicit
+   barometric effect written into it: a 10 hPa fall over six hours makes a slot roughly three
+   thousand times likelier to hold an entry. One simulated person, 90 entries. Nothing here is an
+   estimate of what this app will do for a real user, and the shipped prior inherits the same
+   limitation (`WellbeingRiskPrior`).
+
+Calibration is measured, not assumed: the Platt correction halves the day stage's Brier
+(0.197 → 0.124) while leaving its ordering untouched, which is the only thing that licenses a
+percentage on screen at all.
+
 ---
 
 ## 8. Test fixtures
@@ -647,3 +822,16 @@ Each needs a decision before v1 ships; anything architectural gets an ADR in
 6. **CloudKit sync of derived features.** Apple's HealthKit terms restrict off-device
    storage of health data; this is a gated ADR, not a default
    (`../skills/healthkit_permissions/SKILL.md`).
+7. **Conditioning the risk model on intensity.** §1.1 forecasts *whether an entry happens*, not
+   how bad it was. Joining the two labels — "will an entry be made, and will it be a 7+" — is the
+   question the product actually wants and the one the data cannot yet answer. Needs a real
+   check-in distribution first, and watch for the spike at exactly 5 that the form's default
+   produces.
+8. **Whether the day percentage should be shown at all.** On the synthetic trace it does not beat
+   a constant (§7.1). A rule that hides the figure when
+   `RiskModelReport.Stage.beatsConstantBrier` is false would be honest and is not implemented —
+   it is a product decision about what an unhelpful-but-not-wrong number costs.
+9. **Notifications from the gate.** `WellbeingRiskForecast.mayNotify` is computed, logged and
+   **consumed by nothing**. Wiring it to `NotificationDispatcher` needs §6's provisional ship
+   gate confirmed by a human, and needs the cold-start question (§9.5) answered first — the gate
+   would otherwise fire on prior-dominated output.

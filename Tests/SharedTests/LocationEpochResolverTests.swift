@@ -166,7 +166,8 @@ extension LocationEpochResolverTests {
     }
 
     /// A log with no stamps at all — written before the epoch table existed, or before this
-    /// install's first fix — passes through whole. A log that *is* stamped is filtered.
+    /// install's first fix — passes through whole. A log that *is* stamped is filtered, and the
+    /// unstamped era behind its first stamp survives with it.
     func testOnlyAStampedLogIsFiltered() {
         let here = UUID()
         let unstamped = (0..<3).map {
@@ -178,7 +179,9 @@ extension LocationEpochResolverTests {
                                                 locationEpochID: here)]
 
         XCTAssertEqual(LocationEpochResolver.readings(unstamped, takenAt: [here]).count, 3)
-        XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [here]).count, 1)
+        XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [here]).count, 4)
+        // …but a batch whose only stamp names somewhere else spans a change of place, and a
+        // batch that spans one cannot vouch for the era before its own first stamp.
         XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [UUID()]).count, 0)
     }
 
@@ -218,17 +221,51 @@ extension LocationEpochResolverTests {
     /// And the calibrator keeps the strict rule, which is why the policy is a parameter rather
     /// than a change of behaviour. Its quantity is a median of `station − MSLP`, and elevation
     /// *is* that quantity — a window blending two places returns a number describing nowhere.
-    func testTheOffsetCalibratorStillExcludesUnstampedReadings() {
+    ///
+    /// Strict about the right rows, though. `.excluded` speaks for readings taken **after**
+    /// stamping began, where a missing stamp means the recorder had no fix at that instant; a
+    /// reading from before the first stamp was written by a build that could not stamp anything,
+    /// and calling that "elsewhere" is reading a decision into silence.
+    func testTheOffsetCalibratorExcludesUnstampedReadingsFromTheStampedEra() {
         let here = UUID()
-        let mixed = [PressureSample(timestamp: date(daysAgo: 1), pressure: Pressure(hectopascals: 1013)),
-                     PressureSample(timestamp: date(daysAgo: 0),
+        let firstStamp = date(daysAgo: 1)
+        let mixed = [PressureSample(timestamp: firstStamp,
                                     pressure: Pressure(hectopascals: 991),
-                                    locationEpochID: here)]
+                                    locationEpochID: here),
+                     // No fix at this instant, and stamping had already begun.
+                     PressureSample(timestamp: date(daysAgo: 0),
+                                    pressure: Pressure(hectopascals: 1013))]
 
         XCTAssertEqual(LocationEpochResolver.readings(mixed, takenAt: [here]).count, 1)
     }
 
+    /// The regression the device produced. Measured on the connected iPhone 2026-08-25: the
+    /// update landed at 20:48, the first stamped reading at 20:49:10, and the 188 unstamped
+    /// readings behind it — every one of them recorded in this same city — were dropped on the
+    /// spot. `PressureOffsetCalibrator` went from 47 usable pairs to one, returned `nil`, and
+    /// the chart fell through from a 96 h WeatherKit curve to the local model's 18 h with
+    /// nothing on screen saying why.
+    ///
+    /// The filter is there to reject a move. A move announces itself with an epoch, and no
+    /// epoch here announced one.
+    func testTheFirstStampedReadingKeepsTheUnstampedHistoryBehindIt() {
+        let here = UUID()
+        let history = (1...48).map {
+            PressureSample(timestamp: date(hoursAgo: $0), pressure: Pressure(hectopascals: 1013))
+        }
+        let firstStamp = [PressureSample(timestamp: date(hoursAgo: 0),
+                                         pressure: Pressure(hectopascals: 1013),
+                                         locationEpochID: here)]
+
+        XCTAssertEqual(LocationEpochResolver.readings(history + firstStamp, takenAt: [here]).count,
+                       49)
+    }
+
     private func date(daysAgo: Int) -> Date {
         Date(timeIntervalSince1970: 1_700_000_000).addingTimeInterval(-Double(daysAgo) * 86_400)
+    }
+
+    private func date(hoursAgo: Int) -> Date {
+        Date(timeIntervalSince1970: 1_700_000_000).addingTimeInterval(-Double(hoursAgo) * 3600)
     }
 }
