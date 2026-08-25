@@ -1,7 +1,7 @@
 # Copilot review instructions — Barosense
 
 Barosense is an iOS + watchOS app for weather-sensitive people. It samples barometric
-pressure from the iPhone barometer, collects 1–5 wellbeing check-ins, and produces a
+pressure from the iPhone barometer, collects 1–10 wellbeing check-ins, and produces a
 **personal** forecast of likely wellbeing decline. Everything runs **on-device**: there is
 no backend, and adding one requires an explicit design decision in the PR.
 
@@ -110,7 +110,7 @@ wake-up never fires.
   Convert once at the sensor boundary. Flag any kPa value past that boundary, and any
   pressure identifier without the unit in its name (`pressureHPa`, `deltaHPaPer6h`).
 - **Label threshold** is defined once in `Shared/` as a named constant. Flag an inlined
-  `score <= 2` at a call site.
+  `intensity >= 7` at a call site.
 - **Cold start.** The model must be useful with 3–7 days of history via a population prior
   blended toward the personal model as `n` grows. Flag any design that needs months of
   data, or a raised cold-start requirement.

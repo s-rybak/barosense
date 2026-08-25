@@ -35,6 +35,12 @@ struct BarosenseApp: App {
     /// the app is showing.
     private let forecast: PressureForecastReader
 
+    /// The phone's side of the watch link — both directions, one `WCSession`.
+    ///
+    /// Built here because `PressureCollectionController` needs it as its display sink before
+    /// the first reading, and activated later, from the scene: see `WatchBridge.start()`.
+    private let watch = WatchBridge()
+
     /// Where a tapped notification asks to go, and the delegate that records it.
     ///
     /// Both are held here for the same reason the ingest observers are started here: iOS
@@ -148,12 +154,12 @@ struct BarosenseApp: App {
             healthLog: log
         )
 
-        let link = WatchConnectivityPressureLink()
-        link?.activate()
-
         pressure = PressureCollectionController(
             recorder: PressureSampleRecorder(source: CoreMotionPressureSource(), log: pressureLog),
-            display: link ?? NoOpPressureDisplayLink(),
+            // The bridge, not the session. The sampler's contract stays the narrow
+            // "here is a reading" one; folding that into the tag vocabulary and the
+            // check-in queue is the bridge's job — see `WatchBridge`.
+            display: watch,
             // The only place CoreLocation is wired in. It resolves an epoch on a foreground
             // activation and reads the stored one on a background wake — see
             // `LocationEpochRecorder`.
@@ -171,10 +177,12 @@ struct BarosenseApp: App {
         let pressure = pressure
         let weather = weather
         let forecast = forecast
+        let watch = watch
 
         return WindowGroup {
             AppRootView(ingest: ingest,
                         pressure: pressure,
+                        watch: watch,
                         weather: weather,
                         forecast: forecast,
                         healthLog: healthLog,

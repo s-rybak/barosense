@@ -80,7 +80,9 @@ struct LogScreen: View {
         .presentationDragIndicator(.visible)
         .task { await model.load() }
         .sheet(isPresented: $isAddingMedication) {
-            AddMedicationSheet(history: model.medicationHistory, add: model.add(medication:))
+            AddMedicationSheet(history: model.medicationHistory,
+                               add: model.add(medication:),
+                               chips: model.medicationChips)
         }
         .sheet(isPresented: $isAddingTag) {
             AddTagSheet { name in model.addTag(named: name) }

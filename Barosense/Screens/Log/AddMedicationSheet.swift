@@ -48,6 +48,21 @@ struct AddMedicationSheet: View {
 
     let add: (MedicationEntry) -> Void
 
+    /// Chips the user has dismissed, and where a dismissal is recorded.
+    ///
+    /// The sheet writes through it and re-reads into `hiddenNames` / `hiddenDoses` below,
+    /// rather than reading the store inside `body`: a `body` that calls into a store is a
+    /// `body` whose output SwiftUI has no reason to recompute when the store changes.
+    let chips: any MedicationChipStore
+
+    /// Mirrors of the store, refreshed on appearance and after every removal.
+    @State private var hiddenNames: Set<String> = []
+
+    /// Keyed the way `MedicationChipStore` keys it: folded medication name, or `nil` for the
+    /// unfiltered row. Held as the one bucket currently on screen, because that is the only
+    /// one the dose row can draw.
+    @State private var hiddenDoses: Set<String> = []
+
     /// Which chip in a section is active: one the user has used before, or the one that opens
     /// a field for something new. Used by both the name and the dose row — they are the same
     /// control twice, and giving them one type keeps them behaving the same way.
@@ -126,10 +141,19 @@ struct AddMedicationSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .onAppear {
+            // Before the focus decision below, not after: that decision reads `rememberedNames`,
+            // which is the history minus what has been dismissed. Reading it against an empty
+            // hidden set would leave the field unfocused on a sheet whose every chip is hidden.
+            refreshHidden()
+
             // Straight into the field when there is nothing to pick from — on a first run the
             // chips are absent and typing is the only thing to do.
             if isTypingName { focused = .name }
         }
+        // The dose row is filtered by the chosen medication, so the bucket of hidden doses moves
+        // with it. Without this, doses dismissed under one medication would stay dismissed under
+        // the next one the user picked.
+        .onChange(of: doseBucket) { hiddenDoses = chips.hiddenDoses(for: doseBucket) }
     }
 
     // MARK: - Header
@@ -176,11 +200,10 @@ struct AddMedicationSheet: View {
                 FlowLayout {
                     ForEach(rememberedNames, id: \.self) { name in
                         // `Text(verbatim:)` — the user's own word, never a key to translate.
-                        ChoiceChip(text: Text(verbatim: name),
-                                   isSelected: nameChoice == .remembered(name),
-                                   font: Typography.choiceLabelCompact) {
-                            select(name: name)
-                        }
+                        DismissableChoiceChip(text: Text(verbatim: name),
+                                              isSelected: nameChoice == .remembered(name),
+                                              select: { select(name: name) },
+                                              dismiss: { forget(name: name) })
                     }
 
                     ChoiceChip(title: "+ New medication",
@@ -220,12 +243,13 @@ struct AddMedicationSheet: View {
             if !rememberedDoses.isEmpty {
                 FlowLayout {
                     ForEach(rememberedDoses, id: \.self) { dose in
-                        ChoiceChip(text: Text(verbatim: dose),
-                                   isSelected: doseChoice == .remembered(dose),
-                                   font: Typography.choiceLabelCompact) {
-                            doseChoice = .remembered(dose)
-                            focused = nil
-                        }
+                        DismissableChoiceChip(text: Text(verbatim: dose),
+                                              isSelected: doseChoice == .remembered(dose),
+                                              select: {
+                                                  doseChoice = .remembered(dose)
+                                                  focused = nil
+                                              },
+                                              dismiss: { forget(dose: dose) })
                     }
 
                     ChoiceChip(title: "+ Other dose",
@@ -369,7 +393,7 @@ struct AddMedicationSheet: View {
     }
 
     private var rememberedNames: [String] {
-        MedicationHistory.names(in: history)
+        MedicationHistory.names(in: history, hiding: hiddenNames)
     }
 
     /// Narrowed to the chosen name only when it is one from the list — while a new name is
@@ -377,10 +401,46 @@ struct AddMedicationSheet: View {
     /// offer than none.
     private var rememberedDoses: [String] {
         guard case .remembered(let name) = nameChoice else {
-            return MedicationHistory.doses(in: history)
+            return MedicationHistory.doses(in: history, hiding: hiddenDoses)
         }
 
-        return MedicationHistory.doses(in: history, for: name)
+        return MedicationHistory.doses(in: history, for: name, hiding: hiddenDoses)
+    }
+
+    /// The dose bucket the row currently draws from — the chosen name, or `nil` for the
+    /// unfiltered row. One place, because the read and the write have to agree on it.
+    private var doseBucket: String? {
+        guard case .remembered(let name) = nameChoice else { return nil }
+        return name
+    }
+
+    // MARK: - Forgetting a chip
+
+    /// Stops offering `name`, and clears the selection if that is what was selected.
+    ///
+    /// **Removes no history.** The entries keep counting on the "My medications" screen and in
+    /// the report; what goes away is the offer. See `MedicationChipStore`.
+    private func forget(name: String) {
+        chips.hideName(name)
+        if nameChoice == .remembered(name) {
+            nameChoice = .new
+            // The dose row is filtered by the name, so leaving a dose selected under a name
+            // that is no longer chosen would record an amount with nothing on screen showing it
+            // — the same reasoning as `select(name:)`.
+            doseChoice = nil
+        }
+        refreshHidden()
+    }
+
+    private func forget(dose: String) {
+        chips.hideDose(dose, for: doseBucket)
+        if doseChoice == .remembered(dose) { doseChoice = nil }
+        refreshHidden()
+    }
+
+    private func refreshHidden() {
+        hiddenNames = chips.hiddenNames()
+        hiddenDoses = chips.hiddenDoses(for: doseBucket)
     }
 
     private func commit() {
@@ -437,6 +497,77 @@ struct AddMedicationSheet: View {
         // the caret rather than jumping to the end.
         .contentShape(.rect)
         .onTapGesture { focused = field }
+    }
+}
+
+// MARK: - Dismissable chip
+
+/// A remembered chip with a ✕ that stops it being offered (Figma `Додати ліки`, matching the
+/// removable tag chips in Edit Profile).
+///
+/// ## Why two buttons and not one
+///
+/// `RemovableTagChip` makes the whole chip the remove button, because there the chip has no
+/// other job — the tags in Edit Profile are a list you add to and take from. Here the chip has
+/// a primary action already: it is what selects the medication. So the mark has to be its own
+/// target, and the rest of the chip keeps selecting.
+///
+/// That makes the mark the small target the tag chip deliberately avoided, so it is given its
+/// own padding rather than a bare glyph: `dismissHitWidth` across and the full chip height,
+/// which clears 44 pt vertically and gets close to it horizontally. Wider than that starts
+/// eating the label on a chip like "400 mg".
+///
+/// The two are separated by more than proximity, which matters because the outcomes are not
+/// symmetrical: selecting is free, dismissing takes a chip away. Hence a `plain` button style
+/// on the mark — no highlight bleeding across the whole chip — and a distinct accessibility
+/// action rather than one element with two meanings.
+private struct DismissableChoiceChip: View {
+
+    let text: Text
+    let isSelected: Bool
+    let select: () -> Void
+    let dismiss: () -> Void
+
+    private enum Metrics {
+        static let horizontalPadding: CGFloat = 18
+        static let verticalPadding: CGFloat = 13
+        static let spacing: CGFloat = 8
+        static let cornerRadius: CGFloat = 20
+        static let markSize: CGFloat = 10
+        /// The mark's own hit area. See the type's documentation for why it is not the glyph.
+        static let dismissHitWidth: CGFloat = 34
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button(action: select) {
+                text
+                    .font(Typography.choiceLabelCompact)
+                    .foregroundStyle(isSelected ? Palette.onInk : Palette.bodyText)
+                    .padding(.leading, Metrics.horizontalPadding)
+                    .padding(.trailing, Metrics.spacing)
+                    .padding(.vertical, Metrics.verticalPadding)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: Metrics.markSize, weight: .bold))
+                    .foregroundStyle(
+                        isSelected ? Palette.onInk.opacity(0.7) : Palette.bodyText.opacity(0.55)
+                    )
+                    .frame(width: Metrics.dismissHitWidth)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Stop offering this"))
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .background(ChoiceBackground(isSelected: isSelected,
+                                     cornerRadius: Metrics.cornerRadius))
     }
 }
 
@@ -703,7 +834,7 @@ private struct DayPickerCell: View {
 
 #Preview("First run") {
     Color.black.sheet(isPresented: .constant(true)) {
-        AddMedicationSheet(history: [], add: { _ in })
+        AddMedicationSheet(history: [], add: { _ in }, chips: InMemoryMedicationChipStore())
     }
 }
 
@@ -719,6 +850,6 @@ private struct DayPickerCell: View {
     ].compactMap { $0 }
 
     Color.black.sheet(isPresented: .constant(true)) {
-        AddMedicationSheet(history: history, add: { _ in })
+        AddMedicationSheet(history: history, add: { _ in }, chips: InMemoryMedicationChipStore())
     }
 }

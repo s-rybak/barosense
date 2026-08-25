@@ -374,7 +374,7 @@ struct ChoiceRow: View {
 
 /// The two-state surface behind every choice control, so a chip and a row cannot drift
 /// apart visually.
-private struct ChoiceBackground: View {
+struct ChoiceBackground: View {
 
     let isSelected: Bool
     let cornerRadius: CGFloat
