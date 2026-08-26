@@ -388,6 +388,35 @@ extension PressureTrend {
     }
 }
 
+/// One vertex of the forward line.
+///
+/// Deliberately **not** a `ForecastPressurePoint`. The first vertex is the last measurement the
+/// dashed line departs from, and `PressureSeries.forecast` is documented as values for times
+/// nobody has measured — a type that can hold either would make that distinction unenforceable
+/// exactly where the two halves meet. This one carries the two numbers a `LineMark` needs and
+/// nothing a feature could be computed from.
+struct ForecastLinePoint: Hashable, Sendable, Identifiable {
+
+    var id: Date { timestamp }
+
+    let timestamp: Date
+    let hectopascals: Double
+}
+
+/// A run of the forward line drawn in one colour — see `PressureSeries.forecastSegments`.
+struct ForecastLineSegment: Hashable, Sendable, Identifiable {
+
+    /// Position in the run order. Also the `series` value the chart strokes it under, so two
+    /// runs are two strokes rather than one that jumps between them.
+    let id: Int
+
+    /// Whether the model marked these hours. The chart draws a marked run in the warm accent
+    /// and every other run in the line's own colour.
+    let isMarked: Bool
+
+    let points: [ForecastLinePoint]
+}
+
 /// Everything the pressure chart draws, derived once from stored samples.
 ///
 /// Pure and synchronous, like `HealthMetricsSnapshot.make`: this is the piece that decides
@@ -426,6 +455,18 @@ struct PressureSeries: Hashable, Sendable {
     /// The instant the series was built. The divider between observed and forecast.
     let now: Date
 
+    /// What the risk model says about today, or `nil` when it has nothing to say.
+    ///
+    /// Carried on the series rather than handed to the card separately so the percentage the
+    /// card prints and the stretches the plot marks cannot come from two different runs — they
+    /// are one statement about one day, and a caption disagreeing with the stripe under it is
+    /// worse than neither being there.
+    ///
+    /// `nil` is the ordinary state on plenty of devices: the subsystem is off, the log is too
+    /// thin, today is too thinly covered, or there is no forward curve to score the afternoon
+    /// with. Every surface renders as it did before this existed.
+    let risk: WellbeingRiskForecast?
+
     /// Which window is on screen. Carried on the series so the chart can draw the *whole*
     /// window even when only part of it was observed — two readings twelve minutes apart
     /// stretched across an hour of plot would claim an hour of coverage that does not exist.
@@ -453,6 +494,98 @@ struct PressureSeries: Hashable, Sendable {
     let readingCount: Int
 
     var isEmpty: Bool { observed.isEmpty }
+
+    /// The stretches the plot marks, clipped to the forward window this range actually draws.
+    ///
+    /// Clipped rather than left to the chart's own scale: a stretch that starts beyond the
+    /// drawn horizon would otherwise be handed to Swift Charts as a mark outside the domain,
+    /// and a stretch that merely *ends* beyond it would be drawn to its full width against a
+    /// line that stops short.
+    var markedRanges: [Range<Date>] {
+        guard let risk, let horizon = forecast.last?.timestamp else { return [] }
+
+        return risk.markedRanges.compactMap { range in
+            let lower = max(range.lowerBound, now)
+            let upper = min(range.upperBound, horizon)
+            return upper > lower ? lower..<upper : nil
+        }
+    }
+
+    /// The forward line, cut into runs that are each wholly inside a marked stretch or wholly
+    /// outside one. Ascending, contiguous, and covering the whole curve exactly once.
+    ///
+    /// ## Why the forward half is cut up at all
+    ///
+    /// Because it is **one** line and has to be drawn as one. The marked stretch used to be a
+    /// second stroke laid over the first: the whole curve in cool blue, then the marked hours
+    /// again in the warm accent on top. Two 3 pt dashed strokes on the same path do not read as
+    /// one coloured line — the dash phases are set independently, so the gaps of one show the
+    /// other through and the stretch renders as a doubled, two-toned line. It is also a lie
+    /// about the data, which has one value per hour and not two.
+    ///
+    /// One run per colour change fixes both: every hour of curve is stroked once, in the colour
+    /// that says whether the model marked it.
+    ///
+    /// Consecutive runs **share their boundary vertex**, so the colour changes without the line
+    /// breaking. That shared point is the only pixel the two runs have in common, which is the
+    /// difference between a join and the overlay this replaces.
+    var forecastSegments: [ForecastLineSegment] {
+        let vertices = forecastLine
+        guard vertices.count > 1 else { return [] }
+
+        let stretches = markedRanges
+        var segments: [ForecastLineSegment] = []
+        var run = [vertices[0]]
+        var runIsMarked = Self.isMarked(between: vertices[0], vertices[1], in: stretches)
+
+        for index in 1..<vertices.count {
+            let edgeIsMarked = Self.isMarked(between: vertices[index - 1], vertices[index],
+                                             in: stretches)
+            if edgeIsMarked != runIsMarked {
+                segments.append(ForecastLineSegment(id: segments.count,
+                                                    isMarked: runIsMarked,
+                                                    points: run))
+                run = [vertices[index - 1]]
+                runIsMarked = edgeIsMarked
+            }
+            run.append(vertices[index])
+        }
+        segments.append(ForecastLineSegment(id: segments.count,
+                                            isMarked: runIsMarked,
+                                            points: run))
+        return segments
+    }
+
+    /// Every vertex of the forward line, the join included, ascending.
+    ///
+    /// The join is the last measurement and is a vertex of this line rather than a point of
+    /// `forecast` — see `forecastJoin` for why the array of forward values must not gain a
+    /// measured one.
+    private var forecastLine: [ForecastLinePoint] {
+        guard !forecast.isEmpty else { return [] }
+
+        let join = forecastJoin.map {
+            ForecastLinePoint(timestamp: $0.timestamp, hectopascals: $0.pressure.hectopascals)
+        }
+        return (join.map { [$0] } ?? []) + forecast.map {
+            ForecastLinePoint(timestamp: $0.timestamp, hectopascals: $0.pressure.hectopascals)
+        }
+    }
+
+    /// Whether the segment between two vertices lies inside a marked stretch.
+    ///
+    /// Decided on the **midpoint**, not on the endpoints. A stretch boundary falls on a vertex
+    /// by construction — the windows are two hours wide and the curve is hourly — so asking
+    /// whether an endpoint is inside puts the boundary edge into both runs or into neither. The
+    /// midpoint of an edge is unambiguous, and the vertex then belongs to both runs as their
+    /// shared join, which is exactly what keeps the line continuous.
+    private static func isMarked(between first: ForecastLinePoint,
+                                 _ second: ForecastLinePoint,
+                                 in stretches: [Range<Date>]) -> Bool {
+        let midpoint = Date(timeIntervalSince1970:
+            (first.timestamp.timeIntervalSince1970 + second.timestamp.timeIntervalSince1970) / 2)
+        return stretches.contains { $0.contains(midpoint) }
+    }
 
     /// The last measurement the dashed line leaves from, or `nil` when there is nothing to
     /// join.
@@ -554,6 +687,7 @@ struct PressureSeries: Hashable, Sendable {
     static func make(from samples: [PressureSample],
                      forecast: [ForecastPressurePoint] = [],
                      checkIns: [CheckIn] = [],
+                     risk: WellbeingRiskForecast? = nil,
                      range: PressureChartRange,
                      asOf now: Date) -> PressureSeries {
         let extent = now.addingTimeInterval(-range.historySeconds)...now
@@ -583,6 +717,7 @@ struct PressureSeries: Hashable, Sendable {
             checkIns: CheckInMarker.place(checkIns.filter { extent.contains($0.timestamp) },
                                           on: drawn),
             now: now,
+            risk: risk,
             range: range,
             // From the full input, not from `inExtent`: the one-hour range holds too little
             // to judge a three-hour tendency, and it would otherwise report `.unknown`
@@ -595,8 +730,8 @@ struct PressureSeries: Hashable, Sendable {
 
     static func empty(range: PressureChartRange = .oneHour,
                       asOf now: Date = .now) -> PressureSeries {
-        PressureSeries(observed: [], forecast: [], checkIns: [], now: now, range: range,
-                       trend: .unknown, latest: nil, readingCount: 0)
+        PressureSeries(observed: [], forecast: [], checkIns: [], now: now, risk: nil,
+                       range: range, trend: .unknown, latest: nil, readingCount: 0)
     }
 
     /// Horizontal extent of the whole plot — twelve screenfuls of history, plus whatever the

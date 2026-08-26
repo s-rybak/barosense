@@ -14,6 +14,11 @@ struct RootView: View {
     /// The forward half of the pressure chart. Built at the composition root and shared with
     /// `weather`, so the picture and the feature row read one curve and one cached offset.
     let forecast: PressureForecastReader
+
+    /// The two-stage risk model. `nil` until the store is open, which is a state this view is
+    /// never shown in; optional rather than force-unwrapped at the composition root.
+    let risk: WellbeingRiskEngine?
+
     let checkInStore: any CheckInStore
     let tagStore: any WellbeingTagStore
 
@@ -92,6 +97,10 @@ struct RootView: View {
                       health: ingest.recorder) {
                 isLoggingCheckIn = false
                 checkInRevision += 1
+                // The model was fitted on a history that no longer matches the store. Dropping
+                // the cache costs one refit on the next chart load and keeps the percentage
+                // from describing a day the user has already logged.
+                if let risk { Task { await risk.invalidate() } }
                 // Today's reminder is no longer wanted — the user has just done the thing it
                 // would have asked for. The planner drops the slot and the dispatcher
                 // withdraws the row it was scheduled under.
@@ -202,6 +211,7 @@ struct RootView: View {
                       pressure: pressure,
                       checkIns: checkInStore,
                       forecast: forecast,
+                      risk: risk,
                       checkInRevision: checkInRevision)
         case .history:
             // The calendar is handed over rather than read from the environment: this
@@ -319,6 +329,9 @@ private let previewForecast = PressureForecastReader(
              // Empty archive, so the preview draws the observed half alone — which is also the
              // state of every device without a location grant.
              forecast: previewForecast,
+             // No risk model in the canvas: the card then renders exactly as it does on a
+             // device with too little history, which is the state worth having in a preview.
+             risk: nil,
              checkInStore: InMemoryCheckInStore(),
              tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
              // No notification centre in a preview: `NoOpNotificationDeliverer` reports itself

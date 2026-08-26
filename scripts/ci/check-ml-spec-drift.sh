@@ -13,7 +13,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 ml_spec=.claude/context/ml-spec.md
 # Directories whose contents the spec describes: features, label, model, validation.
-watched='^Shared/(Features|ML|Model|Models|Forecast)/'
+watched='^Shared/(Features|ML|Model|Models|Forecast|Risk)/'
 
 base=${BASE_REF:-}
 if [ -z "$base" ]; then

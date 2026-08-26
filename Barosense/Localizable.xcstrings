@@ -1302,6 +1302,22 @@
         }
       }
     },
+    "Check-in likely today" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check-in likely today"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запис імовірний сьогодні"
+          }
+        }
+      }
+    },
     "Check-in log" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2075,6 +2091,9 @@
           }
         }
       }
+    },
+    "From" : {
+
     },
     "Generate PDF report" : {
       "extractionState" : "manual",
@@ -3960,6 +3979,22 @@
         }
       }
     },
+    "Still learning your pattern — this is a general estimate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still learning your pattern — this is a general estimate"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ще вивчаю твій ритм — це загальна оцінка"
+          }
+        }
+      }
+    },
     "Stop offering this" : {
 
     },
@@ -4302,6 +4337,9 @@
         }
       }
     },
+    "To" : {
+
+    },
     "To learn faster" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4384,6 +4422,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Використовується, лише коли застосунок відкритий, ніколи у фоні"
+          }
+        }
+      }
+    },
+    "Usually around %@–%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usually around %@–%@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зазвичай близько %@–%@"
           }
         }
       }

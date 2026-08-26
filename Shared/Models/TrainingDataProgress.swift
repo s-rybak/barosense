@@ -3,12 +3,23 @@ import Foundation
 /// How much of the history a personal model needs is on the device.
 ///
 /// A count against a target, and nothing else. It makes no claim about the quality of any
-/// forecast: there is no trained model yet (`.claude/context/ml-spec.md` — the model row reads
-/// *not trained*), so the only progress bar this app can honestly draw is one over the data a
-/// model would be fitted on. The card's own label calls it training progress because that is
-/// what the design calls it; the explainer behind the card is where the distinction gets made.
+/// forecast — only about how much history is on the device. The card's own label calls it
+/// training progress because that is what the design calls it; the explainer behind the card
+/// is where the distinction gets made.
 ///
-/// **Display only.** No row in the feature registry, no consumer in `Shared/Features/`.
+/// ## Why this is not `WellbeingRiskModel.labelledEntryCount`
+///
+/// There is a fitted model now, and it has its own `n`: entries that landed in a window a fit
+/// could use. This is deliberately the cruder count — every stored check-in, all time — for one
+/// reason: **the bar has to draw before any fit has run.** Deriving it from the model would
+/// leave a new install with an empty bar and no way to fill it, and would make a progress bar
+/// depend on a 120-day read every time a view appeared.
+///
+/// So the two count differently and agree about where the line is: `targetCheckInCount` is set
+/// from `WellbeingRiskModel.priorBlendConstant`, and this count is always the larger of the
+/// two, so the bar reaches full no later than the forecast stops leaning on the prior.
+///
+/// **Display only.** No row in the feature registry, no consumer in the model.
 struct TrainingDataProgress: Hashable, Sendable {
 
     /// Check-ins recorded on this device, all time.
@@ -33,7 +44,8 @@ extension TrainingDataProgress {
     /// `w(n) = n / (n + k)` at a *provisional* `k = 30`; 40 rows put `w` at 0.57, which is the
     /// first point where a forecast leans mostly on this user's own history rather than on the
     /// prior. The design draws "~40" on the same card, so what the user reads and what the
-    /// arithmetic means are the same number.
+    /// arithmetic means are the same number — counted over a wider set of rows, see the type
+    /// comment.
     ///
     /// *Provisional*, like `k`. Re-derive both from a measured learning curve; changing this
     /// moves every bar on the screen and nothing else.

@@ -32,6 +32,14 @@ final class AppServices {
     /// the only state in which there is nothing worth reminding anybody about.
     private(set) var reminders: CheckInReminderController?
 
+    /// The two-stage risk model. `nil` until `start()` has opened the check-in store, which is
+    /// the table it is fitted against.
+    ///
+    /// Built here rather than in `BarosenseApp` for exactly that reason: the barometer log and
+    /// the forecast reader exist from launch, but the labels do not, and an engine constructed
+    /// before them would be fitted on an empty history and cached that way.
+    private(set) var risk: WellbeingRiskEngine?
+
     /// Everything the settings tab reads. `nil` until `start()` has opened the store —
     /// which is also the only state in which the tab is not on screen.
     private(set) var settings: SettingsDependencies?
@@ -49,6 +57,10 @@ final class AppServices {
     /// The forecast archive. Held for the reason the sensor logs are: an erase has to reach it.
     private let weatherArchive: any WeatherForecastStore
 
+    /// The forward half of the chart, shared with `BarosenseApp`. Held so the risk model reads
+    /// the same curve the picture is drawn from, off one cached offset.
+    private let forecast: PressureForecastReader
+
     /// The same Health reporter Settings later reads. Exposed so onboarding can raise that
     /// sheet through this instance rather than a second one that would disagree about state.
     let healthAccess: any HealthAccessReporting
@@ -57,11 +69,13 @@ final class AppServices {
          pressureLog: any PressureSampleStore,
          locationEpochs: any PressureLocationEpochStore,
          weatherArchive: any WeatherForecastStore,
+         forecast: PressureForecastReader,
          healthAccess: any HealthAccessReporting = HealthKitAccessReporter()) {
         self.healthLog = healthLog
         self.pressureLog = pressureLog
         self.locationEpochs = locationEpochs
         self.weatherArchive = weatherArchive
+        self.forecast = forecast
         self.healthAccess = healthAccess
     }
 
@@ -103,6 +117,9 @@ final class AppServices {
             self.profileStore = profileStore
             self.tagStore = tagStore
             self.checkInStore = checkInStore
+            self.risk = WellbeingRiskEngine(samples: pressureLog,
+                                            checkIns: checkInStore,
+                                            forecast: forecast)
             self.reminders = CheckInReminderController(checkIns: checkInStore,
                                                        store: notificationLog,
                                                        deliverer: notifications,
@@ -138,6 +155,10 @@ final class AppServices {
         if let tagStore {
             try? await tagStore.insertIfAbsent(WellbeingTag.seeds)
         }
+        // The erase took the history the model was fitted on. Without this the cached model
+        // and the cached forecast outlive the rows behind them and the chart keeps showing a
+        // percentage read off data that is gone.
+        await risk?.invalidate()
         phase = .onboarding
     }
 }
@@ -187,7 +208,8 @@ struct AppRootView: View {
         _services = State(initialValue: AppServices(healthLog: healthLog,
                                                     pressureLog: pressureLog,
                                                     locationEpochs: locationEpochs,
-                                                    weatherArchive: weatherArchive))
+                                                    weatherArchive: weatherArchive,
+                                                    forecast: forecast))
     }
 
     var body: some View {
@@ -225,6 +247,7 @@ struct AppRootView: View {
                              pressure: pressure,
                              weather: weather,
                              forecast: forecast,
+                             risk: services.risk,
                              checkInStore: checkInStore,
                              tagStore: tagStore,
                              reminders: services.reminders,

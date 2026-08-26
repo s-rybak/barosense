@@ -267,6 +267,62 @@ final class PressureOffsetCalibratorTests: XCTestCase {
                                                         atEpochs: [UUID()]))
     }
 
+    /// The failure the connected iPhone produced on 2026-08-25, end to end.
+    ///
+    /// An update installed at 20:48 stamped its first barometer reading at 20:49:10. Every one
+    /// of the 188 readings behind it in the calibrator's 48 h window was unstamped — written by
+    /// the build before it, in this same city — and the strict rule read that silence as
+    /// "elsewhere" and threw them all away. One stamped reading survived, one archived hour fell
+    /// within `maximumPairSeparationSeconds` of it, and one pair is five short of
+    /// `minimumPairCount`. So the offset went `nil`, the WeatherKit curve went empty, and the
+    /// chart fell back to the local model's 18 h — an hour after the update, with the archive
+    /// holding 112 rows reaching 108 h ahead.
+    ///
+    /// The number this asserts is the offset, not the pair count alone: a rule that kept the
+    /// rows but blended two places would clear `minimumPairCount` and still be wrong.
+    func testTheFirstStampedReadingDoesNotDiscardTheWindowBehindIt() {
+        let here = UUID()
+        var synthetic = pairs(hours: 24, offsetHPa: kyivOffsetHPa)
+        let newest = synthetic.samples.count - 1
+        synthetic.samples[newest] = stamped(synthetic.samples[newest], with: here)
+
+        guard let offset = PressureOffsetCalibrator.calibrate(samples: synthetic.samples,
+                                                              archive: synthetic.archive,
+                                                              asOf: now,
+                                                              atEpochs: [here]) else {
+            return XCTFail("expected an offset — 23 unstamped hours precede the first stamp")
+        }
+
+        XCTAssertEqual(offset.offsetHPa, kyivOffsetHPa, accuracy: 0.5)
+        XCTAssertEqual(offset.pairCount, 24)
+    }
+
+    /// And the half of that rule which is not leniency. The same mixed window, but the one
+    /// stamped reading names a different place: the window spans a move, the unstamped era
+    /// behind the stamp could be on either side of it, and no offset comes back.
+    ///
+    /// This is the case the strict rule was written for, and it is the only one it was right
+    /// about. Two days of the local model after a genuine move is the intended cost; two days
+    /// of it after an update was not.
+    func testAMoveStillDiscardsTheUnstampedWindowBehindIt() {
+        var synthetic = pairs(hours: 24, offsetHPa: kyivOffsetHPa)
+        let newest = synthetic.samples.count - 1
+        synthetic.samples[newest] = stamped(synthetic.samples[newest], with: UUID())
+
+        XCTAssertNil(PressureOffsetCalibrator.calibrate(samples: synthetic.samples,
+                                                        archive: synthetic.archive,
+                                                        asOf: now,
+                                                        atEpochs: [UUID()]))
+    }
+
+    /// The same reading, with an epoch stamp on it.
+    private func stamped(_ sample: PressureSample, with epochID: UUID) -> PressureSample {
+        PressureSample(id: sample.id,
+                       timestamp: sample.timestamp,
+                       pressure: sample.pressure,
+                       locationEpochID: epochID)
+    }
+
     /// Hourly MSLP with a barometer reading on each hour, separated by exactly `offsetHPa`.
     ///
     /// `weatherDriftHPaPerHour` moves **both** series together, which is what weather does: the

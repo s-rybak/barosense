@@ -45,6 +45,7 @@ struct PressureChartCard: View {
     init(collection: PressureCollectionController,
          checkIns: any CheckInStore,
          forecast: PressureForecastReader? = nil,
+         risk: WellbeingRiskEngine? = nil,
          attribution: any WeatherAttributionProviding = WeatherKitAttributionProvider(),
          checkInRevision: Int = 0) {
         self.checkInRevision = checkInRevision
@@ -52,6 +53,7 @@ struct PressureChartCard: View {
         _model = State(initialValue: PressureChartModel(collection: collection,
                                                         checkIns: checkIns,
                                                         forecast: forecast,
+                                                        risk: risk,
                                                         attribution: attribution))
     }
 
@@ -64,6 +66,16 @@ struct PressureChartCard: View {
             plot
 
             valueRow
+
+            // Absent entirely when the model has nothing to say, rather than a zero or a
+            // spinner. Every reason it can be absent is one the user cannot act on from here.
+            //
+            // `isPresentable` is the second half of that: a forecast can exist and still have no
+            // percentage and no marked stretch — today too thinly covered, every window under
+            // half a point — and an empty row with a title above it reads as a load that failed.
+            if let risk = model.series.risk, risk.isPresentable {
+                RiskSummaryRow(risk: risk)
+            }
 
             // Where the forward half of the line is a forecast *for*. Only drawn once there is
             // a forecast: a place name under a chart with no forward half would be answering a
@@ -182,6 +194,10 @@ final class PressureChartModel {
     /// and the card then draws exactly what it drew before this feature existed.
     private let forecastReader: PressureForecastReader?
 
+    /// The two-stage risk model. `nil` for the same reasons the reader is, and the card then
+    /// draws no percentage and marks no stretch.
+    private let riskEngine: WellbeingRiskEngine?
+
     /// The deepest history any range scrolls over, kept so a range change is a re-slice. At
     /// one row per 15 min twelve days is ~1 150 samples of 40-odd bytes — under 50 kB, and
     /// cheaper to hold than to re-query on every button.
@@ -195,6 +211,10 @@ final class PressureChartModel {
     /// it rather than re-reading the archive and re-measuring the offset.
     private var forecast: [ForecastPressurePoint] = []
 
+    /// Today's risk forecast, held for the same reason. It describes a whole day and does not
+    /// change with which button is selected — only how much of it is on screen does.
+    private var risk: WellbeingRiskForecast?
+
     /// The place the forecast is about, printed under the value row.
     private(set) var placeDescription: String?
 
@@ -207,10 +227,12 @@ final class PressureChartModel {
     init(collection: PressureCollectionController,
          checkIns: any CheckInStore,
          forecast: PressureForecastReader? = nil,
+         risk: WellbeingRiskEngine? = nil,
          attribution: any WeatherAttributionProviding = UnattributedWeatherProvider()) {
         self.collection = collection
         self.checkInStore = checkIns
         self.forecastReader = forecast
+        self.riskEngine = risk
         self.attributionProvider = attribution
     }
 
@@ -227,6 +249,9 @@ final class PressureChartModel {
         samples = await collection.samples(trailing: PressureChartRange.widest.historySeconds)
         checkIns = await loadCheckIns(asOf: now)
         forecast = await loadForecast(asOf: now)
+        // After the curve, not beside it: the engine reads the same forward half, and asking
+        // for both at once would have the reader measure the offset twice on a cold cache.
+        risk = await riskEngine?.forecast(asOf: now)
         placeDescription = await forecastReader?.placeName(asOf: now)?.description
         attribution = await loadAttribution(for: forecast)
         rebuild(asOf: now)
@@ -292,6 +317,7 @@ final class PressureChartModel {
         series = PressureSeries.make(from: samples,
                                      forecast: forecast,
                                      checkIns: checkIns,
+                                     risk: risk,
                                      range: range,
                                      asOf: now)
     }
@@ -333,7 +359,7 @@ final class PressureChartModel {
 /// The plot is twelve screenfuls wide and scrolls horizontally, opening on the newest
 /// reading. Vertically it does not rescale as it scrolls — see `PressureSeries.valueDomainHPa`
 /// for why a domain that refitted under the finger is worse than a slightly flatter line.
-private struct PressureChartPlot: View {
+struct PressureChartPlot: View {
 
     let series: PressureSeries
 
@@ -399,26 +425,42 @@ private struct PressureChartPlot: View {
                     .foregroundStyle(Palette.chartLine.opacity(0.14))
                 }
 
-                // The dashed line starts at the newest reading, in the same `series` value as
-                // the forward points so Swift Charts joins them into one stroke. Without it
-                // the segment that crosses the `now` divider has no left end — and at the
-                // narrow ranges that segment is the only part of the forecast on screen.
-                if let join = series.forecastJoin {
-                    LineMark(x: .value("Time", join.timestamp),
-                             y: .value("Pressure", join.pressure.hectopascals),
-                             series: .value("Series", "forecast"))
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))
-                    .foregroundStyle(Palette.chartLine.opacity(0.65))
+                // The marked stretch: the hours the window stage ranked highest.
+                //
+                // Declared before the line and after the band, so the shading sits under the
+                // stroke it belongs to instead of tinting it. It is what makes the mark findable
+                // on a 92 pt plot — a 3 pt line changing colour for four hours out of eighteen is
+                // easy to miss at a glance, and the whole point of the mark is that it is read in
+                // one.
+                //
+                // Nothing here says the user will feel anything. It marks when *an entry* has
+                // historically been likeliest, which is what the model was trained on.
+                ForEach(series.markedRanges, id: \.lowerBound) { stretch in
+                    RectangleMark(xStart: .value("From", stretch.lowerBound),
+                                  xEnd: .value("To", stretch.upperBound))
+                    .foregroundStyle(Palette.markerWarm.opacity(0.12))
                 }
 
-                ForEach(series.forecast) { point in
-                    LineMark(x: .value("Time", point.timestamp),
-                             y: .value("Pressure", point.pressure.hectopascals),
-                             series: .value("Series", "forecast"))
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, dash: [5, 5]))
-                    .foregroundStyle(Palette.chartLine.opacity(0.65))
+                // One dashed line, in runs. The warm runs are the marked hours and the cool ones
+                // everything else; consecutive runs share their boundary vertex, so this is a
+                // single unbroken curve that changes colour rather than two strokes on one path.
+                // See `PressureSeries.forecastSegments` for what the second stroke looked like.
+                //
+                // The first run starts at the newest reading, which is what gives the segment
+                // crossing the `now` divider a left end — at the narrow ranges that segment is
+                // the only part of the forecast on screen.
+                ForEach(series.forecastSegments) { segment in
+                    ForEach(segment.points) { point in
+                        LineMark(x: .value("Time", point.timestamp),
+                                 y: .value("Pressure", point.hectopascals),
+                                 series: .value("Series", "forecast-\(segment.id)"))
+                        .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: Self.lineWidth,
+                                               lineCap: .round, dash: [5, 5]))
+                        .foregroundStyle(segment.isMarked
+                                         ? Palette.markerWarm
+                                         : Palette.chartLine.opacity(0.65))
+                    }
                 }
             }
 
@@ -634,6 +676,14 @@ private struct PressureRangeSelector: View {
     PressureChartPreviewHost(series: .sampleFallingWithCheckIns)
 }
 
+#Preview("With a marked stretch") {
+    PressureChartPreviewHost(series: .sampleWithMarkedStretch)
+}
+
+#Preview("Cold start, quiet day") {
+    PressureChartPreviewHost(series: .sampleQuietDay)
+}
+
 #Preview("Nothing recorded") {
     PressureChartPreviewHost(series: .empty(range: .oneHour))
 }
@@ -674,6 +724,10 @@ private struct PressureChartPreviewHost: View {
             latestText
                 .font(Typography.pressureValue)
                 .foregroundStyle(Palette.heading)
+
+            if let risk = series.risk, risk.isPresentable {
+                RiskSummaryRow(risk: risk)
+            }
 
             PressureRangeSelector(selection: .constant(series.range))
         }
@@ -721,6 +775,41 @@ private extension PressureSeries {
                      checkIns: checkIns,
                      range: .sixHours,
                      asOf: now)
+    }
+
+    /// A falling day with a forward half and the two windows the model would mark on it.
+    static var sampleWithMarkedStretch: PressureSeries {
+        let now = Date.now
+        return .make(from: fallingSamples(asOf: now),
+                     forecast: fallingForecast(asOf: now),
+                     risk: .preview(marked: [2, 3], chance: 0.78, cold: false, asOf: now),
+                     range: .sixHours,
+                     asOf: now)
+    }
+
+    /// The day stage says today is quiet, so nothing is marked however the window stage ranks
+    /// it — and the cold-start note is on, which is the state of a device in its first weeks.
+    static var sampleQuietDay: PressureSeries {
+        let now = Date.now
+        return .make(from: fallingSamples(asOf: now),
+                     forecast: fallingForecast(asOf: now),
+                     risk: .preview(marked: [], chance: 0.31, cold: true, asOf: now),
+                     range: .sixHours,
+                     asOf: now)
+    }
+
+    /// Twelve hours of continued fall, hourly, as the forward half.
+    private static func fallingForecast(asOf now: Date) -> [ForecastPressurePoint] {
+        let anchor = RiskPressureGrid.alignedHour(of: now)
+        return (1...12).map { step in
+            ForecastPressurePoint(
+                timestamp: anchor.addingTimeInterval(Double(step) * 3600),
+                pressure: Pressure(hectopascals: 1012.1 - Double(step) * 0.45),
+                uncertaintyHPa: 0.5 + Double(step) * 0.08,
+                source: .weatherKit,
+                issuedAt: now
+            )
+        }
     }
 
     private static func fallingSamples(asOf now: Date) -> [PressureSample] {
