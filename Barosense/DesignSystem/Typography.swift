@@ -158,6 +158,28 @@ enum Typography {
         .custom("Manrope-Medium", size: 12, relativeTo: .caption)
         .weight(.medium)
 
+    // MARK: - Risk card (Figma `7:654`)
+
+    /// `Manrope/Bold 13` — the caption row over the risk headline: when the model expects a
+    /// change, and the percentage beside it.
+    ///
+    /// Same face and size as `navigationAction`, kept separate for the reason the three 11 pt
+    /// captions are separate from each other: retuning a navigation bar must not resize the
+    /// first line of the Now screen.
+    static let riskCaption = Font
+        .custom("Manrope-Bold", size: 13, relativeTo: .footnote)
+        .weight(.bold)
+
+    /// `Manrope/ExtraBold 22` — the risk card's headline, rendered with `.tracking(-0.44)`
+    /// at the call site to match `letter spacing/-0_44`.
+    ///
+    /// Same face and size as `onboardingTitleCompact`, and separate for the same reason: the
+    /// onboarding heading answers to a step frame, this one to a card that also carries a
+    /// caption, a chip row and a note.
+    static let riskHeadline = Font
+        .custom("Manrope-ExtraBold", size: 22, relativeTo: .title3)
+        .weight(.heavy)
+
     // MARK: - Check-in sheet (Figma `7:330`)
 
     /// `Manrope/Medium 13` — the quiet noun that names a block of the form.

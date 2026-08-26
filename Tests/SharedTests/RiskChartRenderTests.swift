@@ -169,17 +169,44 @@ final class RiskChartRenderTests: XCTestCase {
         XCTAssertNotEqual(marked, plain)
     }
 
-    func testRiskRowDrawsBothStates() throws {
-        let box = CGSize(width: 317, height: 60)
+    /// 311 pt is the risk card's own width in the frame (`7:654`). The height is not the
+    /// frame's 166: the card grows a row for the cold-start note and another for the chip
+    /// legend, and a box that clips the thing under test hides exactly the row this asserts on.
+    func testRiskCardDrawsBothStates() throws {
+        let box = Self.cardBox
 
-        let marked = try snapshot(RiskSummaryRow(risk: .previewMarked), size: box, name: "row-marked")
-        let quiet = try snapshot(RiskSummaryRow(risk: .previewQuiet), size: box, name: "row-quiet")
+        let marked = try snapshot(RiskOutlookCard(outlook: .previewMarked),
+                                  size: box, name: "card-marked")
+        let quiet = try snapshot(RiskOutlookCard(outlook: .previewQuiet),
+                                 size: box, name: "card-quiet")
 
         XCTAssertGreaterThan(Self.distinctColourCount(marked), 1)
         XCTAssertGreaterThan(Self.distinctColourCount(quiet), 1)
-        // The quiet state says something different: no stretch, and the cold-start note instead.
+        // The quiet state says something different: no lead time, no stretch, no forecast
+        // chips, and the cold-start note instead.
         XCTAssertNotEqual(marked, quiet)
     }
+
+    /// The chips are the part of the card that can silently draw nothing: a `ForEach` over an
+    /// empty count and a `strokeBorder` with no tint both build, run, and leave a blank row.
+    func testForecastChipsAddInkOverTheLogAlone() throws {
+        let box = Self.cardBox
+
+        let withChips = try snapshot(RiskOutlookCard(outlook: .previewMarked),
+                                     size: box, name: "card-chips")
+        let logOnly = try snapshot(RiskOutlookCard(outlook: .previewEmptyLog),
+                                   size: box, name: "card-no-log")
+
+        XCTAssertNotEqual(withChips, logOnly)
+        XCTAssertGreaterThan(Self.distinctColourCount(withChips),
+                             Self.distinctColourCount(logOnly),
+                             "a fortnight of entries has to add ink, not merely data")
+    }
+
+    /// Wide enough for the frame's card, tall enough that no state of it is clipped — the
+    /// tallest carries a caption, a headline, a clock stretch, the chip row, its legend and the
+    /// cold-start note.
+    private static let cardBox = CGSize(width: 311, height: 280)
 
     // MARK: - Rendering
 

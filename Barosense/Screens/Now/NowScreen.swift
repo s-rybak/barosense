@@ -2,13 +2,13 @@ import SwiftUI
 
 /// The Now destination (Figma `7:632`).
 ///
-/// The pressure chart, the Health card row and the two meter cards under it, in the design's
-/// own order. The risk card above the chart is still `PlaceholderScreen` territory and lands
-/// separately — it is the one block on this screen that needs the model to exist first.
+/// The risk card, the pressure chart, the Health card row and the two meter cards under it,
+/// in the design's own order.
 ///
 /// ## What the two meters are, and are not
 ///
-/// Neither is a forecast. There is no trained model (`.claude/context/ml-spec.md`), so:
+/// Neither is a forecast — that is `RiskOutlookCard`'s job, and these two answer questions the
+/// model is not asked:
 ///
 /// - **Weather Trigger Index** reports how far barometric pressure has moved in six hours —
 ///   the pipeline's own trivial baseline, read off rows the phone already has. A statement
@@ -29,8 +29,8 @@ struct NowScreen: View {
     /// state this screen is never shown in.
     private let forecast: PressureForecastReader?
 
-    /// The two-stage risk model behind the chart's percentage and its marked stretch. `nil`
-    /// before the stores are open, and on any build without the wiring.
+    /// The two-stage risk model behind `RiskOutlookCard` and the marks on the chart's forward
+    /// line. `nil` before the stores are open, and on any build without the wiring.
     private let risk: WellbeingRiskEngine?
 
     /// Bumped by the root when a check-in is written. Passed straight through to the chart,
@@ -51,7 +51,9 @@ struct NowScreen: View {
          risk: WellbeingRiskEngine? = nil,
          checkInRevision: Int = 0) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
-        _meters = State(initialValue: NowMetersModel(pressure: pressure, checkIns: checkIns))
+        _meters = State(initialValue: NowMetersModel(pressure: pressure,
+                                                     checkIns: checkIns,
+                                                     risk: risk))
         self.pressure = pressure
         self.checkIns = checkIns
         self.forecast = forecast
@@ -62,6 +64,14 @@ struct NowScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.cardSpacing) {
+                // Absent entirely when the model has nothing to say, rather than an outlined
+                // box with a heading in it. Every reason it can be absent — no engine on this
+                // build, a today too thinly covered to score, every window under half a
+                // point — is one the user cannot act on from this screen.
+                if let outlook = meters.outlook {
+                    RiskOutlookCard(outlook: outlook)
+                }
+
                 PressureChartCard(collection: pressure,
                                   checkIns: checkIns,
                                   forecast: forecast,
@@ -114,14 +124,22 @@ struct NowScreen: View {
     }
 }
 
-/// State behind the two meter cards.
+/// State behind the risk card and the two meter cards.
 ///
-/// Holds no arithmetic. What the index means is `WeatherTriggerIndex.make`, and what the bar
-/// measures is `TrainingDataProgress` — both in `Shared/`, where a test reaches them without a
-/// screen or a sensor.
+/// Holds no arithmetic. What the index means is `WeatherTriggerIndex.make`, what the bar
+/// measures is `TrainingDataProgress`, and what the card draws is `RiskOutlook.make` — all
+/// three in `Shared/`, where a test reaches them without a screen or a sensor.
+///
+/// The three share one pass over the log on purpose. The training bar already counted every
+/// stored check-in, and the risk card needs the newest few of the same rows plus a fortnight
+/// of them; reading the table twice to answer two questions about it would double the most
+/// expensive read on this screen.
 @MainActor
 @Observable
 final class NowMetersModel {
+
+    /// What the risk card draws, or `nil` when there is no card — see `RiskOutlook.make`.
+    private(set) var outlook: RiskOutlook?
 
     /// `nil` until the first read finishes, and again whenever the log is too thin to support
     /// a figure. `hasLoaded` separates the two for the card's note.
@@ -134,13 +152,19 @@ final class NowMetersModel {
     private let pressure: PressureCollectionController
     private let checkIns: any CheckInStore
 
+    /// The two-stage risk model. `nil` before the stores are open, and on any build without
+    /// the wiring — the card is then absent and the screen renders as it did before it existed.
+    private let risk: WellbeingRiskEngine?
+
     private let now: () -> Date
 
     init(pressure: PressureCollectionController,
          checkIns: any CheckInStore,
+         risk: WellbeingRiskEngine? = nil,
          now: @escaping () -> Date = Date.init) {
         self.pressure = pressure
         self.checkIns = checkIns
+        self.risk = risk
         self.now = now
     }
 
@@ -169,6 +193,16 @@ final class NowMetersModel {
         // protocol before anything else needs the same figure.
         let recorded = (try? await checkIns.checkIns(in: Date.distantPast..<instant)) ?? []
         training = TrainingDataProgress(checkInCount: recorded.count)
+
+        // No new wake source and no second computation. This and the chart's own call are
+        // concurrent `.task`s of the same view, so the memo alone would not have covered them:
+        // both would miss a cache that is only written at the end and both would fit. The
+        // engine coalesces them onto one build (`WellbeingRiskEngine.inFlight`), and a later
+        // call inside `forecastCacheSeconds` — the barometer's own 15-minute sampling floor —
+        // gets the memoised answer.
+        outlook = RiskOutlook.make(risk: await risk?.forecast(asOf: instant),
+                                   checkIns: recorded,
+                                   asOf: instant)
 
         hasLoaded = true
     }
