@@ -14,7 +14,8 @@ import Foundation
 ///   disk: no sensor, no network, no location, no HealthKit.
 /// - **Forecast**: a short read (eight days of barometer rows plus the forward curve the chart
 ///   asked for anyway) memoised for `forecastCacheSeconds`, which is the barometer's own
-///   sampling floor. A chart reload inside that window costs nothing.
+///   sampling floor. A chart reload inside that window costs nothing. It stays eight days
+///   because the 30-day baseline is measured once per refit and carried — see `baseline`.
 ///
 /// The arithmetic: the fit is a Newton solve on a 10×10 system over at most ~1 000 window rows,
 /// which is on the order of 10⁵ multiply–adds — an order of magnitude above
@@ -69,6 +70,20 @@ actor WellbeingRiskEngine {
     private var lastFitAt: Date?
     private var geometry: RiskWindowGeometry
 
+    /// This user's trailing pressure median, measured over `RiskPressureBaseline.windowDays`.
+    ///
+    /// Held here because the two paths read different spans and the features have to be centred
+    /// the same way on both. The refit reads 120 days, so it can measure the real 30-day
+    /// median; the forecast reads eight, so it cannot — and left to measure its own it produced
+    /// an eight-day median under a coefficient fitted against a thirty-day one. On a settled
+    /// week that is a couple of hPa, and `dayLow7dHPa` carries it at 0.83 over a scale of 5.86:
+    /// about 0.42 in log-odds, or ten points of the percentage on screen.
+    ///
+    /// Up to a day stale, which the quantity tolerates — a 30-day median does not move
+    /// perceptibly in 24 h, and the case it exists to follow (a move to a different elevation)
+    /// takes longer than that to matter.
+    private var baseline: RiskPressureBaseline?
+
     private var cached: (forecast: WellbeingRiskForecast, at: Date)?
 
     init(samples: any PressureSampleStore,
@@ -97,10 +112,9 @@ actor WellbeingRiskEngine {
 
         await refitIfNeeded(asOf: now)
 
-        let model = training?.model ?? WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour,
-                                                               trainedAt: now)
-
-        guard let rows = await forwardRows(asOf: now),
+        guard let model = training?.model
+                ?? WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour, trainedAt: now),
+              let rows = await forwardRows(asOf: now),
               let forecast = model.forecast(for: rows, asOf: now)
         else { return nil }
 
@@ -121,11 +135,24 @@ actor WellbeingRiskEngine {
         cached = nil
     }
 
+    /// The most recent fit's baseline, for tests. Nothing user-facing reads it.
+    func measuredBaseline() -> RiskPressureBaseline? { baseline }
+
     // MARK: - Fitting
 
+    /// Refits, at most once a day.
+    ///
+    /// The throttle is on `lastFitAt` alone. It used to also require `training != nil`, which
+    /// inverted it: a device with under `minimumTrainingDays` of history — the state every new
+    /// install is in, and the longest-lived one — produced no training, failed the condition
+    /// every time, and re-read 120 days of samples and check-ins on every cache miss, which is
+    /// every 15 minutes. A fit that declined to happen is still an answer for today, and
+    /// `invalidate()` is what makes a new check-in visible before tomorrow.
+    ///
+    /// `lastFitAt` is set only after the reads succeed, so a store that could not be opened is
+    /// retried on the next call rather than waited out for a day.
     private func refitIfNeeded(asOf now: Date) async {
-        if let lastFitAt, now.timeIntervalSince(lastFitAt) < Self.refitIntervalSeconds,
-           training != nil {
+        if let lastFitAt, now.timeIntervalSince(lastFitAt) < Self.refitIntervalSeconds {
             return
         }
 
@@ -137,9 +164,14 @@ actor WellbeingRiskEngine {
 
         geometry = RiskWindowGeometry.measured(from: entries, calendar: calendar)
 
+        // Measured here and nowhere else: this is the only read wide enough to contain the
+        // whole baseline window.
+        baseline = RiskWindowBuilder.baseline(observed: history, asOf: now)
+
         let rows = RiskWindowBuilder.rows(observed: history,
                                           checkIns: entries,
                                           geometry: geometry,
+                                          baseline: baseline,
                                           in: window,
                                           asOf: now)
 
@@ -175,9 +207,14 @@ actor WellbeingRiskEngine {
         )
 
         // Eight days back: seven for the trailing mean, one for the 24-hour fall at the first
-        // window of the day.
+        // window of the day. Deliberately not the baseline's thirty — that median is carried
+        // from the refit instead, so this read stays short and both paths centre their level
+        // features on the same number. No baseline, no forecast: a level feature centred on a
+        // guess is the confidently-wrong value the registry rules out.
         let historyFrom = dayStart.addingTimeInterval(-(RiskPressureGrid.historySeconds + 24 * 3600))
-        guard historyFrom < now, let history = try? await samples.samples(in: historyFrom..<now)
+        guard let baseline,
+              historyFrom < now,
+              let history = try? await samples.samples(in: historyFrom..<now)
         else { return nil }
 
         let curve = await forecastReader?.forecast(asOf: now,
@@ -193,6 +230,7 @@ actor WellbeingRiskEngine {
                                           forecast: curve,
                                           checkIns: entries,
                                           geometry: geometry,
+                                          baseline: baseline,
                                           in: dayStart..<dayEnd,
                                           asOf: now)
         return rows.isEmpty ? nil : rows

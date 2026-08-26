@@ -122,9 +122,9 @@ final class RiskNumericsTests: XCTestCase {
                        SklearnFixture.tiedPRAUC, accuracy: 1e-9)
     }
 
-    /// A constant predictor scores its base rate on PR-AUC and exactly a coin on ROC-AUC. The
-    /// majority-class baseline depends on this being true.
-    func testConstantPredictorScoresTheBaseRate() throws {
+    /// A constant score comes out at its base rate on PR-AUC and exactly a coin on ROC-AUC.
+    /// The majority-class baseline depends on this being true.
+    func testConstantScoreComesOutAtTheBaseRate() throws {
         let constant = [Double](repeating: 0.42, count: SklearnFixture.labels.count)
 
         XCTAssertEqual(try XCTUnwrap(RiskMetrics.averagePrecision(scores: constant,

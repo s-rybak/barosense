@@ -18,6 +18,14 @@ final class WellbeingRiskPipelineTests: XCTestCase {
         RiskWindowGeometry.measured(from: checkIns, calendar: calendar)
     }
 
+    /// The shipped prior alone. `nil` only with `WellbeingRiskPrior.isEnabled` off, which is
+    /// not the configuration these tests are about.
+    private func priorModel(_ geometry: RiskWindowGeometry, at now: Date) throws
+        -> WellbeingRiskModel {
+        try XCTUnwrap(WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour,
+                                               trainedAt: now))
+    }
+
     private func rows(asOf now: Date,
                       samples: [PressureSample],
                       checkIns: [CheckIn],
@@ -193,8 +201,7 @@ final class WellbeingRiskPipelineTests: XCTestCase {
             asOf: preDawn
         )
         let forecast = try XCTUnwrap(
-            WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour, trainedAt: preDawn)
-                .forecast(for: dayRows, asOf: preDawn)
+            try priorModel(geometry, at: preDawn).forecast(for: dayRows, asOf: preDawn)
         )
 
         XCTAssertEqual(forecast.windows.count, geometry.windowsPerDay)
@@ -215,7 +222,7 @@ final class WellbeingRiskPipelineTests: XCTestCase {
             of: SyntheticTraceFixture.start.addingTimeInterval(60 * 24 * 3600)
         )
         let built = threeDaysAhead(from: now, geometry: geometry)
-        let model = WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour, trainedAt: now)
+        let model = try priorModel(geometry, at: now)
         let forecast = try XCTUnwrap(model.forecast(for: built, asOf: now))
 
         let days = Set(forecast.windows.map(\.dayStart)).sorted()
@@ -254,7 +261,7 @@ final class WellbeingRiskPipelineTests: XCTestCase {
         )
 
         let built = threeDaysAhead(from: now, geometry: geometry)
-        let model = WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour, trainedAt: now)
+        let model = try priorModel(geometry, at: now)
         let forecast = try XCTUnwrap(model.forecast(for: built, asOf: now))
 
         let today = forecast.todayWindows
@@ -328,7 +335,7 @@ final class WellbeingRiskPipelineTests: XCTestCase {
             asOf: now
         )
 
-        let model = WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour, trainedAt: now)
+        let model = try priorModel(geometry, at: now)
         let forecast = try XCTUnwrap(model.forecast(for: dayRows, asOf: now))
 
         XCTAssertTrue(forecast.isColdStart)
@@ -343,7 +350,7 @@ final class WellbeingRiskPipelineTests: XCTestCase {
     /// Not a defect and worth having a test on: the day-level features are averages over the
     /// whole waking day, so a morning with no forecast is a morning the app has to stay silent
     /// through rather than average three hours and call it a day.
-    func testWithoutAForwardCurveTheMorningHasNoForecast() {
+    func testWithoutAForwardCurveTheMorningHasNoForecast() throws {
         let start = SyntheticTraceFixture.start
         let now = start.addingTimeInterval(3.5 * 24 * 3600)
         let geometry = RiskWindowGeometry(calendar: calendar)
@@ -358,8 +365,7 @@ final class WellbeingRiskPipelineTests: XCTestCase {
         )
 
         XCTAssertLessThan(dayRows.first?.dayCoverage ?? 1, RiskWindowBuilder.minimumDayCoverage)
-        XCTAssertNil(WellbeingRiskModel.prior(dayStartHour: geometry.dayStartHour, trainedAt: now)
-            .forecast(for: dayRows, asOf: now))
+        XCTAssertNil(try priorModel(geometry, at: now).forecast(for: dayRows, asOf: now))
     }
 
     /// Three waking days asked for from `now`, with ~50 h of forward curve under them.
@@ -571,7 +577,10 @@ final class WellbeingRiskPipelineTests: XCTestCase {
         XCTAssertEqual(WellbeingRiskModel.priorBlendWeight(labelledEntryCount: 90), 0.75, accuracy: 1e-12)
         XCTAssertLessThan(WellbeingRiskModel.priorBlendWeight(labelledEntryCount: 10_000), 1)
 
-        // The card the user watches counts the same rows the weight is a function of.
+        // The card the user watches counts stored check-ins and the weight counts rows a fit
+        // could use, so the two are not the same number — but the card's target is set from
+        // `k` and has to land past the halfway mark, or the bar fills while the forecast is
+        // still mostly the shipped prior. See `WellbeingRiskModel.priorBlendConstant`.
         XCTAssertGreaterThan(
             WellbeingRiskModel.priorBlendWeight(
                 labelledEntryCount: TrainingDataProgress.targetCheckInCount),

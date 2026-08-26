@@ -91,23 +91,14 @@ enum WellbeingRiskTrainer {
         let entryCount = usable.count(where: \.isLogged)
         let stages = personalStages(from: usable)
 
-        let model = WellbeingRiskModel(
-            day: RiskStage(model: WellbeingRiskPrior.day,
-                           calibration: WellbeingRiskPrior.dayCalibration,
-                           columns: RiskFeature.dayColumns),
-            window: RiskStage(model: WellbeingRiskPrior.window,
-                              calibration: nil,
-                              columns: RiskFeature.windowColumns),
-            personalDay: stages.day,
-            personalWindow: stages.window,
-            personalWeight: WellbeingRiskPrior.isEnabled
-                ? WellbeingRiskModel.priorBlendWeight(labelledEntryCount: entryCount)
-                : 1,
-            gateThreshold: WellbeingRiskPrior.gateThreshold,
-            dayStartHour: geometry.dayStartHour,
-            labelledEntryCount: entryCount,
-            trainedAt: now
-        )
+        // `nil` only with the prior switched off and no personal fit to stand in for it — the
+        // device then has no model, which is the switch working rather than a failure.
+        guard let model = WellbeingRiskModel.blending(personalDay: stages.day,
+                                                      personalWindow: stages.window,
+                                                      labelledEntryCount: entryCount,
+                                                      dayStartHour: geometry.dayStartHour,
+                                                      trainedAt: now)
+        else { return nil }
 
         guard days.count >= minimumValidationDays,
               let validation = validate(rows: usable, days: days, geometry: geometry, asOf: now)
@@ -119,15 +110,7 @@ enum WellbeingRiskTrainer {
         // has its own scale, so carrying 0.848 across would gate at whatever share of days that
         // number happened to land on for this user rather than at the budget it was chosen for.
         return WellbeingRiskTraining(
-            model: WellbeingRiskModel(day: model.day,
-                                      window: model.window,
-                                      personalDay: model.personalDay,
-                                      personalWindow: model.personalWindow,
-                                      personalWeight: model.personalWeight,
-                                      gateThreshold: validation.report.gate.threshold,
-                                      dayStartHour: model.dayStartHour,
-                                      labelledEntryCount: model.labelledEntryCount,
-                                      trainedAt: model.trainedAt),
+            model: model.withGateThreshold(validation.report.gate.threshold),
             report: validation.report
         )
     }
@@ -218,24 +201,13 @@ enum WellbeingRiskTrainer {
             guard !train.isEmpty, !test.isEmpty else { continue }
 
             let stages = personalStages(from: train)
-            let foldModel = WellbeingRiskModel(
-                day: RiskStage(model: WellbeingRiskPrior.day,
-                               calibration: WellbeingRiskPrior.dayCalibration,
-                               columns: RiskFeature.dayColumns),
-                window: RiskStage(model: WellbeingRiskPrior.window,
-                                  calibration: nil,
-                                  columns: RiskFeature.windowColumns),
+            guard let foldModel = WellbeingRiskModel.blending(
                 personalDay: stages.day,
                 personalWindow: stages.window,
-                personalWeight: WellbeingRiskPrior.isEnabled
-                    ? WellbeingRiskModel.priorBlendWeight(
-                        labelledEntryCount: train.count(where: \.isLogged))
-                    : 1,
-                gateThreshold: WellbeingRiskPrior.gateThreshold,
-                dayStartHour: geometry.dayStartHour,
                 labelledEntryCount: train.count(where: \.isLogged),
+                dayStartHour: geometry.dayStartHour,
                 trainedAt: now
-            )
+            ) else { continue }
 
             let baselineScores = baselineScores(train: train, test: test, geometry: geometry)
 

@@ -119,18 +119,24 @@ enum RiskWindowBuilder {
     /// `range` is the span of **windows** wanted. The grid is built further back than that on
     /// its own — the 24-hour fall and the seven-day mean at the first window need history from
     /// before it — so a caller asks for the days it wants scored and nothing more.
+    /// `baseline` is measured from `observed` when it is not supplied, which is only right
+    /// when `observed` covers `RiskPressureBaseline.windowDays`. A caller that reads a shorter
+    /// span — the forecast path reads eight days, not thirty — must measure the baseline over
+    /// the full window separately and pass it in, or every level feature it produces will be
+    /// centred differently from the ones the model was fitted on.
     static func rows(observed: [PressureSample],
                      forecast: [ForecastPressurePoint] = [],
                      checkIns: [CheckIn] = [],
                      geometry: RiskWindowGeometry,
+                     baseline measuredBaseline: RiskPressureBaseline? = nil,
                      in range: Range<Date>,
                      asOf now: Date) -> [RiskWindowRow] {
         let gridRange = range.lowerBound.addingTimeInterval(-RiskPressureGrid.historySeconds)
             ..< range.upperBound.addingTimeInterval(3600)
 
-        guard let baseline = RiskPressureBaseline.measured(
-            from: HourlyPressureGrid.cells(from: observed, in: baselineRange(endingAt: now))
-        ) else { return [] }
+        guard let baseline = measuredBaseline ?? baseline(observed: observed, asOf: now),
+              baseline.isUsable
+        else { return [] }
 
         let cells = RiskPressureGrid.cells(observed: observed,
                                            forecast: forecast,
@@ -158,6 +164,17 @@ enum RiskWindowBuilder {
     static func baselineRange(endingAt now: Date) -> Range<Date> {
         now.addingTimeInterval(-Double(RiskPressureBaseline.windowDays) * 24 * 3600)
             ..< now.addingTimeInterval(3600)
+    }
+
+    /// This user's trailing median over `baselineRange`, for a caller that has the whole window
+    /// in hand and wants to reuse it across several `rows` calls.
+    ///
+    /// `nil` when `observed` cannot fill `RiskPressureBaseline.minimumCells` of it.
+    static func baseline(observed: [PressureSample], asOf now: Date) -> RiskPressureBaseline? {
+        RiskPressureBaseline
+            .measured(from: HourlyPressureGrid.cells(from: observed,
+                                                     in: baselineRange(endingAt: now)))
+            .flatMap { $0.isUsable ? $0 : nil }
     }
 
     // MARK: - Assembly

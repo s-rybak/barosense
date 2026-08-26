@@ -62,10 +62,17 @@ struct WellbeingRiskModel: Hashable, Sendable, Codable {
     /// `k` in `w(n) = n / (n + k)` — how fast this user's own history takes over from the
     /// shipped prior.
     ///
-    /// **30** labelled entries, *provisional*, and the one place it is written. `n` is entries
-    /// that landed in a usable window, which is what `TrainingDataProgress` counts on the Now
-    /// screen — so the bar the user watches and the weight the model applies are the same
-    /// quantity, and a change here has to move that card's target with it.
+    /// **30** labelled entries, *provisional*, and the one place it is written.
+    ///
+    /// `n` is `labelledEntryCount`: entries that landed in a window of a day the fit could
+    /// use — inside the 120-day training window, covered well enough to clear
+    /// `RiskWindowBuilder.minimumDayCoverage`, and behind `now`. That is **not** what
+    /// `TrainingDataProgress` counts on the Now screen, and the two cannot be made equal: the
+    /// card has to draw a number before any fit has run, so it counts stored check-ins, all
+    /// time, which is always the larger of the two. The card's own target (40) is set from
+    /// this constant — `40 / (40 + 30) = 0.57`, the first point past the halfway mark — so the
+    /// bar and the blend agree about *where the line is* while counting toward it differently.
+    /// Changing `k` moves that target with it.
     static let priorBlendConstant: Double = 30
 
     /// Calibrated day probability at or above which the chart is allowed to name windows.
@@ -88,6 +95,18 @@ struct WellbeingRiskModel: Hashable, Sendable, Codable {
     /// of stripe, and below roughly half the marked stretch stops being worth looking at.
     static let markedWindowCount = 2
 
+    /// The gate threshold used when no run has measured one on this device's own scale.
+    ///
+    /// **2** — above any probability, so the gate never opens and the app stays quiet. Not `1`:
+    /// a saturated sigmoid returns exactly 1 in `Double`, and `>=` would then fire on it.
+    static let unreachableGateThreshold: Double = 2
+
+    /// The stage the forecast starts from, before this user's own fit is blended in.
+    ///
+    /// Normally the shipped prior. With `WellbeingRiskPrior.isEnabled` off there is no prior to
+    /// start from, so this holds the user's own fit standing alone and `personalDay` is `nil` —
+    /// the blend is a no-op and no shipped coefficient reaches a screen. `blending` is the only
+    /// thing that decides which of the two it is.
     let day: RiskStage
     let window: RiskStage
 
@@ -104,35 +123,107 @@ struct WellbeingRiskModel: Hashable, Sendable, Codable {
 
     let dayStartHour: Int
 
-    /// Entries that landed in a usable window — the `n` behind `personalWeight`.
+    /// Entries that landed in a usable window — the `n` behind `personalWeight`, and not the
+    /// count the Now screen's bar draws. See `priorBlendConstant`.
     let labelledEntryCount: Int
 
     let trainedAt: Date
 
     /// True while the forecast is mostly the shipped prior speaking.
     ///
-    /// Drawn in the UI as reduced confidence, per §4. The boundary is the point where the two
-    /// components carry equal weight, which is `n = k` by construction.
-    var isColdStart: Bool { personalWeight < 0.5 }
+    /// Drawn in the UI as reduced confidence, per §4. Two ways to be in that state, and `n`
+    /// alone only catches the first:
+    ///
+    /// 1. `w(n) < 0.5` — the ordinary one, and the boundary is `n = k` by construction;
+    /// 2. **a stage that could not be fitted at all**, whatever `n` is. A user who logs every
+    ///    day gives the day stage no negative class, `LogisticRegressionFitter` refuses, and
+    ///    `blend` falls through to the prior — a 100%-prior figure carrying a personal weight
+    ///    of 0.8. Without this clause the "still learning your pattern" disclosure disappears
+    ///    exactly where it is most needed, which is a compliance problem and not only a bug.
+    ///
+    /// Reads the prior switch because with the prior off there is no prior to lean on: the
+    /// stages are this user's own and a cold-start disclosure would be false.
+    var isColdStart: Bool {
+        guard WellbeingRiskPrior.isEnabled else { return false }
+        guard personalDay != nil, personalWindow != nil else { return true }
+
+        return personalWeight < 0.5
+    }
 
     /// The shipped prior alone, for a device with no history at all.
+    ///
+    /// `nil` when the prior is switched off — that device shows no forecast until it has a fit
+    /// of its own, which is what the switch is for.
     static func prior(dayStartHour: Int = RiskWindowGeometry.defaultDayStartHour,
-                      trainedAt: Date) -> WellbeingRiskModel {
-        WellbeingRiskModel(
+                      trainedAt: Date) -> WellbeingRiskModel? {
+        blending(personalDay: nil,
+                 personalWindow: nil,
+                 labelledEntryCount: 0,
+                 dayStartHour: dayStartHour,
+                 trainedAt: trainedAt)
+    }
+
+    /// A model composed out of whatever this device has, or `nil` when that is nothing.
+    ///
+    /// **The only place that knows what `WellbeingRiskPrior.isEnabled` means.** It used to be
+    /// read at one call site out of four, which left the switch unable to do the thing its own
+    /// comment promised: `prior(...)` and both stage constructions ignored it, so a cold-start
+    /// device kept getting the full shipped prior with the switch off.
+    ///
+    /// - prior **on**: the shipped stages, with the personal fits blended into them by `w(n)`;
+    /// - prior **off**: the personal fits *become* the stages, the blend weight is zero, and a
+    ///   device missing either of them gets no model at all rather than a synthetic one.
+    static func blending(personalDay: RiskStage?,
+                         personalWindow: RiskStage?,
+                         labelledEntryCount: Int,
+                         dayStartHour: Int,
+                         trainedAt: Date) -> WellbeingRiskModel? {
+        guard WellbeingRiskPrior.isEnabled else {
+            guard let personalDay, let personalWindow else { return nil }
+
+            return WellbeingRiskModel(
+                day: personalDay,
+                window: personalWindow,
+                personalDay: nil,
+                personalWindow: nil,
+                personalWeight: 0,
+                // The shipped threshold is a point on the prior's scale and this model is not
+                // on it. Quiet until a validation run measures one here.
+                gateThreshold: unreachableGateThreshold,
+                dayStartHour: dayStartHour,
+                labelledEntryCount: labelledEntryCount,
+                trainedAt: trainedAt
+            )
+        }
+
+        return WellbeingRiskModel(
             day: RiskStage(model: WellbeingRiskPrior.day,
                            calibration: WellbeingRiskPrior.dayCalibration,
                            columns: RiskFeature.dayColumns),
             window: RiskStage(model: WellbeingRiskPrior.window,
                               calibration: nil,
                               columns: RiskFeature.windowColumns),
-            personalDay: nil,
-            personalWindow: nil,
-            personalWeight: 0,
+            personalDay: personalDay,
+            personalWindow: personalWindow,
+            personalWeight: priorBlendWeight(labelledEntryCount: labelledEntryCount),
             gateThreshold: WellbeingRiskPrior.gateThreshold,
             dayStartHour: dayStartHour,
-            labelledEntryCount: 0,
+            labelledEntryCount: labelledEntryCount,
             trainedAt: trainedAt
         )
+    }
+
+    /// The same model gated at a threshold measured on this device's own scale.
+    func withGateThreshold(_ threshold: Double) -> WellbeingRiskModel {
+        WellbeingRiskModel(day: day,
+                           window: window,
+                           personalDay: personalDay,
+                           personalWindow: personalWindow,
+                           personalWeight: personalWeight,
+                           gateThreshold: threshold,
+                           dayStartHour: dayStartHour,
+                           labelledEntryCount: labelledEntryCount,
+                           trainedAt: trainedAt)
     }
 
     /// `w(n) = n / (n + k)`.

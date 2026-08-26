@@ -1,14 +1,19 @@
 import Foundation
 
-/// The trivial predictors the learned model has to beat before it is worth its battery.
+/// The trivial rules the learned model has to beat before it is worth its battery.
 ///
 /// §7 of `ml-spec.md` names three; the fourth is the notebook's own and is the sharpest of
 /// them. A model that cannot beat a lookup table of "which window does this person usually log
 /// in" has not demonstrated a *weather* signal, whatever its PR-AUC says.
 enum RiskBaseline: String, Hashable, Sendable, Codable, CaseIterable {
 
-    /// Predict the base rate everywhere. The floor: PR-AUC equal to the base rate by
-    /// construction, ROC-AUC exactly 0.5.
+    /// The training half's base rate, returned for every row. The floor.
+    ///
+    /// One constant per fold, which is what keeps it from landing on exactly the coin it would
+    /// be over a single fold: PR-AUC comes out at the base rate and ROC-AUC at 0.5 **within**
+    /// a fold, and pooling folds whose constants differ moves both a little off those values
+    /// (0.102 and 0.518 on the reference run against a 0.098 base rate). Read it as the floor
+    /// it measures, not as an identity.
     case majorityClass
 
     /// "Pressure fell more than X hPa in six hours", X tuned on the training half of each fold
@@ -26,8 +31,10 @@ enum RiskBaseline: String, Hashable, Sendable, Codable, CaseIterable {
 
 /// Everything the forward-chaining run measured. Written to the log, never to the screen.
 ///
-/// It is `Codable` so a run survives a relaunch and a later run can be compared with it, and
-/// deliberately not `LocalizedStringKey`-anything: no field here has a rendering, because
+/// It is `Codable` so a run *can* be written down and compared with a later one — nothing
+/// stores one yet; today a report lives as long as the engine that produced it and reaches a
+/// human through the log. Deliberately not `LocalizedStringKey`-anything: no field here has a
+/// rendering, because
 /// showing the user an accuracy figure is a claim about how well the app knows them and needs
 /// a human decision before it appears anywhere (`.claude/skills/appstore_compliance/SKILL.md`).
 struct RiskModelReport: Hashable, Sendable, Codable {

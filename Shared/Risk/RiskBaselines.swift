@@ -1,6 +1,6 @@
 import Foundation
 
-/// The trivial predictors, scored the way §7 of `ml-spec.md` requires: every constant fitted on
+/// The trivial baselines, scored the way §7 of `ml-spec.md` requires: every constant fitted on
 /// the training half of a fold and applied unseen to its test half.
 ///
 /// Split out of `WellbeingRiskTrainer` because it is a separate claim. The trainer's job is to
@@ -39,8 +39,11 @@ extension WellbeingRiskTrainer {
         }
         let frequencyByIndex = byIndex.mapValues { $0.total > 0 ? Double($0.logged) / Double($0.total) : 0 }
 
-        // Persistence, read causally: for each test day, the window index of the most recent
-        // earlier day that held an entry. Training rows only — a test day never sees another.
+        // Persistence, read causally: the window index of the last entry in the fold's
+        // **training** half, scored 1 wherever a test row shares it. One index for the whole
+        // test block, not one per test day — a test day may never look at another test day,
+        // and forward-chaining puts every training row before every test row, so the last
+        // training entry is exactly "yesterday again" seen from the first test day.
         let lastLoggedIndexBefore = lastLoggedWindowIndex(in: train, geometry: geometry)
 
         return test.map { row in
@@ -55,16 +58,17 @@ extension WellbeingRiskTrainer {
     }
 
     private static func f1(of rows: [RiskWindowRow], threshold: Double) -> Double {
-        let predicted = rows.map { ($0[.drop6hHPa] ?? 0) >= threshold }
+        let flagged = rows.map { ($0[.drop6hHPa] ?? 0) >= threshold }
         let labels = rows.map(\.isLogged)
-        guard let precision = RiskMetrics.precision(predicted: predicted, labels: labels),
-              let recall = RiskMetrics.recall(predicted: predicted, labels: labels),
+        guard let precision = RiskMetrics.precision(flagged: flagged, labels: labels),
+              let recall = RiskMetrics.recall(flagged: flagged, labels: labels),
               precision + recall > 0
         else { return 0 }
 
         return 2 * precision * recall / (precision + recall)
     }
 
+    /// The window index of the latest logged row in `rows`. `nil` when none of them is logged.
     private static func lastLoggedWindowIndex(in rows: [RiskWindowRow],
                                               geometry: RiskWindowGeometry) -> Int? {
         rows.filter(\.isLogged)

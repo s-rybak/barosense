@@ -76,7 +76,12 @@ iPhone only, and there is nothing scheduled to budget.
    device**; measure with Instruments before this number is quoted as fact.
 3. Between refits a forecast is memoised for 15 min (`forecastCacheSeconds`), which is
    `PressureSamplingPolicy`'s own floor — below it there cannot be a new reading to change the
-   answer. A chart reload inside that window costs nothing.
+   answer. A chart reload inside that window costs nothing. The daily throttle is keyed on
+   `lastFitAt` **alone**: keyed on "there is a model" as well, a device under
+   `minimumTrainingDays` — the state every new install starts in and stays in longest — failed
+   the condition every time and re-read 120 days of samples and check-ins every 15 minutes. A
+   fit that declined to happen is still an answer for today, and `invalidate()` is what makes a
+   new check-in visible before tomorrow.
 4. Powered while awake: nothing. No sensor, no network, no location, no HealthKit — it reads rows
    already on disk and the forward curve the chart asked for anyway.
 5. If the refit never runs: the previous day's coefficients keep being used, and below the
@@ -254,9 +259,15 @@ checkInOccurred(window) = any CheckIn with timestamp in [window.start, window.en
   is a different unit from §1's and the two are not interchangeable: the base rate here is
   ~1 window in 9 on a day that holds an entry, and it is defined on days with no entry at all.
 - The waking day is a restriction of the **domain**, not a feature. See `RiskWindowGeometry`: the
-  boundary comes from this user's *earliest* entry, never from their most frequent hour, because
-  the latter is a time-of-day feature and time of day is measured separately and deliberately
-  excluded (`RiskBaseline.timeOfDay`).
+  boundary comes from the *early tail* of this user's entry hours, never from their most frequent
+  hour, because the latter is a time-of-day feature and time of day is measured separately and
+  deliberately excluded (`RiskBaseline.timeOfDay`). Early tail and not the outright minimum: the
+  minimum is a one-sample estimator setting a domain that then stands for 120 days, so a single
+  00:30 entry would turn a nine-window day into a twelve-window one and move the base rate and
+  `randomHitAtOne` with it. `dayStartQuantile = 0.05`, degrading to the minimum below ~20 entries.
+  The boundary itself is built from date components, so it holds its wall-clock hour across a DST
+  transition; the windows inside the day are laid out in absolute hours from it, which makes the
+  two transition days 23 and 25 hours long.
 
 Prediction unit: one row per check-in, features computed at the check-in timestamp `t`.
 The advance-warning variant predicts "will any check-in in `[t + 6 h, t + 30 h]` be poor";
@@ -579,6 +590,16 @@ Four things about this table that are not obvious from it:
    pressure, which near Kyiv is ~991 hPa, and an unshifted `1013 − p` would read a permanent
    22 hPa "deficit" on an ordinary day. The two change features are untouched by the shift, which
    is a useful check that it does what it claims.
+
+   **The 30 days are measured once per refit and carried to the forecast path**
+   (`WellbeingRiskEngine.baseline`). This is load-bearing and was got wrong once: the fit reads
+   120 days and can measure the real median, the forecast reads eight and cannot, and left to
+   measure its own it centred level features on an eight-day median under coefficients fitted
+   against a thirty-day one. On a settled week that is a couple of hPa, and `dayLow7dHPa` carries
+   it at 0.83 over a scale of 5.86 — about 0.42 in log-odds, ten points of the percentage on
+   screen, with both halves staying perfectly well-formed. `RiskPressureBaseline.minimumCells`
+   (24 observed hours) is the check that a caller measured over the span it meant to; below it
+   there is no baseline and therefore no rows, rather than a confidently-wrong shift.
 3. **The grid is hourly, not quarter-hourly as in the notebook.** Forced by the forward half:
    WeatherKit publishes hourly and `LocalPressureModel` iterates hourly, so a finer grid behind
    `now` would still be hourly ahead of it, and a window's features have to mean the same thing
@@ -688,10 +709,23 @@ Consequences, not opinions:
 - Blend: `w(n) = n / (n + k)`, `n` = labelled rows with usable coverage (not calendar
   days), `k = 30` _provisional_. `k` lives in **one** named constant in `Shared/`:
   `WellbeingRiskModel.priorBlendConstant`. `n` is `labelledEntryCount` — entries that landed in a
-  usable window — which is the same quantity `TrainingDataProgress` counts on the Now screen, so
-  the bar the user watches and the weight the model applies cannot drift apart. The blend is
-  taken in **log-odds**, not in probability: averaging 0.02 and 0.30 directly gives 0.16, a
-  stronger claim than either model made.
+  window a fit could use: inside the 120-day window, past `minimumDayCoverage`, behind `now`.
+  That is **not** what `TrainingDataProgress` counts on the Now screen, and the two cannot be
+  made equal: the bar has to draw before any fit has run, so it counts stored check-ins, all
+  time, which is always the larger. What ties them is the line rather than the count — the card's
+  target of 40 is derived from `k` (`40/(40+30) = 0.57`), so the bar fills no sooner than the
+  forecast stops leaning on the prior. The blend is taken in **log-odds**, not in probability:
+  averaging 0.02 and 0.30 directly gives 0.16, a stronger claim than either model made.
+- **Cold start is not `w(n) < 0.5` alone.** A stage that could not be fitted at all falls through
+  to the prior whatever `n` says — a user who logs every day gives the day stage no negative
+  class and `LogisticRegressionFitter` refuses — so `WellbeingRiskModel.isColdStart` also
+  requires both personal stages to exist. Without that clause the "still learning your pattern"
+  disclosure came off a figure that was 100% prior, which is a compliance problem as well as a bug.
+- **`WellbeingRiskPrior.isEnabled` off means no prior anywhere.** `WellbeingRiskModel.blending`
+  is the single place that reads it: on, the shipped stages carry the blend; off, the personal
+  fits *become* the stages, the weight is zero, and a device without both of them gets no model
+  and no forecast rather than a synthetic one. Gate threshold in that mode is
+  `unreachableGateThreshold` until a validation run measures one on the device's own scale.
 - **Feature budget: ≤6 features in the personal component.** More parameters than events
   is memorisation. The prior may be richer; the personal part may not.
 - The UI states reduced confidence during cold start. Wording per
@@ -703,8 +737,12 @@ Consequences, not opinions:
 
 - **Forward-chaining only, per user.** Random k-fold leaks future into past and is
   rejected in review, no exceptions.
-- **Train/test gap ≥ 24 h** — the longest feature window. Without it the 24 h features
-  straddle the boundary and leak anyway.
+- **Train/test gap ≥ 24 h.** Without it the 24 h features straddle the boundary and leak
+  anyway. This used to be "the longest feature window" and no longer is: §2.5 added
+  `low7dHPa`, a seven-day trailing mean, and `WellbeingRiskTrainer.foldGapDays` is still **1**.
+  A deliberate deviation, stated rather than silently accepted — seven days between every fold
+  costs a quarter of a month's history for the feature carrying the smallest coefficient in the
+  model (0.042 against `drop6hHPa`'s 1.35). Revisit it if that coefficient ever grows.
 - Two evaluation modes, reported separately:
   1. _Personal_ — forward-chaining within one user, ≥3 folds, test fold ≥3 days.
   2. _Cold start_ — leave-one-user-out on the prior, scored on that user's first 7 days

@@ -36,9 +36,20 @@ struct RiskWindowGeometry: Hashable, Sendable {
 
     /// How many entries are needed before this user's own history overrides the default.
     ///
-    /// Three, matching `CheckInRhythm`'s own floor: one early entry is an anecdote, and the
-    /// rule below takes a **minimum**, so a single outlier moves the boundary on its own.
+    /// Three, matching `CheckInRhythm`'s own floor: one early entry is an anecdote.
     static let minimumCheckInsForOwnStart = 3
+
+    /// Where in the sorted entry hours the boundary is read off.
+    ///
+    /// **The 5th percentile, not the minimum.** The minimum is a one-sample estimator and this
+    /// number sets the model's domain for the next 120 days: a single 00:30 entry drags the
+    /// boundary to midnight, which turns a nine-window day into a twelve-window one, moves the
+    /// base rate and `randomHitAtOne` with it, and scores the whole log against a domain the
+    /// shipped coefficients were never fitted on. A fifth percentile keeps the "could an entry
+    /// have happened here at all" reading — it still sits below all but a handful of entries —
+    /// while costing one outlier its vote. Below ~20 entries it degrades to the minimum, which
+    /// is the honest behaviour when there is no tail to trim.
+    static let dayStartQuantile: Double = 0.05
 
     /// Margin below the earliest entry seen, hours.
     static let dayStartMarginHours = 1
@@ -79,9 +90,23 @@ struct RiskWindowGeometry: Hashable, Sendable {
     /// still ahead. That is deliberate — the forecast for "today" at three in the morning is a
     /// forecast for a day none of which has happened yet, and pushing it back to yesterday
     /// would forecast a day that is over.
+    ///
+    /// Built from the day's date components, so the boundary stays at `dayStartHour` on the
+    /// **wall clock** through a DST transition instead of sliding to 05:00 or 07:00 for the day.
+    /// Neither `startOfDay + dayStartHour * 3600` nor `date(byAdding: .hour,)` does that: both
+    /// add elapsed time, and in Foundation only *date* units carry wall-clock arithmetic.
+    ///
+    /// The windows *inside* the day are still laid out in absolute hours from here, so on the
+    /// two transition days a day is 23 or 25 hours long and its last window runs short or over.
+    /// Accepted: a window is two hours of weather, and re-deriving each one through the calendar
+    /// would cost nine conversions a day to move a boundary twice a year.
     func wakingDayStart(of instant: Date) -> Date {
-        let midnight = calendar.startOfDay(for: instant)
-        return midnight.addingTimeInterval(TimeInterval(dayStartHour) * 3600)
+        var components = calendar.dateComponents([.year, .month, .day], from: instant)
+        components.hour = dayStartHour
+
+        return calendar.date(from: components)
+            ?? calendar.startOfDay(for: instant)
+                .addingTimeInterval(TimeInterval(dayStartHour) * 3600)
     }
 
     /// Whether the instant falls inside a waking day at all. False through the small hours.
@@ -112,21 +137,24 @@ struct RiskWindowGeometry: Hashable, Sendable {
 
     /// The geometry this user's own history implies.
     ///
-    /// **Minimum, not mode.** The boundary answers "could an entry have happened here at all",
-    /// and one entry at 05:00 proves it could. Taking the most common hour instead would
-    /// encode a habit, and a habit is a time-of-day feature — measured separately and left out
-    /// of the model on purpose, because on its own it ranks windows barely better than a coin
-    /// (ROC-AUC 0.583) and adds nothing on top of pressure.
+    /// **Early, not mode.** The boundary answers "could an entry have happened here at all",
+    /// so it is read off the early tail of the entry hours — see `dayStartQuantile` for why
+    /// that is a low percentile rather than the outright minimum. Taking the most common hour
+    /// instead would encode a habit, and a habit is a time-of-day feature — measured separately
+    /// and left out of the model on purpose, because on its own it ranks windows barely better
+    /// than a coin (ROC-AUC 0.583) and adds nothing on top of pressure.
     static func measured(from checkIns: [CheckIn],
                          calendar: Calendar = .current) -> RiskWindowGeometry {
         guard checkIns.count >= minimumCheckInsForOwnStart else {
             return RiskWindowGeometry(dayStartHour: defaultDayStartHour, calendar: calendar)
         }
 
-        let hours = checkIns.map { calendar.component(.hour, from: $0.timestamp) }
-        guard let earliest = hours.min() else {
+        let hours = checkIns.map { calendar.component(.hour, from: $0.timestamp) }.sorted()
+        let index = Int((Double(hours.count - 1) * dayStartQuantile).rounded(.down))
+        guard hours.indices.contains(index) else {
             return RiskWindowGeometry(dayStartHour: defaultDayStartHour, calendar: calendar)
         }
+        let earliest = hours[index]
 
         return RiskWindowGeometry(dayStartHour: earliest - dayStartMarginHours,
                                   calendar: calendar)

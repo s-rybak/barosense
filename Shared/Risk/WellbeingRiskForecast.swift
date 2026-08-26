@@ -118,6 +118,10 @@ struct WellbeingRiskForecast: Hashable, Sendable {
     /// two days in three by design; that is what keeps the messages that do arrive worth
     /// reading. Scoped to today deliberately: a notification about the day after tomorrow is
     /// not an advance warning, it is a thing to forget before it arrives.
+    ///
+    /// **No consumer yet.** Scheduling the notification is a separate change with its own
+    /// permission prompt and its own copy review; this is the decision that change will read,
+    /// measured and validated ahead of it rather than invented alongside it.
     let mayNotify: Bool
 
     /// The forecast leans mostly on the shipped prior rather than on this user's own history.

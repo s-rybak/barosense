@@ -46,7 +46,7 @@ enum RiskMetrics {
 
     /// Area under the ROC curve, by the rank identity rather than by trapezoids over a curve.
     ///
-    /// Mid-ranks for ties, which is what makes a constant predictor score exactly 0.5 instead
+    /// Mid-ranks for ties, which is what makes a constant score come out at exactly 0.5 instead
     /// of 1 — the failure a naive sort-and-count has, and one that shows up here because a
     /// baseline built on a threshold rule produces exactly two distinct scores.
     static func rocAUC(scores: [Double], labels: [Bool]) -> Double? {
@@ -90,19 +90,21 @@ enum RiskMetrics {
         return sum / Double(probabilities.count)
     }
 
-    static func precision(predicted: [Bool], labels: [Bool]) -> Double? {
-        let named = predicted.indices.count(where: { predicted[$0] })
+    /// Of the rows a rule flagged, the share that held an entry. `nil` when it flagged none.
+    static func precision(flagged: [Bool], labels: [Bool]) -> Double? {
+        let named = flagged.indices.count(where: { flagged[$0] })
         guard named > 0 else { return nil }
 
-        let hits = predicted.indices.count(where: { predicted[$0] && labels[$0] })
+        let hits = flagged.indices.count(where: { flagged[$0] && labels[$0] })
         return Double(hits) / Double(named)
     }
 
-    static func recall(predicted: [Bool], labels: [Bool]) -> Double? {
+    /// Of the rows that held an entry, the share a rule flagged. `nil` when there are none.
+    static func recall(flagged: [Bool], labels: [Bool]) -> Double? {
         let positives = labels.count(where: { $0 })
         guard positives > 0 else { return nil }
 
-        let hits = predicted.indices.count(where: { predicted[$0] && labels[$0] })
+        let hits = flagged.indices.count(where: { flagged[$0] && labels[$0] })
         return Double(hits) / Double(positives)
     }
 

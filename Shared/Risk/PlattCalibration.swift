@@ -18,10 +18,10 @@ import Foundation
 /// ## Why the fit is forward-chained too
 ///
 /// The correction is a model, and a model fitted on the same rows it corrects sees its own
-/// training predictions, which are optimistic. Calibrating on those teaches the sigmoid to
+/// in-sample decisions, which are optimistic. Calibrating on those teaches the sigmoid to
 /// undo an overconfidence that only exists in-sample, and it comes back worse on new days. So
 /// the decisions handed to `fit` are always out-of-fold decisions from forward-chained splits —
-/// past predicting future — never in-sample ones.
+/// past scoring future — never in-sample ones.
 ///
 /// The shape here is one base model plus one sigmoid, rather than the library's default
 /// ensemble of one pair per fold. Three sets of coefficients on the device to average at every

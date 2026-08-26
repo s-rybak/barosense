@@ -23,7 +23,7 @@ import Foundation
 ///
 /// 1. The prior's own base rate is **0.75 of days holding an entry**, which is a property of
 ///    how the synthetic person was written, not of anybody real. `intercept` carries it. A user
-///    who logs twice a week will be over-predicted until their own fit takes over, which is
+///    who logs twice a week will be over-estimated until their own fit takes over, which is
 ///    what the blend weight in `WellbeingRiskModel` is for and why it moves as fast as it does.
 /// 2. Nothing here may be quoted on screen as a measured accuracy. The figures in this file's
 ///    comments exist to be checked against the notebook, not to be rendered.
@@ -92,14 +92,13 @@ enum WellbeingRiskPrior {
     /// The price is recall **0.34** — two entries in three arrive with no warning. That is the
     /// right trade for an interruption and the wrong one for a chart, which is why the chart
     /// does not use this number.
-    static let gateThreshold: Double = 0.8479147778557771
-
-    /// The share of days the gate stays quiet on, kept beside the threshold it produced.
     ///
-    /// This, not the threshold, is what a personal model reproduces: a fitted model has its own
-    /// scale, so carrying 0.848 across to it would gate at whatever share of days that value
-    /// happened to land on. See `WellbeingRiskTrainer.gateThreshold`.
-    static let gateQuantile: Double = 0.65
+    /// What a personal fit reproduces is the **rate**, not this number: a fitted model has its
+    /// own scale, so carrying 0.848 across would gate at whatever share of days that value
+    /// happened to land on for that user. The rate has one source,
+    /// `WellbeingRiskTrainer.messagesPerWeekTarget` — 2.5 a week is the 64% of days this
+    /// threshold stayed quiet on, and it is written once rather than twice.
+    static let gateThreshold: Double = 0.8479147778557771
 
     /// Days in the notebook that held at least one entry.
     ///

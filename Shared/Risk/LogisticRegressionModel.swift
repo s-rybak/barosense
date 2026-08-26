@@ -7,8 +7,10 @@ import Foundation
 /// fitted on standardised columns applied to raw hPa are not slightly wrong, they are
 /// meaningless. The three are a single serialisable unit for the same reason.
 ///
-/// `Codable` so a fitted model survives a relaunch without being refitted, and so the shipped
-/// prior can be written as data rather than as code that happens to produce numbers.
+/// `Codable` so the shipped prior can be written as data rather than as code that happens to
+/// produce numbers, and so a fit *can* be written to disk. Nothing writes one today: every
+/// cold start refits from the log, which costs one Newton solve a day and is why that has a
+/// battery rationale on `WellbeingRiskEngine` rather than a store behind it.
 struct LogisticRegressionModel: Hashable, Sendable, Codable {
 
     /// Per-column median from the training rows, used wherever a value is missing.

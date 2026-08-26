@@ -90,4 +90,102 @@ final class WellbeingRiskEngineTests: XCTestCase {
         XCTAssertEqual(WellbeingRiskEngine.forecastHorizonSeconds,
                        PressureChartRange.widest.maximumForecastSeconds)
     }
+
+    // MARK: - What the two paths read
+
+    /// A device too thin to fit on still refits at most once a day.
+    ///
+    /// The throttle used to require `training != nil` as well, which inverted it: under
+    /// `minimumTrainingDays` of history there is no training, the condition never held, and the
+    /// engine re-read 120 days of samples and check-ins on every cache miss — every 15 minutes,
+    /// for as long as the device stayed in the state every new install starts in.
+    func testAThinDeviceStillRefitsAtMostOnceADay() async throws {
+        let start = SyntheticTraceFixture.start
+        let now = start.addingTimeInterval(3.5 * 24 * 3600)
+        let store = RecordingSampleStore(
+            SyntheticTraceFixture.samples().filter { $0.timestamp < now }
+        )
+        let engine = WellbeingRiskEngine(samples: store,
+                                         checkIns: InMemoryCheckInStore(),
+                                         calendar: calendar)
+
+        _ = await engine.forecast(asOf: now)
+        // Past `forecastCacheSeconds`, so the memoised answer is gone and the work is redone.
+        _ = await engine.forecast(asOf: now.addingTimeInterval(WellbeingRiskEngine.forecastCacheSeconds + 60))
+
+        let trainingSpan = Double(WellbeingRiskTrainer.trainingWindowDays) * 24 * 3600
+        let refits = await store.requestedRanges.count {
+            $0.upperBound.timeIntervalSince($0.lowerBound) >= trainingSpan
+        }
+        XCTAssertEqual(refits, 1, "the second call inside a day must not re-read the window")
+    }
+
+    /// The baseline is the 30-day median the fit used, not one measured over the forecast read.
+    ///
+    /// The forecast path reads eight days. Left to measure its own baseline from that, it
+    /// centred every level feature on an eight-day median while the coefficients above it had
+    /// been fitted against a thirty-day one — a train/serve skew that shows up nowhere, since
+    /// both halves stay perfectly well-formed.
+    func testTheForecastPathReusesTheFitsThirtyDayBaseline() async throws {
+        let now = SyntheticTraceFixture.start.addingTimeInterval(30 * 24 * 3600)
+        // A month at 995 hPa with the last eight days ten hPa above it: the two spans disagree
+        // by more than any real day's weather, so a test that passes cannot be reading the
+        // short one. Fifteen-minute spacing keeps the step outside the grid's excursion window,
+        // which is ten minutes — it is a change of air mass here, not a lift ride.
+        let step = now.addingTimeInterval(-8 * 24 * 3600)
+        let samples = stride(from: -30 * 24 * 3600.0, to: 0, by: 900).map { offset -> PressureSample in
+            let taken = now.addingTimeInterval(offset)
+            return PressureSample(timestamp: taken,
+                                  pressure: Pressure(hectopascals: taken < step ? 995 : 1005))
+        }
+
+        let store = RecordingSampleStore(samples)
+        let engine = WellbeingRiskEngine(samples: store,
+                                         checkIns: InMemoryCheckInStore(),
+                                         calendar: calendar)
+        _ = await engine.forecast(asOf: now)
+
+        let measured = await engine.measuredBaseline()
+        let baseline = try XCTUnwrap(measured)
+        XCTAssertEqual(baseline.hectopascals, 995, accuracy: 0.5,
+                       "the median of the month, not of the last eight days")
+        XCTAssertNotEqual(
+            baseline.hectopascals,
+            try XCTUnwrap(RiskWindowBuilder.baseline(
+                observed: samples.filter { $0.timestamp >= step }, asOf: now
+            )).hectopascals,
+            accuracy: 1,
+            "the two spans have to disagree, or this test proves nothing"
+        )
+
+        let baselineSpan = Double(RiskPressureBaseline.windowDays) * 24 * 3600
+        let wideReads = await store.requestedRanges.count {
+            $0.upperBound.timeIntervalSince($0.lowerBound) >= baselineSpan
+        }
+        XCTAssertEqual(wideReads, 1, "one wide read a day, and the forecast path is not it")
+    }
+}
+
+/// A `PressureSampleStore` that remembers what it was asked for.
+///
+/// The point of these two tests is *which ranges* the engine reads, so the double records them
+/// rather than counting calls: a refit and a forecast read are told apart by their span.
+private actor RecordingSampleStore: PressureSampleStore {
+
+    private let stored: [PressureSample]
+    private(set) var requestedRanges: [Range<Date>] = []
+
+    init(_ samples: [PressureSample]) {
+        stored = samples.sorted { $0.timestamp < $1.timestamp }
+    }
+
+    func save(_ samples: [PressureSample]) {}
+
+    func samples(in range: Range<Date>) -> [PressureSample] {
+        requestedRanges.append(range)
+        return stored.filter { range.contains($0.timestamp) }
+    }
+
+    @discardableResult
+    func deleteSamples(before date: Date) -> Int { 0 }
 }

@@ -32,12 +32,25 @@ struct RiskPressureBaseline: Hashable, Sendable, Codable {
     /// level feature at once.
     static let windowDays = 30
 
+    /// Fewest observed hours behind a baseline before the level features are worth computing.
+    ///
+    /// **24.** Not a statistical floor — a median is stable long before this — but a check that
+    /// the caller measured over the span it meant to. The failure it exists to catch is silent:
+    /// hand `measured` a short read and it returns a perfectly well-formed baseline over an
+    /// afternoon, every level feature shifts by however far that afternoon sat from the month,
+    /// and nothing anywhere reports a problem.
+    static let minimumCells = 24
+
     /// Median of the user's own observed hourly cells over the window, hPa.
     let hectopascals: Double
 
     /// How many cells it was taken over. Carried so a caller can tell a baseline measured over
-    /// a month from one measured over an afternoon.
+    /// a month from one measured over an afternoon — see `minimumCells`, which is the caller
+    /// that reads it.
     let cellCount: Int
+
+    /// Whether this was measured over enough of the window to stand behind a level feature.
+    var isUsable: Bool { cellCount >= Self.minimumCells }
 
     /// What every reading is shifted by before a feature is computed.
     var offsetHPa: Double { Self.referenceHPa - hectopascals }
@@ -96,14 +109,6 @@ enum RiskPressureGrid {
 
     /// How far back a feature at `t` reaches: the seven-day mean is the longest window.
     static let historySeconds: TimeInterval = 7 * 24 * 3600
-
-    /// How far a cell may be from a horizon and still answer for it.
-    ///
-    /// **Half an hour**, which on an hourly grid means the exact cell and nothing else. The
-    /// six- and 24-hour falls are the two features that carry the signal, and reading one off
-    /// a cell three hours from where it was asked for would report a different quantity under
-    /// the same name.
-    static let horizonToleranceSeconds: TimeInterval = 30 * 60
 
     /// The merged grid over `range`, ascending, holes omitted.
     ///
@@ -172,9 +177,12 @@ enum RiskPressureGrid {
     /// clipping is the domain claim: the literature discusses falling pressure, and a rise of
     /// 4 hPa is not "minus four hPa of falling", it is a different kind of day.
     ///
-    /// `nil` when the grid has no cell at exactly `t − h`. Never interpolated across the hole —
-    /// a fall measured against an invented value is the confidently-wrong number the registry
-    /// rules out.
+    /// `nil` when the grid has no cell at exactly `t − h`. Exact and not nearest-within-a-
+    /// tolerance: the six- and 24-hour falls are the two features that carry the signal, and
+    /// reading one off a cell three hours from where it was asked for would report a different
+    /// quantity under the same name. Never interpolated across the hole either — a fall
+    /// measured against an invented value is the confidently-wrong number the registry rules
+    /// out.
     private static func drop(to cell: RiskGridCell,
                              hoursBack hours: Int,
                              byHour: [Date: RiskGridCell]) -> Double? {

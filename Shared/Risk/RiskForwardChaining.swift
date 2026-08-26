@@ -29,12 +29,15 @@ extension WellbeingRiskTrainer {
                        gapDays: Int = 0) -> [Split] {
         guard foldCount > 0, days.count > foldCount else { return [] }
 
-        let size = testSize ?? max(1, days.count / (foldCount + 1))
-        guard size > 0, days.count > size * foldCount else {
-            // Fall back to equal blocks when the requested test size does not leave anything to
-            // train the first fold on.
-            return splits(days: days, foldCount: foldCount, testSize: nil, gapDays: gapDays)
-        }
+        // Fall back to equal blocks when the requested test size does not leave anything to
+        // train the first fold on. Computed rather than recursed: `equalBlockSize` always
+        // satisfies the condition below given `days.count > foldCount`, so the old
+        // self-call with identical arguments could only ever have been a second pass or an
+        // infinite one, and the guarantee is easier to read where the number is made.
+        let requested = testSize ?? equalBlockSize(dayCount: days.count, foldCount: foldCount)
+        let size = requested > 0 && days.count > requested * foldCount
+            ? requested
+            : equalBlockSize(dayCount: days.count, foldCount: foldCount)
 
         var result: [Split] = []
         for fold in 0..<foldCount {
@@ -47,6 +50,14 @@ extension WellbeingRiskTrainer {
                                 testDays: Set(days[testStart..<testEnd])))
         }
         return result
+    }
+
+    /// Equal test blocks: one for each fold plus one to train the first fold on.
+    ///
+    /// At least 1, and `size * foldCount < dayCount` whenever `dayCount > foldCount` — which is
+    /// what makes it a safe fallback for any test size a caller asks for.
+    private static func equalBlockSize(dayCount: Int, foldCount: Int) -> Int {
+        max(1, dayCount / (foldCount + 1))
     }
 
     /// One representative row per day. Day-level features are identical across a day's windows,
