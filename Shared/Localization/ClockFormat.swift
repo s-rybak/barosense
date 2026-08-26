@@ -49,7 +49,7 @@ enum ClockFormat {
     /// 24-hour one — `nil` otherwise, which is the signal to leave the locale alone.
     ///
     /// Both 24-hour cycles count. `h23` is the common one (`uk`, `de`, `fr`); `h24` is Japanese
-    /// and a handful of others, and treating it as 12-hour because it is not `h23` would put a
+    /// and a handful of others, and reading it as 12-hour because it is not `h23` would put a
     /// future translation back on the clock this type exists to correct.
     private static func languageCycle(of locale: Locale) -> Locale.HourCycle? {
         guard let code = locale.language.languageCode?.identifier else { return nil }
