@@ -354,66 +354,6 @@ struct AddMedicationSheet: View {
         return Calendar.current.date(byAdding: .day, value: -1, to: customTime) ?? now
     }
 
-    // MARK: - Result
-
-    /// `nil` until there is a name, which is also what disables the action — one definition of
-    /// "ready" rather than two that can disagree.
-    private var entry: MedicationEntry? {
-        guard let resolvedName else { return nil }
-
-        return MedicationEntry(name: resolvedName, dose: resolvedDose, takenAt: takenAt)
-    }
-
-    private var takenAt: Date {
-        switch timeChoice {
-        case .now: now
-        case .custom: resolvedCustomTime
-        case .customDay: customDay
-        }
-    }
-
-    /// Typing wins whenever the field is on screen — either the user asked for a new name, or
-    /// there is nothing remembered to pick and the field is the only control there is.
-    private var isTypingName: Bool { nameChoice == .new || rememberedNames.isEmpty }
-
-    private var isTypingDose: Bool { doseChoice == .new || rememberedDoses.isEmpty }
-
-    private var resolvedName: String? {
-        if isTypingName { return typedName }
-        if case .remembered(let name) = nameChoice { return name }
-
-        return nil
-    }
-
-    private var resolvedDose: String? {
-        if isTypingDose { return typedDose }
-        if case .remembered(let dose) = doseChoice { return dose }
-
-        return nil
-    }
-
-    private var rememberedNames: [String] {
-        MedicationHistory.names(in: history, hiding: hiddenNames)
-    }
-
-    /// Narrowed to the chosen name only when it is one from the list — while a new name is
-    /// being typed there is nothing to narrow by, and every dose the user has used is a better
-    /// offer than none.
-    private var rememberedDoses: [String] {
-        guard case .remembered(let name) = nameChoice else {
-            return MedicationHistory.doses(in: history, hiding: hiddenDoses)
-        }
-
-        return MedicationHistory.doses(in: history, for: name, hiding: hiddenDoses)
-    }
-
-    /// The dose bucket the row currently draws from — the chosen name, or `nil` for the
-    /// unfiltered row. One place, because the read and the write have to agree on it.
-    private var doseBucket: String? {
-        guard case .remembered(let name) = nameChoice else { return nil }
-        return name
-    }
-
     // MARK: - Forgetting a chip
 
     /// Stops offering `name`, and clears the selection if that is what was selected.
@@ -497,6 +437,73 @@ struct AddMedicationSheet: View {
         // the caret rather than jumping to the end.
         .contentShape(.rect)
         .onTapGesture { focused = field }
+    }
+}
+
+// MARK: - Derived values
+
+/// What the form adds up to.
+///
+/// No SwiftUI below this line: every value here is a function of the `@State` above it,
+/// which is what lets the view read as a layout and this read as the rules behind it.
+extension AddMedicationSheet {
+
+    /// `nil` until there is a name, which is also what disables the action — one definition of
+    /// "ready" rather than two that can disagree.
+    private var entry: MedicationEntry? {
+        guard let resolvedName else { return nil }
+
+        return MedicationEntry(name: resolvedName, dose: resolvedDose, takenAt: takenAt)
+    }
+
+    private var takenAt: Date {
+        switch timeChoice {
+        case .now: now
+        case .custom: resolvedCustomTime
+        case .customDay: customDay
+        }
+    }
+
+    /// Typing wins whenever the field is on screen — either the user asked for a new name, or
+    /// there is nothing remembered to pick and the field is the only control there is.
+    private var isTypingName: Bool { nameChoice == .new || rememberedNames.isEmpty }
+
+    private var isTypingDose: Bool { doseChoice == .new || rememberedDoses.isEmpty }
+
+    private var resolvedName: String? {
+        if isTypingName { return typedName }
+        if case .remembered(let name) = nameChoice { return name }
+
+        return nil
+    }
+
+    private var resolvedDose: String? {
+        if isTypingDose { return typedDose }
+        if case .remembered(let dose) = doseChoice { return dose }
+
+        return nil
+    }
+
+    private var rememberedNames: [String] {
+        MedicationHistory.names(in: history, hiding: hiddenNames)
+    }
+
+    /// Narrowed to the chosen name only when it is one from the list — while a new name is
+    /// being typed there is nothing to narrow by, and every dose the user has used is a better
+    /// offer than none.
+    private var rememberedDoses: [String] {
+        guard case .remembered(let name) = nameChoice else {
+            return MedicationHistory.doses(in: history, hiding: hiddenDoses)
+        }
+
+        return MedicationHistory.doses(in: history, for: name, hiding: hiddenDoses)
+    }
+
+    /// The dose bucket the row currently draws from — the chosen name, or `nil` for the
+    /// unfiltered row. One place, because the read and the write have to agree on it.
+    private var doseBucket: String? {
+        guard case .remembered(let name) = nameChoice else { return nil }
+        return name
     }
 }
 

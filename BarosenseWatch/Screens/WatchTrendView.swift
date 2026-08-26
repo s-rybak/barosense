@@ -32,8 +32,10 @@ struct WatchTrendView: View {
     @ViewBuilder
     private var header: some View {
         if let snapshot {
+            let reading = PressureFormat.hectopascals(snapshot.sample.pressure.hectopascals)
+
             HStack(spacing: 4) {
-                Text(PressureFormat.hectopascals(snapshot.sample.pressure.hectopascals))
+                Text(reading)
                     .font(WatchTypography.gaugeValue)
                     .monospacedDigit()
                     .foregroundStyle(WatchTrendStyle.tint(for: snapshot.trend))
@@ -54,7 +56,7 @@ struct WatchTrendView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Now \(PressureFormat.hectopascals(snapshot.sample.pressure.hectopascals)) hPa, over the past 6 hours")
+            .accessibilityLabel("Now \(reading) hPa, over the past 6 hours")
         }
     }
 

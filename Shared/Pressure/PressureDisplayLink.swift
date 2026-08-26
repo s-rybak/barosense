@@ -14,11 +14,6 @@ struct PressureTrendPoint: Hashable, Codable, Sendable {
     /// Hectopascals, the one unit the domain layer uses. Named for it because a bare
     /// `value` here is exactly where a kPa gets in.
     let hectopascals: Double
-
-    init(timestamp: Date, hectopascals: Double) {
-        self.timestamp = timestamp
-        self.hectopascals = hectopascals
-    }
 }
 
 /// What the watch shows: the phone's latest reading, how pressure has been moving, and the

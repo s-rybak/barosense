@@ -160,7 +160,7 @@ final class WatchContextPayloadTests: XCTestCase {
 final class WatchTagOfferingTests: XCTestCase {
 
     /// The user retired these. Offering them again on a second screen is the one thing
-    /// archiving is supposed to prevent.
+    /// archiving exists to rule out.
     func testArchivedTagsAreNeverOffered() {
         let tags = [
             WellbeingTag(id: .seeded("headache"), name: "Headache"),

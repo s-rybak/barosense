@@ -18,11 +18,6 @@ struct WatchTag: Identifiable, Hashable, Codable, Sendable {
     /// What the user reads on the chip. Their own text once they have renamed anything, so
     /// it is displayed and never matched on.
     let name: String
-
-    init(id: WellbeingTag.ID, name: String) {
-        self.id = id
-        self.name = name
-    }
 }
 
 extension WatchTag {
@@ -80,7 +75,7 @@ extension WatchTag {
 ///
 /// Environmental measurements, and the vocabulary of tag *names*. Nothing the user has
 /// reported about themselves: no check-in values, no intensities, no Health values, no note
-/// text. The vocabulary is the user's own words and is treated as theirs — it stays between
+/// text. The vocabulary is the user's own words and stays theirs — it goes no further than
 /// the two paired devices, is never part of a network request, and travels only because the
 /// watch's check-in form is unusable without the labels it offers.
 ///
@@ -119,7 +114,7 @@ struct WatchContext: Hashable, Codable, Sendable {
 ///
 /// Fire-and-forget and deliberately **lossy**, matching the transport underneath it. The
 /// watch needs the current state and has no use for the one before it, so a publish the
-/// system supersedes before delivery has lost nothing. A check-in cannot be treated that way,
+/// system supersedes before delivery has lost nothing. A check-in cannot be dropped that way,
 /// which is why `CheckInTransferLink` is a separate protocol and not a direction flag here.
 protocol WatchContextLink: Sendable {
 
