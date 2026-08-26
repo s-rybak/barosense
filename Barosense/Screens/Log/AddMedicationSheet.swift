@@ -584,8 +584,10 @@ private struct DismissableChoiceChip: View {
 /// that type for why the system picker could not be styled onto `Palette`.
 ///
 /// The cost is the 12/24-hour question `DatePicker` answered for free. It is asked of the
-/// locale's own format template, the same source a formatted time would resolve through, so a
-/// reader on a 12-hour locale gets a period column and one on a 24-hour locale does not.
+/// locale's own format template, the same source a formatted time would resolve through, so the
+/// wheel and the row it fills in are always on the same clock — 24 hours and no period column
+/// in Ukrainian, the reader's own arrangement in English. Neither is decided here: both fall
+/// out of the locale `ClockFormat` hands to the environment.
 private struct TimeWheel: View {
 
     @Binding var date: Date
@@ -597,7 +599,8 @@ private struct TimeWheel: View {
     @Environment(\.calendar) private var calendar
 
     /// Whether the reader writes "9:41 PM" rather than "21:41". Asked of the format the locale
-    /// resolves for a bare time rather than inferred from the region.
+    /// resolves for a bare time rather than inferred from the region, so it answers the way
+    /// `ClockFormat` left that locale — false in Ukrainian, region-dependent in English.
     private var usesPeriod: Bool {
         DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale)?
             .contains("a") ?? false

@@ -36,13 +36,19 @@ final class LanguageController {
     /// `AppLanguage.locale`. That one is region-less by design — `Locale("uk")` — and a
     /// region-less Ukrainian locale does not mean "Ukrainian words, everything else as the
     /// reader has it": it means Ukraine's conventions, so a reader in the United States who
-    /// only wanted the words to change would also get Monday-first weeks, a 24-hour clock
-    /// and a comma for the decimal point. Keeping the region and moving only the language
-    /// is what that property's own comment describes.
+    /// only wanted the words to change would also get Monday-first weeks and a comma for the
+    /// decimal point. Keeping the region and moving only the language is what that property's
+    /// own comment describes.
+    ///
+    /// The clock is the one thing the region does not always get to decide. Keeping it produced
+    /// Ukrainian copy on an American clock — a dose taken at 16:45 filed as "4:45 пп" — so the
+    /// language is asked first: one with no 12-hour form of its own is pinned to 24 hours, and
+    /// one that does write 12-hour times is left to the region and to the device's own 24-Hour
+    /// Time switch. `ClockFormat` holds the rule and is also what the watch reads.
     var locale: Locale {
         var components = Locale.Components(locale: .current)
         components.languageComponents.languageCode = Locale.LanguageCode(language.languageCode)
-        return Locale(components: components)
+        return ClockFormat.applied(to: Locale(components: components))
     }
 
     /// `Calendar.current`, speaking the app's language.

@@ -11,6 +11,10 @@ struct WatchTrendView: View {
 
     let snapshot: PressureDisplaySnapshot?
 
+    /// Read so the axis can put the reader's own clock on it rather than replace the locale —
+    /// everything but the hour cycle still belongs to them. See `ClockFormat`.
+    @Environment(\.locale) private var locale
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
@@ -103,14 +107,18 @@ struct WatchTrendView: View {
                 }
             }
             .chartXAxis {
-                // Two labels, and no more. Three 12-hour timestamps do not fit across a 40 mm
-                // screen and run into each other; the two ends are what the window needs to
-                // say anyway.
+                // Two labels, and no more. Three timestamps do not fit across a 40 mm screen
+                // and run into each other; the two ends are what the window needs to say
+                // anyway. Two is already tight on a 12-hour locale, where each label carries a
+                // period marker — `.minimumScaleFactor` on the label is what absorbs that.
                 AxisMarks(values: .automatic(desiredCount: 2)) { value in
                     AxisValueLabel {
                         if let date = value.as(Date.self) {
-                            Text(date, format: .dateTime.hour().minute())
+                            Text(date, format: .dateTime.hour().minute()
+                                .locale(ClockFormat.applied(to: locale)))
                                 .font(.system(size: 9))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
                                 .foregroundStyle(WatchPalette.inkMuted)
                         }
                     }
