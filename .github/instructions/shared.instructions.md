@@ -25,7 +25,7 @@ Blocking findings:
   at the sensor boundary; hPa is the only unit in this layer. Identifiers carry the unit:
   `pressureHPa`, `deltaHPaPer6h`, `windowSeconds`.
 - A magic threshold inlined at a call site — most importantly the "poor wellbeing" label
-  (`score <= 2`), which is defined exactly once as a named constant with a `///` rationale.
+  (`intensity >= 7`), which is defined exactly once as a named constant with a `///` rationale.
 - Missing `///` documentation on a **public** type or member.
 - New Combine pipelines, or a new completion-handler API. Wrap a legacy callback once,
   here at the boundary, in `AsyncStream` / `withCheckedContinuation`.

@@ -32,13 +32,20 @@ struct SettingsScreen: View {
     @State private var model: SettingsModel
     @State private var path: [SettingsRoute] = []
 
+    /// Raised after an Edit Profile save, which is the one place in the app where the tag
+    /// vocabulary changes outside onboarding. Anything holding a copy of that vocabulary and
+    /// unable to observe the store — the paired watch — is refreshed through here.
+    private let onVocabularyChanged: () async -> Void
+
     init(dependencies: SettingsDependencies,
          languages: LanguageController,
          isDetailPresented: Binding<Bool>,
          onDataErased: @escaping () async -> Void,
-         onRemindersChanged: @escaping () async -> Void = {}) {
+         onRemindersChanged: @escaping () async -> Void = {},
+         onVocabularyChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
         self.languages = languages
+        self.onVocabularyChanged = onVocabularyChanged
         _isDetailPresented = isDetailPresented
         // The calendar is handed over rather than read from the environment, as on History:
         // this model is built in `init`, before an environment exists, and it decides which
@@ -323,7 +330,12 @@ struct SettingsScreen: View {
         case .editProfile:
             EditProfileScreen(dependencies: dependencies,
                               back: { path.removeLast() },
-                              onSaved: { Task { await model.load() } },
+                              onSaved: {
+                                  Task {
+                                      await model.load()
+                                      await onVocabularyChanged()
+                                  }
+                              },
                               onDeleteRequested: {
                                   path.removeAll()
                                   model.confirmEraseEverything()

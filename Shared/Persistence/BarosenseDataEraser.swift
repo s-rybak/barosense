@@ -58,6 +58,17 @@ struct BarosenseDataEraser: Sendable {
     private let weatherArchive: any WeatherForecastStore
     private let notificationLog: any NotificationStore
 
+    /// The dismissed medication chips (`MedicationChipStore`). Not an `ErasableStore` case
+    /// and not wrapped in `attempt`, because it has no failure mode to report: it is two
+    /// `UserDefaults` keys, and `removeObject` cannot refuse. A case in that enum would put a
+    /// store in the partial-failure message that can never appear in one.
+    ///
+    /// In the erase at all — unlike the language row or the WeatherKit switch — because what
+    /// it holds is text the user typed, not a setting. Leaving it would also mis-fire later:
+    /// the keys outlive the check-ins they were folded from, so a medication typed again after
+    /// an erase would come back already suppressed.
+    private let medicationChips: any MedicationChipStore
+
     init(profileStore: any UserProfileStore,
          checkInStore: any CheckInStore,
          tagStore: any WellbeingTagStore,
@@ -65,7 +76,8 @@ struct BarosenseDataEraser: Sendable {
          pressureLog: any PressureSampleStore,
          locationEpochs: any PressureLocationEpochStore,
          weatherArchive: any WeatherForecastStore,
-         notificationLog: any NotificationStore) {
+         notificationLog: any NotificationStore,
+         medicationChips: any MedicationChipStore = UserDefaultsMedicationChipStore()) {
         self.profileStore = profileStore
         self.checkInStore = checkInStore
         self.tagStore = tagStore
@@ -74,6 +86,7 @@ struct BarosenseDataEraser: Sendable {
         self.locationEpochs = locationEpochs
         self.weatherArchive = weatherArchive
         self.notificationLog = notificationLog
+        self.medicationChips = medicationChips
     }
 
     /// Erases everything, then throws `DataEraseFailure.storesRefused` naming any store
@@ -85,6 +98,11 @@ struct BarosenseDataEraser: Sendable {
     /// with the old history still on disk if a later step failed.
     func eraseEverything() async throws {
         var refused: [ErasableStore] = []
+
+        // First, and outside the failure accounting. It cannot refuse, and doing it up front
+        // means a run that later throws still leaves no dismissed chips pointing at check-ins
+        // the same run removed.
+        medicationChips.reset()
 
         // `.distantFuture` rather than `.now`: "before now" would leave behind a reading
         // taken in the same second, and on the pressure log that is not hypothetical —

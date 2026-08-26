@@ -242,6 +242,37 @@ enum PressureBuckets {
 /// Grouping is off deliberately. A locale that groups thousands with a period renders 1013.2
 /// as `1.013,2`, which in a four-digit measurement looks like a decimal point in the wrong
 /// place. Pressure is never large enough for grouping to help.
+/// The vertical extent a pressure line is drawn in, on both platforms.
+///
+/// Shared because the phone's card and the watch's plot must frame the same readings the same
+/// way. Two padding rules a few tenths apart would make the identical afternoon look like a
+/// gentle drift on one device and a cliff on the other, and neither screen would be wrong.
+enum PressureChartDomain {
+
+    /// 0.6× the span leaves the line occupying roughly the middle 45% of the plot, which is
+    /// how the design draws it.
+    private static let paddingFraction = 0.6
+
+    /// Covers a span of zero. Without it a flat day has a zero-height domain and the chart
+    /// has nowhere to put the line.
+    private static let minimumPaddingHPa = 1.0
+
+    /// What scrolling added on the phone. The domain is fitted once, over the whole scrollable
+    /// extent, because a domain refitted to the viewport would make the line climb and sink
+    /// under the finger while the readings stood still. Twelve days of weather spans tens of
+    /// hPa, and 60% of that as padding on each side squashes a day's movement into a flat line.
+    private static let maximumPaddingHPa = 3.0
+
+    /// The padded extent covering `values`, or `nil` when there is nothing to draw.
+    static func padded(around values: [Double]) -> ClosedRange<Double>? {
+        guard let lowest = values.min(), let highest = values.max() else { return nil }
+
+        let padding = min(max((highest - lowest) * paddingFraction, minimumPaddingHPa),
+                          maximumPaddingHPa)
+        return (lowest - padding)...(highest + padding)
+    }
+}
+
 enum PressureFormat {
 
     /// One decimal — the resolution the barometer actually has. Printing more claims
@@ -253,6 +284,20 @@ enum PressureFormat {
     /// Whole hectopascals, for a watch screen read at a glance.
     static func roundedHectopascals(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0)).grouping(.never))
+    }
+
+    /// A *change* in hectopascals, always carrying its sign.
+    ///
+    /// The sign is the information — a bare "2.1" beside the word "change" is unreadable —
+    /// so it is forced rather than left to the default, which prints nothing for a positive
+    /// number. Locale-aware, so the minus is the locale's own glyph and not a hyphen.
+    static func signedHectopascals(_ value: Double) -> String {
+        value.formatted(
+            .number
+                .precision(.fractionLength(1))
+                .grouping(.never)
+                .sign(strategy: .always(includingZero: false))
+        )
     }
 }
 
@@ -310,20 +355,36 @@ extension PressureTrend {
     /// Fed the raw log, never the bucketed points: an average is a smoother, and a smoother
     /// applied before a difference is how a real fall gets rounded down into "steady".
     static func make(from samples: [PressureSample], asOf now: Date) -> PressureTrend {
+        guard let deltaHPa = delta(from: samples, asOf: now) else { return .unknown }
+
+        if deltaHPa <= -significantChangeHPa { return .falling }
+        if deltaHPa >= significantChangeHPa { return .rising }
+        return .steady
+    }
+
+    /// The signed change across the trailing window, in hPa. Negative means falling.
+    ///
+    /// `nil` under exactly the conditions that make the trend `.unknown`, and that is not a
+    /// coincidence: this is the number the three buckets are cut from, factored out so the
+    /// watch can print it. A screen showing "steady" beside "−4.1 hPa" would be two answers
+    /// to one question, and the only way to guarantee that cannot happen is for both to come
+    /// out of the same arithmetic.
+    ///
+    /// **Display only, like `PressureTrend` itself.** It has no row in the feature registry.
+    /// The model reads `pressureDeltaHPaPer3h` from the raw log with its own gap rules
+    /// (`.claude/context/ml-spec.md` §2.1), which are stricter than what a caption needs.
+    static func delta(from samples: [PressureSample], asOf now: Date) -> Double? {
         let window = now.addingTimeInterval(-windowSeconds)...now
         let inWindow = samples
             .filter { window.contains($0.timestamp) }
             .sorted { $0.timestamp < $1.timestamp }
 
-        guard let first = inWindow.first, let last = inWindow.last else { return .unknown }
+        guard let first = inWindow.first, let last = inWindow.last else { return nil }
         guard last.timestamp.timeIntervalSince(first.timestamp) >= minimumSpanSeconds else {
-            return .unknown
+            return nil
         }
 
-        let deltaHPa = last.pressure.delta(from: first.pressure)
-        if deltaHPa <= -significantChangeHPa { return .falling }
-        if deltaHPa >= significantChangeHPa { return .rising }
-        return .steady
+        return last.pressure.delta(from: first.pressure)
     }
 }
 
@@ -435,19 +496,13 @@ struct PressureSeries: Hashable, Sendable {
     var valueDomainHPa: ClosedRange<Double>? {
         let drawn = observed.map(\.pressure.hectopascals)
             + forecast.map(\.pressure.hectopascals)
-        guard let lowest = drawn.min(), let highest = drawn.max() else { return nil }
+        // The padding rule lives in `PressureChartDomain` because the watch frames its own
+        // plot with it too, and two copies a few tenths apart would make the same afternoon
+        // read as a drift on one device and a cliff on the other.
+        guard let padded = PressureChartDomain.padded(around: drawn) else { return nil }
 
-        // 0.6× the span leaves the line occupying roughly the middle 45% of the plot, which
-        // is how the design draws it. The 1 hPa floor covers a span of zero.
-        //
-        // The 3 hPa ceiling is what scrolling added. The domain is fitted once, over the
-        // whole scrollable extent, because a domain refitted to the viewport would make the
-        // line climb and sink under the finger while the readings stood still. Twelve days
-        // of weather spans tens of hPa, and 60% of that as padding on each side squashes a
-        // day's movement into a flat line.
-        let padding = min(max((highest - lowest) * 0.6, 1.0), 3.0)
-        let low = lowest - padding
-        let high = highest + padding
+        let low = padded.lowerBound
+        let high = padded.upperBound
         guard !forecast.isEmpty else { return low...high }
 
         let allowance = max((high - low) * Self.bandDomainAllowance, Self.bandDomainFloorHPa)

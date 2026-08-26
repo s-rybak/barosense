@@ -452,7 +452,7 @@ Two rules that apply to this whole family:
 
 | name                     | source         | unit                 | sampling / min coverage            | on missing | status  |
 | ------------------------ | -------------- | -------------------- | ---------------------------------- | ---------- | ------- |
-| `priorCheckInScore`      | check-in store | 1–5                  | previous check-in ≤48 h before `t` | nil        | planned |
+| `priorCheckInScore`      | check-in store | 1–10                 | previous check-in ≤48 h before `t` | nil        | planned |
 | `hoursSincePriorCheckIn` | derived        | h                    | as above                           | nil        | planned |
 | `hourOfDay`              | `t`            | 0–23, cyclic-encoded | always                             | —          | planned |
 
@@ -637,7 +637,7 @@ Each needs a decision before v1 ships; anything architectural gets an ADR in
 1. **Population prior source.** No dataset exists. Options: ship the pressure rule as the
    day-1 model and start personal fitting immediately; or a small hand-specified prior from
    literature effect sizes, clearly labelled as a guess.
-2. **Label extension** to `score <= 3 && !tagIDs.isEmpty`. Needs real check-in
+2. **Label extension** to `intensity >= 6 && !tagIDs.isEmpty`. Needs real check-in
    distribution. Note the vocabulary is user-owned, so "has any tag" is the only form of
    this that means the same thing for every user.
 3. **Altitude reference** — absolute-altitude updates vs. CoreLocation vs. rejection only.

@@ -128,8 +128,8 @@ live in `.claude/` and are auto-discovered by Claude Code:
 
 ## ML pipeline expectations
 
-- Target label: binary "poor wellbeing" event derived from the 1–5 check-in scale plus
-  tags. Define the threshold in one place in `Shared/`, not inline.
+- Target label: binary "poor wellbeing" event derived from the 1–10 check-in intensity
+  scale (higher is worse) plus tags. Define the threshold in one place in `Shared/`, not inline.
 - Validation must be **time-series aware** — forward-chaining splits, never a random
   shuffle. A random split leaks future into past and will report fake accuracy.
 - Report precision/recall (and PR-AUC) on the positive class. Accuracy is meaningless

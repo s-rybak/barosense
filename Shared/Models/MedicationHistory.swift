@@ -53,8 +53,15 @@ enum MedicationOrder: String, CaseIterable, Identifiable, Sendable {
 enum MedicationHistory {
 
     /// Distinct medication names, most recently taken first.
-    static func names(in entries: [MedicationEntry], limit: Int = 8) -> [String] {
-        distinct(mostRecentFirst(entries).map(\.name), limit: limit)
+    ///
+    /// `hiding` drops names the user has asked not to be offered again — folded keys, from
+    /// `MedicationChipStore`. Filtered here rather than at the call site so the `limit` counts
+    /// what is actually shown: dropping after the cut would return seven chips out of eight
+    /// and quietly shrink the row every time something was hidden.
+    static func names(in entries: [MedicationEntry],
+                      hiding hidden: Set<String> = [],
+                      limit: Int = 8) -> [String] {
+        distinct(mostRecentFirst(entries).map(\.name), hiding: hidden, limit: limit)
     }
 
     /// Distinct doses, most recently taken first.
@@ -63,9 +70,12 @@ enum MedicationHistory {
     /// the same amount of a two-tap entry. `nil` — no name chosen yet, or one with no history —
     /// falls back to every dose they have used, because an unfiltered list of their own words is
     /// still better than an empty row.
-    static func doses(in entries: [MedicationEntry], for name: String? = nil, limit: Int = 6) -> [String] {
+    static func doses(in entries: [MedicationEntry],
+                      for name: String? = nil,
+                      hiding hidden: Set<String> = [],
+                      limit: Int = 6) -> [String] {
         let matching = matches(entries, name: name)
-        return distinct(mostRecentFirst(matching).compactMap(\.dose), limit: limit)
+        return distinct(mostRecentFirst(matching).compactMap(\.dose), hiding: hidden, limit: limit)
     }
 
     /// One row per distinct medication, most recently taken first — what the "My medications"
@@ -140,14 +150,22 @@ enum MedicationHistory {
     }
 
     /// First occurrence wins, so the spelling kept is the most recent one the user typed.
-    private static func distinct(_ values: [String], limit: Int) -> [String] {
+    ///
+    /// `hidden` holds already-folded keys, which is what makes hiding survive a respelling: a
+    /// user who hid "ібупрофен" and later types "Ібупрофен" gets one hidden chip, not two
+    /// entries one of which comes back.
+    private static func distinct(_ values: [String],
+                                 hiding hidden: Set<String> = [],
+                                 limit: Int) -> [String] {
         guard limit > 0 else { return [] }
 
         var seen: Set<String> = []
         var result: [String] = []
 
         for value in values {
-            guard seen.insert(folded(value)).inserted else { continue }
+            let key = folded(value)
+            guard !hidden.contains(key) else { continue }
+            guard seen.insert(key).inserted else { continue }
 
             result.append(value)
             if result.count == limit { break }
@@ -165,4 +183,11 @@ enum MedicationHistory {
     private static func folded(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+
+    /// The fold, for callers that have to store a key this type will later match on.
+    ///
+    /// `MedicationChipStore` is the one: it persists what the user hid, and a key written
+    /// under a different rule than the one read back here would come back as a chip the user
+    /// had already dismissed.
+    static func key(_ value: String) -> String { folded(value) }
 }

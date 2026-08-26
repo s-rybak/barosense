@@ -20,9 +20,10 @@ cold-start requirement is a gated escalation, not a judgement call.
 
 ## Label
 
-- Binary "poor wellbeing" event, derived from the 1–5 check-in scale plus tags.
+- Binary "poor wellbeing" event, derived from the 1–10 check-in intensity scale
+  (**higher is worse** — see `CheckInIntensity`) plus tags.
 - The threshold is defined **once**, in `Shared/`, as a named constant with a comment
-  explaining the choice. Never inline `score <= 2` at a call site.
+  explaining the choice. Never inline `intensity >= 7` at a call site.
 - Changing the threshold invalidates every stored metric. Re-run the baseline comparison
   in the same PR and put both numbers in the body.
 
