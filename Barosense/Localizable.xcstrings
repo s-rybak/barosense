@@ -4,6 +4,70 @@
     "" : {
 
     },
+    "Likely change in %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Likely change in %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ймовірна зміна через %@"
+          }
+        }
+      }
+    },
+    "Likely change under way" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Likely change under way"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ймовірна зміна вже триває"
+          }
+        }
+      }
+    },
+    "No stretch stands out today" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No stretch stands out today"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сьогодні жоден проміжок не вирізняється"
+          }
+        }
+      }
+    },
+    "Your last check-ins, out of 10" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your last check-ins, out of 10"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твої останні записи, з 10"
+          }
+        }
+      }
+    },
     "…shortened, full text is in the app" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1632,6 +1696,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Середній добовий тиск, гПа"
+          }
+        }
+      }
+    },
+    "Dashed rings are stretches ahead" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dashed rings are stretches ahead"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пунктирні кільця — проміжки попереду"
+          }
+        }
+      }
+    },
+    "Dashed rings are stretches ahead. Their colour is your own two-week average, %lld out of 10" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dashed rings are stretches ahead. Their colour is your own two-week average, %lld out of 10"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пунктирні кільця — проміжки попереду. Їхній колір — твоє власне середнє за два тижні: %lld з 10"
           }
         }
       }
@@ -4191,6 +4287,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Модель шукатиме зв’язок між тиском, погодою і твоїм самопочуттям. Що більше записів — то більше вона спиратиметься на твою власну історію, а не на загальні закономірності."
+          }
+        }
+      }
+    },
+    "The next stretches the model points at" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The next stretches the model points at"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Найближчі проміжки, на які вказує модель"
           }
         }
       }

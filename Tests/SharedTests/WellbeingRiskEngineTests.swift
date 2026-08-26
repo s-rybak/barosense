@@ -120,6 +120,39 @@ final class WellbeingRiskEngineTests: XCTestCase {
         XCTAssertEqual(refits, 1, "the second call inside a day must not re-read the window")
     }
 
+    /// Two callers arriving at once get one fit between them, not one each.
+    ///
+    /// The Now screen has exactly two, `NowMetersModel` and `PressureChartModel`, on concurrent
+    /// `.task`s of the same view — and after a saved check-in `invalidate()` puts both of them
+    /// in front of a cold engine. An actor is reentrant at every `await`, and the cache is
+    /// written last, so uncoalesced both miss it, both pass the `lastFitAt` guard while the
+    /// other is suspended on the 120-day read, and the Newton solve runs twice for one screen.
+    func testConcurrentCallersShareOneFit() async throws {
+        let now = referenceNow
+        let store = RecordingSampleStore(
+            SyntheticTraceFixture.samples().filter { $0.timestamp < now }
+        )
+        let engine = WellbeingRiskEngine(
+            samples: store,
+            checkIns: InMemoryCheckInStore(
+                SyntheticTraceFixture.checkIns().filter { $0.timestamp < now }
+            ),
+            calendar: calendar
+        )
+
+        async let first = engine.forecast(asOf: now)
+        async let second = engine.forecast(asOf: now)
+        let both = await [first, second]
+
+        let trainingSpan = Double(WellbeingRiskTrainer.trainingWindowDays) * 24 * 3600
+        let refits = await store.requestedRanges.count {
+            $0.upperBound.timeIntervalSince($0.lowerBound) >= trainingSpan
+        }
+        XCTAssertEqual(refits, 1, "the second caller has to join the build, not start one")
+        XCTAssertEqual(both[0], both[1], "and it has to get the same forecast out of it")
+        XCTAssertNotNil(both[0])
+    }
+
     /// The baseline is the 30-day median the fit used, not one measured over the forecast read.
     ///
     /// The forecast path reads eight days. Left to measure its own baseline from that, it
