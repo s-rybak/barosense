@@ -38,6 +38,10 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.barosense.app
         PRODUCT_NAME: Barosense
         TARGETED_DEVICE_FAMILY: "1,2"
+        # The asset catalogue exists for the app icon and nothing else. Everything the UI
+        # draws is a path or a palette token, so a bitmap here is a deliberate exception:
+        # the icon is the one image the system renders and no code can draw.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Hand-written base plist, merged with the INFOPLIST_KEY_* settings below. It holds
         # only the array-valued keys that cannot be expressed as a build setting —
         # BGTaskSchedulerPermittedIdentifiers and UIBackgroundModes.
@@ -95,6 +99,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.barosense.app.watchkitapp
         PRODUCT_NAME: Barosense
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.barosense.app
         INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: YES
         # No NSMotionUsageDescription. The watch never touches CoreMotion — it displays what

@@ -3995,6 +3995,9 @@
         }
       }
     },
+    "Stop offering this" : {
+
+    },
     "Summary" : {
       "extractionState" : "manual",
       "localizations" : {

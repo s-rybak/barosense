@@ -169,6 +169,11 @@ struct AppRootView: View {
     let ingest: HealthIngestController
     let pressure: PressureCollectionController
 
+    /// The watch link. Activated from this view's `task` rather than from `App.init`, for the
+    /// same reason `armBackgroundRefresh` is: the earliest point at which the app is a running
+    /// scene instead of a half-built one.
+    let watch: WatchBridge
+
     /// Refreshes the WeatherKit archive on activation. Built at the composition root because
     /// it shares the barometer's background task and must exist before the first one fires.
     let weather: WeatherForecastController
@@ -186,6 +191,7 @@ struct AppRootView: View {
 
     init(ingest: HealthIngestController,
          pressure: PressureCollectionController,
+         watch: WatchBridge,
          weather: WeatherForecastController,
          forecast: PressureForecastReader,
          healthLog: any HealthSampleStore,
@@ -195,6 +201,7 @@ struct AppRootView: View {
          router: NotificationRouter) {
         self.ingest = ingest
         self.pressure = pressure
+        self.watch = watch
         self.weather = weather
         self.forecast = forecast
         self.router = router
@@ -247,7 +254,16 @@ struct AppRootView: View {
                              settings: services.settings,
                              languages: languages,
                              router: router,
-                             onDataErased: { await services.restartOnboarding() })
+                             onDataErased: {
+                                 await services.restartOnboarding()
+                                 // The erase dropped the vocabulary and the line above
+                                 // re-seeded it. The watch holds its own copy in a context
+                                 // slot the system persists, so without this the user's own
+                                 // tag names stay on their wrist after they asked for them
+                                 // to be gone.
+                                 await watch.refreshTags()
+                             },
+                             onVocabularyChanged: { await watch.refreshTags() })
                 }
             }
         }
@@ -264,6 +280,24 @@ struct AppRootView: View {
         .environment(\.locale, languages.locale)
         .environment(\.calendar, languages.calendar)
         .task { await services.start() }
+        // Activation is phase-independent: a check-in queued on the watch is delivered
+        // shortly after the session comes up, and the buffer inside the bridge is what holds
+        // it until the store exists. Waiting for `.ready` here would mean an onboarding
+        // launch never activated at all.
+        .task { await watch.start() }
+        // Keyed on the store's arrival, so this runs once — the stores are opened by
+        // `start()` and then kept, including across "delete my data", which empties them
+        // rather than replacing them. Later vocabulary changes therefore do *not* come
+        // through here; they come through `onVocabularyChanged` and the erase hook above.
+        //
+        // Publishing the tag vocabulary is the other half of the attach: the watch's
+        // check-in form has no chips until this lands.
+        .task(id: services.checkInStore == nil) {
+            guard let checkInStore = services.checkInStore, let tagStore = services.tagStore else {
+                return
+            }
+            await watch.attach(checkInStore: checkInStore, tagStore: tagStore)
+        }
         // Ingest follows the phase rather than being started once at launch. Keyed on the
         // Bool and not on the phase itself so the two onboarding-side phases do not retrigger
         // it, and so the transition that matters — onboarding ending, or "delete my data"

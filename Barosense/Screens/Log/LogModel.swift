@@ -83,15 +83,29 @@ final class LogModel {
     private let now: @Sendable () -> Date
     private let onSaved: () -> Void
 
+    /// Which remembered chips the "Add medication" sheet must not offer.
+    ///
+    /// Held here rather than built by the sheet so that it survives the sheet being dismissed
+    /// and re-presented within one check-in — hiding a chip and having it reappear on the next
+    /// tap of "+ Add" would read as the removal not having worked.
+    ///
+    /// Defaulted to the real store, unlike the other dependencies. It holds a handful of
+    /// strings in `UserDefaults` with no container to open and nothing to fail, so threading it
+    /// through `LogScreen` and `RootView` would be three call sites changed to inject something
+    /// that has one implementation; the in-memory double exists for the tests that need one.
+    let medicationChips: any MedicationChipStore
+
     init(checkInStore: any CheckInStore,
          tagStore: any WellbeingTagStore,
          health: any CheckInHealthContextProviding,
+         medicationChips: any MedicationChipStore = UserDefaultsMedicationChipStore(),
          healthReadTimeout: Duration = .seconds(2),
          now: @escaping @Sendable () -> Date = { Date() },
          onSaved: @escaping () -> Void) {
         self.checkInStore = checkInStore
         self.tagStore = tagStore
         self.health = health
+        self.medicationChips = medicationChips
         self.healthReadTimeout = healthReadTimeout
         self.now = now
         self.onSaved = onSaved

@@ -83,10 +83,32 @@ final class LanguageControllerFormattingTests: XCTestCase {
     }
 
     /// The user picked a language, not a country. Pinning `Locale("uk")` outright would also
-    /// hand a reader in the United States Ukraine's week, clock and decimal separator.
+    /// hand a reader in the United States Ukraine's week and decimal separator. The clock is
+    /// the documented exception — see below.
     func testThePickedLanguageKeepsTheDevicesRegion() {
         XCTAssertEqual(controller(pinnedTo: .ukrainian).locale.region, Locale.current.region)
         XCTAssertEqual(controller(pinnedTo: .english).locale.region, Locale.current.region)
+    }
+
+    /// The reported bug. Keeping the device's region also kept its clock, so a phone set to the
+    /// United States filed a dose taken at 16:45 as "4:45 пп" — Ukrainian words on an American
+    /// clock. Ukrainian has no 12-hour form, so the region does not get to impose one.
+    ///
+    /// Asserted on the locale rather than on a formatted string, because the test machine's own
+    /// region decides what the unpinned comparison would print and a literal here would pass or
+    /// fail depending on the simulator.
+    func testUkrainianAlwaysGetsATwentyFourHourClock() {
+        XCTAssertEqual(controller(pinnedTo: .ukrainian).locale.hourCycle, .zeroToTwentyThree)
+    }
+
+    /// The deliberate other half: English writes 12-hour times, so the clock is left to the
+    /// reader's region and to the device's own 24-Hour Time switch — the app takes no view.
+    ///
+    /// Compared against the device rather than against a literal, for the same reason: this
+    /// test suite runs on whatever region the simulator is set to, and the property under test
+    /// is "unchanged", not "twelve".
+    func testEnglishLeavesTheClockToTheDevice() {
+        XCTAssertEqual(controller(pinnedTo: .english).locale.hourCycle, Locale.current.hourCycle)
     }
 
     /// The regression itself. `Calendar` names its months and its weekday column out of the

@@ -238,17 +238,25 @@ final class PressureCollectionController {
         return await locationEpochs.storedEpoch()?.id
     }
 
-    /// Offers the reading and its tendency to the watch.
+    /// Offers the reading, its tendency and the short window behind it to the watch.
     ///
-    /// The trend is computed here and shipped rather than derived on the other side, because
-    /// the watch holds no history to derive it from — it is a display, not a second log.
+    /// All three are computed here and shipped rather than derived on the other side, because
+    /// the watch holds no history to derive them from — it is a display, not a second log.
+    ///
+    /// One store read serves all three. The window fetched is the wider of the two the
+    /// consumers ask for, so the arrow, the printed delta and the plotted line are cut from
+    /// exactly the same array: a line drawn from one read and an arrow from another could
+    /// disagree across a sample landing between them, and that disagreement would be
+    /// invisible until someone screenshotted it.
     private func publish(_ sample: PressureSample, asOf now: Date) async {
-        let history = (try? await recorder.samples(trailing: PressureTrend.windowSeconds,
-                                                   asOf: now)) ?? []
+        let window = max(PressureTrend.windowSeconds, PressureWatchSeries.windowSeconds)
+        let history = (try? await recorder.samples(trailing: window, asOf: now)) ?? []
 
         let snapshot = PressureDisplaySnapshot(
             sample: sample,
-            trend: PressureTrend.make(from: history, asOf: now)
+            trend: PressureTrend.make(from: history, asOf: now),
+            recent: PressureWatchSeries.make(from: history, asOf: now),
+            deltaHPaPer3h: PressureTrend.delta(from: history, asOf: now)
         )
         guard PressureDisplayPolicy.shouldPublish(snapshot, lastPublished: lastPublished) else {
             return

@@ -34,6 +34,11 @@ struct RootView: View {
 
     let onDataErased: () async -> Void
 
+    /// The user edited their tag vocabulary. Defaulted so previews and tests that do not
+    /// care about the watch stay one line — see `WatchBridge.refreshTags()` for what the
+    /// real one does and why the watch cannot notice this on its own.
+    var onVocabularyChanged: () async -> Void = {}
+
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: AppTab = .now
     @State private var isLoggingCheckIn = false
@@ -229,7 +234,8 @@ struct RootView: View {
                                languages: languages,
                                isDetailPresented: $isSettingsDetailPresented,
                                onDataErased: onDataErased,
-                               onRemindersChanged: reconcileReminders)
+                               onRemindersChanged: reconcileReminders,
+                               onVocabularyChanged: onVocabularyChanged)
             }
         case .insights:
             PlaceholderScreen(tab: selection)
