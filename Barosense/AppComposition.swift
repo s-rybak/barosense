@@ -10,6 +10,10 @@ import SwiftUI
 @Observable
 final class AppServices {
 
+    /// The supplied GIF's exact first complete loop (97 source frames). Every launch keeps
+    /// the loading surface up for at least this long, even when every store is already warm.
+    static let minimumLoadingDuration: Duration = .milliseconds(4_040)
+
     enum Phase {
         /// Opening the store. Brief, but not instantaneous on a cold launch, and showing
         /// onboarding before the profile has been read would restart a flow the user
@@ -88,6 +92,8 @@ final class AppServices {
         }
 
         phase = .opening
+        let openingStartedAt = ContinuousClock.now
+        let destination: Phase
 
         do {
             let container = try BarosenseModelContainer.makeDurable()
@@ -136,14 +142,34 @@ final class AppServices {
                                                  reminderPreferences: reminderPreferences,
                                                  healthAccess: healthAccess,
                                                  locationAccess: CoreLocationAccessReporter())
-            phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
+            destination = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
-            phase = .unavailable
+            destination = .unavailable
         }
+
+        let elapsed = openingStartedAt.duration(to: .now)
+        if let holdDuration = Self.loadingSurfaceHoldDuration(after: elapsed) {
+            try? await Task.sleep(for: holdDuration)
+        }
+        phase = destination
+    }
+
+    /// Always keeps the surface visible through the first complete 4.04-second loop. Work
+    /// finishing after that loop transitions immediately without waiting for another one.
+    static func loadingSurfaceHoldDuration(after elapsed: Duration) -> Duration? {
+        guard elapsed < minimumLoadingDuration else { return nil }
+        return minimumLoadingDuration - elapsed
     }
 
     func onboardingFinished() {
         phase = .ready
+    }
+
+    /// Returns a failed launch to the loader. The loader starts the retry only after its
+    /// first animation frame is ready, just like the initial launch.
+    func prepareForRetry() {
+        guard case .unavailable = phase else { return }
+        phase = .opening
     }
 
     /// Puts the user back at the start after "delete my data".
@@ -216,12 +242,10 @@ struct AppRootView: View {
         Group {
             switch services.phase {
             case .opening:
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Palette.surface.ignoresSafeArea())
+                LaunchLoadingView { await services.start() }
 
             case .unavailable:
-                StoreUnavailableView { Task { await services.start() } }
+                StoreUnavailableView { services.prepareForRetry() }
 
             case .onboarding:
                 if let profileStore = services.profileStore, let tagStore = services.tagStore {
@@ -279,7 +303,6 @@ struct AppRootView: View {
         // both back out of the environment rather than reaching for `.current`.
         .environment(\.locale, languages.locale)
         .environment(\.calendar, languages.calendar)
-        .task { await services.start() }
         // Activation is phase-independent: a check-in queued on the watch is delivered
         // shortly after the session comes up, and the buffer inside the bridge is what holds
         // it until the store exists. Waiting for `.ready` here would mean an onboarding

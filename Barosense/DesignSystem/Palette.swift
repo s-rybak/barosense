@@ -11,6 +11,19 @@ import SwiftUI
 /// `project.yml`, which reaches the UIKit-backed controls a SwiftUI modifier would not.
 enum Palette {
 
+    /// The launch screen and the opening-state animation background.
+    ///
+    /// Kept in the asset catalogue because iOS resolves the same named colour before the
+    /// SwiftUI hierarchy exists. One asset therefore avoids a colour jump between the
+    /// system launch screen and the app-owned loading view.
+    static let launchBackground = Color(
+        .sRGB,
+        red: 39.0 / 255.0,
+        green: 41.0 / 255.0,
+        blue: 31.0 / 255.0,
+        opacity: 1
+    )
+
     /// `color/grey/96` (Spring Wood) — app background and tab-bar surface.
     static let surface = Color(hex: 0xF7F5F1)
 

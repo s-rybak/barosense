@@ -6,8 +6,8 @@
   Deliberately tiny. `GENERATE_INFOPLIST_FILE` stays on and merges every `INFOPLIST_KEY_*`
   build setting in `project.yml` on top of this file at build time, so purpose strings and
   scene configuration keep living in the manifest where they are reviewable next to the
-  entitlements. Only the two keys that cannot be written as an `INFOPLIST_KEY_*` build
-  setting — because they are arrays of app-defined strings — are here.
+  entitlements. Only values that cannot be expressed safely as scalar `INFOPLIST_KEY_*`
+  build settings live here: app-defined arrays and the launch-screen dictionary.
 
   This file is hand-written and tracked, unlike Barosense.xcodeproj. XcodeGen references it
   through INFOPLIST_FILE and does not generate it.
@@ -41,5 +41,12 @@
 	     <true/>. -->
 	<key>NSLocationDefaultAccuracyReduced</key>
 	<true/>
+	<!-- iOS owns the first frame of a cold launch and permits no animation there. Matching
+	     its fill to LaunchLoadingView avoids a light flash before SwiftUI starts the GIF. -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
 </dict>
 </plist>
