@@ -6,28 +6,34 @@ enum SettingsRoute: Hashable {
     case report
     case language
     case contact
+    case subscription
 }
 
 /// M6 · Settings (Figma `7:1246`).
 ///
-/// Two rows in the design are deliberately absent rather than drawn dead:
+/// **My meds** is deliberately absent rather than drawn dead: it is deferred, and a row that
+/// leads nowhere teaches the user the list is unreliable. It comes back with the feature.
 ///
-/// - **My meds** — deferred, and a row that leads nowhere teaches the user the list is
-///   unreliable.
-/// - **Barometer Premium** — there is no purchase to make yet, and a subscription card
-///   with no subscription behind it is exactly the kind of thing App Review asks about.
-///
-/// Both come back with the feature behind them.
+/// **Barometer Premium** was absent for the same reason and is now here, because there is a
+/// purchase behind it — see `SubscriptionSettingsCard`.
 struct SettingsScreen: View {
 
     let dependencies: SettingsDependencies
     let languages: LanguageController
+
+    /// What this install is entitled to. `nil` only on a build where the store never opened —
+    /// see `RootView.subscription` — which hides the card and leaves the report row open.
+    let subscription: SubscriptionController?
 
     /// Raised while a destination is pushed, so the root can take the tab bar away —
     /// the pushed screens in the design have no tab bar under them.
     @Binding var isDetailPresented: Bool
 
     @Environment(\.scenePhase) private var scenePhase
+
+    /// See `EnvironmentValues.tabBarInset`. Read here rather than inside `list` because it has
+    /// to be applied on the far side of the `NavigationStack` that drops it.
+    @Environment(\.tabBarInset) private var tabBarInset
 
     @State private var model: SettingsModel
     @State private var path: [SettingsRoute] = []
@@ -39,12 +45,14 @@ struct SettingsScreen: View {
 
     init(dependencies: SettingsDependencies,
          languages: LanguageController,
+         subscription: SubscriptionController? = nil,
          isDetailPresented: Binding<Bool>,
          onDataErased: @escaping () async -> Void,
          onRemindersChanged: @escaping () async -> Void = {},
          onVocabularyChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
         self.languages = languages
+        self.subscription = subscription
         self.onVocabularyChanged = onVocabularyChanged
         _isDetailPresented = isDetailPresented
         // The calendar is handed over rather than read from the environment, as on History:
@@ -59,6 +67,10 @@ struct SettingsScreen: View {
     var body: some View {
         NavigationStack(path: $path) {
             list
+                // Without this the list ends underneath the tab bar and "Delete my data",
+                // the last row on the screen, cannot be scrolled out from behind it. Only
+                // the root needs it: a pushed destination takes the bar away.
+                .safeAreaPadding(.bottom, tabBarInset)
                 .navigationDestination(for: SettingsRoute.self) { route in
                     destination(for: route)
                         .toolbar(.hidden, for: .navigationBar)
@@ -99,6 +111,7 @@ struct SettingsScreen: View {
                 preferencesCard
                 WeatherKitCard(model: model)
                 RemindersCard(model: model)
+                subscriptionCard
                 reportCard
                 contactCard
                 destructiveActions
@@ -207,10 +220,7 @@ struct SettingsScreen: View {
     /// Apple Health and Language (Figma `7:1270`).
     private var preferencesCard: some View {
         SettingsCard {
-            SettingsToggleRow(title: "Apple Health",
-                              caption: healthCaption,
-                              isOn: healthBinding,
-                              isEnabled: model.health.isInteractive)
+            HealthRow(model: model)
 
             SettingsRowDivider()
 
@@ -221,6 +231,17 @@ struct SettingsScreen: View {
             SettingsNavigationRow(title: "Language",
                                   value: Text(verbatim: languages.language.endonym)) {
                 path.append(.language)
+            }
+        }
+    }
+
+    /// The subscription, on the dark surface. Directly above the report row it governs, so the
+    /// one paid thing in this tab and the card that explains it are read together.
+    @ViewBuilder
+    private var subscriptionCard: some View {
+        if let subscription {
+            SubscriptionSettingsCard(subscription: subscription) {
+                path.append(.subscription)
             }
         }
     }
@@ -255,49 +276,6 @@ struct SettingsScreen: View {
             }
         }
         .padding(.horizontal, 4)
-    }
-
-    // MARK: - Apple Health row
-
-    /// The switch reflects what Barosense can actually read from Health, not what it has
-    /// asked for. Anything less than the whole read set leaves it off.
-    ///
-    /// Writing to it never sets it. The setter runs the action the current state allows
-    /// (show the sheet, re-check, or send the user to Health) and leaves the displayed
-    /// value to `model.load()`, so the switch cannot show a state HealthKit does not agree
-    /// with — including the case where the user answers the sheet with a refusal and the
-    /// switch has to fall straight back to off.
-    private var healthBinding: Binding<Bool> {
-        Binding(
-            get: { model.health.isConnected },
-            set: { _ in
-                Task {
-                    if await model.toggleHealthAccess() == .needsHealthApp {
-                        HealthAppLink.open()
-                    }
-                }
-            }
-        )
-    }
-
-    /// None of these say "denied". iOS does not reveal a read refusal, and an empty Health
-    /// store looks exactly the same from here, so each line states what was observed and
-    /// points at the one place that can actually settle it.
-    private var healthCaption: LocalizedStringKey? {
-        switch model.health.access {
-        case .unavailable:
-            "Health data isn't available on this device."
-        case .notRequested:
-            "Fills in sleep, resting heart rate and blood oxygen for you."
-        case .requested where model.health.hasNothingReadable:
-            "Barosense can't read anything from Health. Open Health to check what it may read."
-        case .requested where !model.health.isConnected:
-            "Barosense can read only part of your Health data. Open Health to check what it may read."
-        case .requested where !model.health.hasReadings:
-            "Nothing read in the last 7 days. Open Health to check what Barosense may read."
-        case .requested:
-            nil
-        }
     }
 
     // MARK: - Erase
@@ -342,9 +320,27 @@ struct SettingsScreen: View {
                               })
 
         case .report:
-            ReportScreen(dependencies: dependencies,
-                         languages: languages,
-                         back: { path.removeLast() })
+            // Gated at the destination rather than inside the report screen: past the trial
+            // there is nothing to show, and building a preview the user cannot share would
+            // spend a full pass over the check-in and barometer tables to draw a stub over it.
+            if let subscription, !subscription.isUnlocked(.report) {
+                VStack(spacing: 0) {
+                    SettingsNavigationBar(title: ReportScreenCopy.title,
+                                          back: { path.removeLast() })
+
+                    PremiumLockedScreen(feature: .report) { path.append(.subscription) }
+                }
+                .background(Palette.surface.ignoresSafeArea())
+            } else {
+                ReportScreen(dependencies: dependencies,
+                             languages: languages,
+                             back: { path.removeLast() })
+            }
+
+        case .subscription:
+            if let subscription {
+                SubscriptionScreen(subscription: subscription, back: { path.removeLast() })
+            }
 
         case .language:
             LanguageScreen(languages: languages, back: { path.removeLast() })
@@ -385,6 +381,64 @@ private struct WeatherKitCard: View {
         model.isWeatherKitOn
             ? "Extends the pressure chart a few days ahead. Sends only your approximate area and the time."
             : "Barosense is building the forecast from your own readings — a few hours ahead, and roughly."
+    }
+}
+
+/// Apple Health: whether Barosense may read it, and what it can actually see.
+///
+/// A view of its own for the reason `LocationRow` below is one — the switch is written to
+/// through an interpreted tap and the caption has five wordings, and both belong next to the
+/// control they drive rather than in the screen that lists it.
+private struct HealthRow: View {
+
+    let model: SettingsModel
+
+    var body: some View {
+        SettingsToggleRow(title: "Apple Health",
+                          caption: caption,
+                          isOn: binding,
+                          isEnabled: model.health.isInteractive)
+    }
+
+    /// The switch reflects what Barosense can actually read from Health, not what it has
+    /// asked for. Anything less than the whole read set leaves it off.
+    ///
+    /// Writing to it never sets it. The setter runs the action the current state allows
+    /// (show the sheet, re-check, or send the user to Health) and leaves the displayed
+    /// value to `model.load()`, so the switch cannot show a state HealthKit does not agree
+    /// with — including the case where the user answers the sheet with a refusal and the
+    /// switch has to fall straight back to off.
+    private var binding: Binding<Bool> {
+        Binding(
+            get: { model.health.isConnected },
+            set: { _ in
+                Task {
+                    if await model.toggleHealthAccess() == .needsHealthApp {
+                        HealthAppLink.open()
+                    }
+                }
+            }
+        )
+    }
+
+    /// None of these say "denied". iOS does not reveal a read refusal, and an empty Health
+    /// store looks exactly the same from here, so each line states what was observed and
+    /// points at the one place that can actually settle it.
+    private var caption: LocalizedStringKey? {
+        switch model.health.access {
+        case .unavailable:
+            "Health data isn't available on this device."
+        case .notRequested:
+            "Fills in sleep, resting heart rate and blood oxygen for you."
+        case .requested where model.health.hasNothingReadable:
+            "Barosense can't read anything from Health. Open Health to check what it may read."
+        case .requested where !model.health.isConnected:
+            "Barosense can read only part of your Health data. Open Health to check what it may read."
+        case .requested where !model.health.hasReadings:
+            "Nothing read in the last 7 days. Open Health to check what Barosense may read."
+        case .requested:
+            nil
+        }
     }
 }
 

@@ -16,6 +16,48 @@ final class OnboardingModelTests: XCTestCase {
         XCTAssertEqual(OnboardingStep.terms.previous, .pattern)
         XCTAssertEqual(OnboardingStep.health.previous, .terms)
         XCTAssertEqual(OnboardingStep.ready.previous, .health)
+        XCTAssertEqual(OnboardingStep.premium.previous, .ready)
+    }
+
+    func testTheProgressBarDoesNotShortenWhenAClosingStepIsAdded() {
+        // The bar counts the steps that draw one plus a single arrival, so the last
+        // interactive step reads "5 of 6" — where it has always been — rather than dropping to
+        // "5 of 7" because a second dark screen landed behind it.
+        XCTAssertEqual(OnboardingStep.progressStepCount, 6)
+        XCTAssertEqual(OnboardingStep.health.completedSteps, 5)
+        XCTAssertNil(OnboardingStep.ready.completedSteps)
+        XCTAssertNil(OnboardingStep.premium.completedSteps)
+    }
+
+    func testTheCommitHappensOnTheLastStepAndNotOnTheOneBeforeIt() async throws {
+        // `ReadyStep` used to be the end and used to be the write. Both moved to `PremiumStep`,
+        // so leaving the arrival screen must now change nothing on disk.
+        let profileStore = InMemoryUserProfileStore()
+        var didFinish = false
+        let model = OnboardingModel(profileStore: profileStore,
+                                    tagStore: InMemoryWellbeingTagStore(WellbeingTag.seeds),
+                                    sensorAccess: NoOpSensorAccess(),
+                                    onFinished: { didFinish = true })
+        await model.load()
+        model.toggleTag(try XCTUnwrap(model.offeredTags.first).id)
+        model.hasAcceptedTerms = true
+        model.step = .ready
+
+        model.advance()
+
+        XCTAssertEqual(model.step, .premium)
+        let beforeCommit = await profileStore.profile()
+        XCTAssertNil(beforeCommit)
+        XCTAssertFalse(didFinish)
+
+        model.advance()
+        // The commit is `async` behind a synchronous `advance()`, so the write is in flight
+        // when the call returns.
+        try await Task.sleep(for: .milliseconds(50))
+
+        let afterCommit = await profileStore.profile()
+        XCTAssertNotNil(afterCommit)
+        XCTAssertTrue(didFinish)
     }
 
     func testPreviousAndNextAreInverses() {
@@ -182,6 +224,67 @@ final class OnboardingModelTests: XCTestCase {
         XCTAssertEqual(model.step, .ready)
     }
 
+    func testTheStepReportsWhatEachPermissionAnswered() async {
+        // The bug this step had: it asked for both and reported neither, so a refused
+        // barometer looked exactly like a granted one.
+        let access = RecordingSensorAccess()
+        access.barometerAnswer = .denied
+        let model = makeModel(sensorAccess: access)
+        model.step = .health
+
+        await model.refreshAccessStates()
+        XCTAssertEqual(model.barometerAccess, .notRequested)
+        XCTAssertEqual(model.healthAccess, .notRequested)
+
+        await model.requestHealthAccess()
+
+        XCTAssertEqual(model.barometerAccess, .denied)
+        XCTAssertTrue(model.healthAccess.isFullyReadable)
+    }
+
+    func testTappingThePressureSwitchAsksOnlyForTheBarometer() async {
+        // The switches are per-permission. A tap on one that raised both sheets would be a
+        // control that does something other than what it is labelled.
+        let access = RecordingSensorAccess()
+        let model = makeModel(sensorAccess: access)
+        model.step = .health
+
+        let outcome = await model.toggleBarometerAccess()
+
+        XCTAssertEqual(access.requests, [.barometer])
+        XCTAssertEqual(outcome, .handled)
+        XCTAssertEqual(model.barometerAccess, .granted)
+        // And it does not move the flow on, unlike the step's own action.
+        XCTAssertEqual(model.step, .health)
+    }
+
+    func testASettledBarometerAnswerSendsTheUserToSettings() async {
+        // `CMAltimeter` raises its prompt once per install. After that a switch that kept
+        // restarting the sensor would be a control that visibly does nothing.
+        let access = RecordingSensorAccess()
+        access.barometerAnswer = .denied
+        let model = makeModel(sensorAccess: access)
+        model.step = .health
+        await model.toggleBarometerAccess()
+
+        let secondTap = await model.toggleBarometerAccess()
+
+        XCTAssertEqual(access.requests, [.barometer])
+        XCTAssertEqual(secondTap, .needsSystemSettings)
+    }
+
+    func testTappingTheHealthSwitchAfterTheSheetSendsTheUserToHealth() async {
+        let access = RecordingSensorAccess()
+        let model = makeModel(sensorAccess: access)
+        model.step = .health
+        await model.toggleHealthAccess()
+
+        let secondTap = await model.toggleHealthAccess()
+
+        XCTAssertEqual(access.requests, [.health])
+        XCTAssertEqual(secondTap, .needsHealthApp)
+    }
+
     // MARK: - Direction
 
     func testTheFlowKnowsWhichWayTheLastMoveWent() {
@@ -227,7 +330,10 @@ final class OnboardingModelTests: XCTestCase {
 // MARK: - Doubles
 
 /// Records what the Apple Health step asked the device for, and in what order — which is the
-/// whole of what that step does.
+/// whole of what that step does — and answers state questions the way a device would.
+///
+/// The two states move only when a request is made, which is what makes the switches testable:
+/// a step that never asked must not be able to report a grant.
 @MainActor
 private final class RecordingSensorAccess: SensorAccessRequesting {
 
@@ -238,7 +344,24 @@ private final class RecordingSensorAccess: SensorAccessRequesting {
 
     private(set) var requests: [Request] = []
 
-    func requestHealthAccess() async { requests.append(.health) }
+    /// What each request will be answered with. Set before the call to model a refusal.
+    var healthAnswer: HealthAccessState = .requested(readable: Set(HealthMetricKind.allCases))
+    var barometerAnswer: BarometerAccessState = .granted
 
-    func requestBarometerAccess() async { requests.append(.barometer) }
+    private var health: HealthAccessState = .notRequested
+    private var barometer: BarometerAccessState = .notRequested
+
+    func requestHealthAccess() async {
+        requests.append(.health)
+        health = healthAnswer
+    }
+
+    func requestBarometerAccess() async {
+        requests.append(.barometer)
+        barometer = barometerAnswer
+    }
+
+    func healthAccess() async -> HealthAccessState { health }
+
+    func barometerAccess() -> BarometerAccessState { barometer }
 }

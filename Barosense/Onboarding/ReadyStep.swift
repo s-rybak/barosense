@@ -1,11 +1,18 @@
 import SwiftUI
 
-/// O6 · The closing step (Figma `7:589`).
+/// O6 · The arrival step (Figma `7:589`).
 ///
-/// The only step on the dark side of the palette, and the only one with no progress bar —
-/// it is the arrival, not another thing to get through. Its action is what actually
-/// commits the profile and prunes the tag vocabulary, so a failure has to be visible here
-/// rather than dropping the user into an app with none of their answers.
+/// No progress bar — it is the arrival, not another thing to get through — but on the same
+/// light surface as every step before it. The design had it inverted, back when it was the
+/// last screen and the inversion marked the end of the flow. `PremiumStep` is the end now and
+/// carries that inversion, so a second dark screen in front of it read as the finish arriving
+/// twice.
+///
+/// It used to be the last step, and its action used to be the commit: "Start" wrote the
+/// profile, pruned the tag vocabulary and dropped the user into the app. `PremiumStep` now
+/// sits behind it and carries all three, so this reads "Next" and does nothing but move on.
+/// The retry-on-failure copy moved with the commit rather than being left here over a write
+/// that no longer happens on this screen.
 struct ReadyStep: View {
 
     @Bindable var model: OnboardingModel
@@ -13,9 +20,7 @@ struct ReadyStep: View {
     var body: some View {
         OnboardingStepScaffold(
             completedSteps: model.step.completedSteps,
-            palette: .dark,
-            actionTitle: model.failure == nil ? "Start" : "Try again",
-            isActionEnabled: !model.isSaving,
+            actionTitle: "Next",
             action: model.advance
         ) {
             VStack(spacing: 24) {
@@ -25,32 +30,22 @@ struct ReadyStep: View {
                 OnboardingHeader(
                     title: "Your plan is ready",
                     subtitle: "Your personal model has started learning from your data",
-                    palette: .dark,
                     alignment: .center
                 )
 
                 VStack(spacing: 12) {
                     MarkerRow(text: "Pressure forecast with push notifications",
                               marker: Palette.markerWarm,
-                              markerSize: 10,
-                              palette: .dark)
+                              markerSize: 10)
 
                     MarkerRow(text: """
                         The model learns from your data alone. For a sharper forecast it \
                         needs 90 days of tracking at 3 check-ins a day.
                         """,
                               marker: Palette.markerCool,
-                              markerSize: 10,
-                              palette: .dark)
+                              markerSize: 10)
                 }
                 .padding(.top, 8)
-
-                if model.failure != nil {
-                    Text("Your answers could not be saved. Check that the device has free space and try again.")
-                        .font(Typography.fieldUnit)
-                        .foregroundStyle(Palette.markerWarm)
-                        .multilineTextAlignment(.center)
-                }
             }
             .frame(maxWidth: .infinity)
         }

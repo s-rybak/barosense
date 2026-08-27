@@ -95,7 +95,11 @@ enum Palette {
     /// a row describing something already in place.
     static let positive = Color(hex: 0x3FA66B)
 
-    /// `color/red/56` (Red Damask) — the Apple Health tile.
+    /// `color/red/56` (Red Damask) — the warning under an out-of-range field.
+    ///
+    /// Named for the Apple Health tile it was added for. That tile is gone from the onboarding
+    /// step, and the token is kept under the Figma name rather than renamed to its remaining
+    /// consumer, because `destructive` below aliases it and the two roles move separately.
     static let health = Color(hex: 0xD65B4A)
 
     /// An action that removes something: the fill behind a swipe, and bare destructive text
@@ -112,6 +116,22 @@ enum Palette {
 
     /// `color/azure/56` (Royal Blue) — marker on the learning row of the closing screen.
     static let markerCool = Color(hex: 0x3E6BE0)
+
+    // MARK: - Risk card (Figma `7:654`)
+
+    /// `color/azure/28` (Oxford Blue) — the hairline between the recorded chips and the
+    /// forecast ones, drawn on `ink`.
+    ///
+    /// Its own token rather than `separator` at an opacity: the two sit on opposite surfaces,
+    /// and a light hairline dimmed onto a dark card lands at a value the design never picked.
+    static let separatorOnInk = Color(hex: 0x3A4256)
+
+    /// `color/azure/47` (Pale Sky) — the dashed ring of a forecast chip when there is no
+    /// trailing intensity to colour it with.
+    ///
+    /// The dark-surface counterpart of `dashedBorder`, and separate from it for the reason
+    /// `separatorOnInk` is separate from `separator`.
+    static let dashedBorderOnInk = Color(hex: 0x6B7284)
 
     // MARK: - Pressure chart (Figma `7:671`)
 
