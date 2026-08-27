@@ -37,6 +37,17 @@ struct NowScreen: View {
     /// which re-reads its markers on a change — see `PressureChartCard`.
     private let checkInRevision: Int
 
+    /// Whether the risk card may be drawn. `false` past the end of an unpaid trial, which puts
+    /// the locked stub in its place.
+    ///
+    /// Handed down as a plain `Bool` rather than by giving this screen the subscription
+    /// controller: what it needs is one answer, and passing the controller would let a view
+    /// start reaching for prices and purchases from the middle of the Now screen.
+    private let isOutlookUnlocked: Bool
+
+    /// Opens the offer. Owned by the root, which is where every sheet in the app is raised.
+    private let showOffer: () -> Void
+
     /// Side margin the design uses for every card on this screen: 20 pt inside a 351 pt
     /// frame.
     private static let horizontalMargin: CGFloat = 20
@@ -49,7 +60,9 @@ struct NowScreen: View {
          checkIns: any CheckInStore,
          forecast: PressureForecastReader? = nil,
          risk: WellbeingRiskEngine? = nil,
-         checkInRevision: Int = 0) {
+         checkInRevision: Int = 0,
+         isOutlookUnlocked: Bool = true,
+         showOffer: @escaping () -> Void = {}) {
         _model = State(initialValue: HealthMetricsViewModel(recorder: recorder))
         _meters = State(initialValue: NowMetersModel(pressure: pressure,
                                                      checkIns: checkIns,
@@ -59,6 +72,8 @@ struct NowScreen: View {
         self.forecast = forecast
         self.risk = risk
         self.checkInRevision = checkInRevision
+        self.isOutlookUnlocked = isOutlookUnlocked
+        self.showOffer = showOffer
     }
 
     var body: some View {
@@ -68,8 +83,19 @@ struct NowScreen: View {
                 // box with a heading in it. Every reason it can be absent — no engine on this
                 // build, a today too thinly covered to score, every window under half a
                 // point — is one the user cannot act on from this screen.
-                if let outlook = meters.outlook {
-                    RiskOutlookCard(outlook: outlook)
+                //
+                // The lock is applied *inside* that test, not in front of it, and the ordering
+                // is the honest one: a paywall drawn where there is no outlook to sell would
+                // be charging for a card the app cannot fill yet — a cold-start install would
+                // meet an offer for something it has too little history to produce, and a user
+                // who paid would find the same empty space they were promised a forecast in.
+                // So the stub appears only once there is genuinely something behind it.
+                if meters.outlook != nil {
+                    if isOutlookUnlocked, let outlook = meters.outlook {
+                        RiskOutlookCard(outlook: outlook)
+                    } else {
+                        PremiumLockedView(feature: .riskOutlook, showOffer: showOffer)
+                    }
                 }
 
                 PressureChartCard(collection: pressure,

@@ -154,6 +154,13 @@ actor PressureSampleRecorder {
     /// `PressureCollectionController.start()`.
     nonisolated var isAccessRequested: Bool { source.isAccessRequested }
 
+    /// What the sensor will do for this install, for the one screen that draws a switch for it.
+    ///
+    /// `nonisolated` for the reason `isAvailable` and `isAccessRequested` are: it is a device
+    /// fact read straight off CoreMotion, and its caller is deciding what to draw rather than
+    /// asking for a reading.
+    nonisolated var access: BarometerAccessState { source.access }
+
     /// Reads the barometer once and persists what it read.
     ///
     /// Returns `nil` when the rate limit declined to sample — an ordinary outcome, not a

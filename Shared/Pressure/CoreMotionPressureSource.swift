@@ -48,10 +48,22 @@ actor CoreMotionPressureSource: PressureSource {
         CMAltimeter.isRelativeAltitudeAvailable()
     }
 
-    /// `.notDetermined` is the only status that means the prompt has not been shown yet;
-    /// `.authorized`, `.denied` and `.restricted` are all answers the user has given.
-    nonisolated var isAccessRequested: Bool {
-        CMAltimeter.authorizationStatus() != .notDetermined
+    /// `.restricted` is folded into `.denied` rather than given a case of its own. The two
+    /// differ in who said no — the user, or a device policy — and in nothing the app can do
+    /// about it: neither can be re-prompted, and both send the user to the same Settings pane.
+    ///
+    /// The availability check comes first, because `authorizationStatus()` answers on a device
+    /// with no barometer at all and an "off" switch there would invite a trip to Settings that
+    /// cannot help.
+    nonisolated var access: BarometerAccessState {
+        guard CMAltimeter.isRelativeAltitudeAvailable() else { return .unavailable }
+
+        return switch CMAltimeter.authorizationStatus() {
+        case .notDetermined: .notRequested
+        case .authorized: .granted
+        case .denied, .restricted: .denied
+        @unknown default: .notRequested
+        }
     }
 
     func currentPressure() async throws -> Pressure {

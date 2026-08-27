@@ -31,11 +31,18 @@ enum BarosenseModelContainer {
     /// same reason one step removed — the reminder it logs is planned off the check-in table.
     /// `PressureSample` is durable but deliberately not here: sensor rows live in their own
     /// container (`SwiftDataPressureSampleStore`), the way Health rows do.
+    ///
+    /// `StoredSubscription` joined it for neither reason — it references nothing here. It is on
+    /// this container because a container of its own would be a fourth SQLite file that can
+    /// fail to open at launch, and this one failing locks a paying user out of what they
+    /// bought. Adding it is a lightweight migration: every field is optional, so an existing
+    /// install gains an empty table rather than needing a mapping.
     static let schema = Schema([
         StoredUserProfile.self,
         StoredWellbeingTag.self,
         StoredCheckIn.self,
-        StoredNotification.self
+        StoredNotification.self,
+        StoredSubscription.self
     ])
 
     /// File name of the on-disk store. Part of the storage contract — renaming it orphans

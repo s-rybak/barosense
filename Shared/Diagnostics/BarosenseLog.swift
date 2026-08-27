@@ -41,4 +41,13 @@ enum BarosenseLog {
     /// derived from when this user writes check-ins — so the hour a reminder was placed at does
     /// not go in the log, only how many were placed.
     static let notifications = Logger(subsystem: subsystem, category: "notifications")
+
+    /// What the App Store told the app about this install's entitlement.
+    ///
+    /// Product identifiers and outcomes only. No Apple Account, no transaction identifier and
+    /// no expiry date: an expiry is a date that identifies *this* purchase, and the same rule
+    /// that keeps a check-in's timestamp out of the log keeps it out too. What is worth
+    /// logging here is that a lookup returned nothing or that a transaction failed
+    /// verification — both are silent on screen and both leave a paying user locked out.
+    static let subscription = Logger(subsystem: subsystem, category: "subscription")
 }

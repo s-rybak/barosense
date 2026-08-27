@@ -35,6 +35,9 @@ struct HistoryScreen: View {
 
     @State private var model: HistoryModel
 
+    /// See `EnvironmentValues.tabBarInset`.
+    @Environment(\.tabBarInset) private var tabBarInset
+
     private static let horizontalMargin: CGFloat = 20
     private static let blockSpacing: CGFloat = 14
 
@@ -80,6 +83,10 @@ struct HistoryScreen: View {
                 .padding(.bottom, Self.blockSpacing)
             }
             .background(Palette.surface)
+            // The tab bar's inset does not survive the `NavigationStack` above — see
+            // `EnvironmentValues.tabBarInset`. Nothing overflows here at the default type
+            // size; at the larger ones the medications row would sit behind the bar.
+            .safeAreaPadding(.bottom, tabBarInset)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: HistoryRoute.self) { route in
                 switch route {
