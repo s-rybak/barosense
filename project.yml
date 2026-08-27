@@ -38,9 +38,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.barosense.app
         PRODUCT_NAME: Barosense
         TARGETED_DEVICE_FAMILY: "1,2"
-        # The asset catalogue exists for the app icon and nothing else. Everything the UI
-        # draws is a path or a palette token, so a bitmap here is a deliberate exception:
-        # the icon is the one image the system renders and no code can draw.
+        # The asset catalogue holds two bitmaps and no more: the app icon, and the same
+        # artwork as `Logo` for the mark on the terms step. Everything else the UI draws is
+        # a path or a palette token. Both exceptions are the same artwork — a logo is not
+        # something code should be redrawing — and neither is a screenshot or an
+        # illustration; add one of those and this comment is wrong.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Hand-written base plist, merged with the INFOPLIST_KEY_* settings below. It holds
         # only the array-valued keys that cannot be expressed as a build setting —

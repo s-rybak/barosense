@@ -26,6 +26,16 @@ struct RootView: View {
     /// shown in. Optional rather than force-unwrapped at the composition root.
     let reminders: CheckInReminderController?
     let settings: SettingsDependencies?
+
+    /// What this install is entitled to. `nil` only while the store is still opening, which is
+    /// a state this view is never shown in — optional rather than force-unwrapped at the
+    /// composition root, like the two above it.
+    ///
+    /// A `nil` here leaves every gated surface **open**. That is the deliberate direction: the
+    /// failure mode of a missing entitlement reader must be a user who sees a feature they
+    /// might not have paid for, never a paying user locked out by a store that would not open.
+    let subscription: SubscriptionController?
+
     let languages: LanguageController
 
     /// Where a tapped notification wants to go. Owned by `BarosenseApp`, because a tap can be
@@ -70,6 +80,23 @@ struct RootView: View {
     /// both write it, and `onChange(of: selection)` below lowers it on any tab change.
     @State private var isDetailPresented = false
 
+    /// Which offer is on screen, and `nil` for none.
+    ///
+    /// Sequenced behind the two primers rather than shown beside them — see
+    /// `isShowingWeatherPrimer` — and behind them deliberately in that order: the reminder and
+    /// the WeatherKit trade are questions the app needs answered to work properly, and asking
+    /// for money in front of either is how both get dismissed unread.
+    ///
+    /// Carries *how* the sheet was opened rather than only whether it is open, because the two
+    /// routes spend different things — see `PaywallOrigin`. It does not carry whether the trial
+    /// has ended: that is the controller's to answer, not this view's to remember
+    /// (`SubscriptionController.hasTrialExpired`).
+    @State private var paywall: PaywallOrigin?
+
+    /// How tall the tab bar currently is, measured and published for the screens that have to
+    /// re-apply it themselves. See `EnvironmentValues.tabBarInset`.
+    @State private var tabBarInset: CGFloat = 0
+
     var body: some View {
         ZStack {
             Palette.surface.ignoresSafeArea()
@@ -79,9 +106,18 @@ struct RootView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !isDetailPresented {
                 BarosenseTabBar(selection: tabBarSelection)
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        tabBarInset = height
+                    }
                     .transition(.move(edge: .bottom))
             }
         }
+        // The inset above does not reach a screen that puts a `NavigationStack` between itself
+        // and its content, so the ones that do read this and put it back. See
+        // `EnvironmentValues.tabBarInset`.
+        .environment(\.tabBarInset, tabBarInset)
         .animation(.easeInOut(duration: 0.2), value: isDetailPresented)
         .onChange(of: selection) { _, _ in
             // Leaving a tab while a detail is pushed would otherwise strand the tab bar hidden
@@ -141,6 +177,11 @@ struct RootView: View {
                 // next week's worth is brought back in step, and on a day when nothing has
                 // changed the pass makes no cross-process calls at all.
                 refreshReminders()
+                // Where a renewal, a cancellation or a refund made on another device shows
+                // up, and where the gate closes on a trial that ran out while the app was in
+                // the background. Answered from StoreKit's on-device cache and writes nothing
+                // when the answer has not changed — see `SubscriptionController.reconcile`.
+                refreshEntitlement()
             }
         }
         // A reminder already handed to the system carries the words it was rendered with, and
@@ -161,6 +202,12 @@ struct RootView: View {
             WeatherKitPrimer(onAccept: { setWeatherKitEnabled(true) },
                              onDecline: { setWeatherKitEnabled(false) })
         }
+        .sheet(item: $paywall) { origin in
+            if let subscription {
+                PaywallSheet(subscription: subscription,
+                             isAutomatic: origin == .automatic) { paywall = nil }
+            }
+        }
         .task {
             if let reminders, await reminders.shouldOfferPrimer() {
                 isShowingReminderPrimer = true
@@ -171,7 +218,10 @@ struct RootView: View {
             // one the user is not looking at can wait for the next launch.
             if settings?.weatherPreferences.hasOfferedWeatherKit() == false {
                 isShowingWeatherPrimer = true
+                return
             }
+
+            offerPaywallIfTrialEnded()
         }
         // A tapped notification, which may have arrived before this view existed — see
         // `NotificationRouter`. Read on appearance as well as on change, because a tap that
@@ -218,7 +268,9 @@ struct RootView: View {
                       checkIns: checkInStore,
                       forecast: forecast,
                       risk: risk,
-                      checkInRevision: checkInRevision)
+                      checkInRevision: checkInRevision,
+                      isOutlookUnlocked: isUnlocked(.riskOutlook),
+                      showOffer: showOffer)
         case .history:
             // The calendar is handed over rather than read from the environment: this
             // screen's model is built in `init`, before an environment exists, and the
@@ -238,6 +290,7 @@ struct RootView: View {
             if let settings {
                 SettingsScreen(dependencies: settings,
                                languages: languages,
+                               subscription: subscription,
                                isDetailPresented: $isDetailPresented,
                                onDataErased: onDataErased,
                                onRemindersChanged: reconcileReminders,
@@ -247,17 +300,70 @@ struct RootView: View {
             // Takes the whole store bundle because the report it pushes to takes the whole
             // store bundle — see `InsightsScreen.dependencies`. Absent while the store is still
             // opening, which is a state this view is never shown in.
-            if let settings {
-                InsightsScreen(dependencies: settings,
-                               languages: languages,
-                               risk: risk,
-                               isDetailPresented: $isDetailPresented)
-                    // Re-identified on `checkInRevision` so a check-in written from the sheet
-                    // reaches the tag counts and the sparkline, and on the language for the
-                    // reason History is: the seven-day trace is named by weekday out of the
-                    // calendar the model was built with.
-                    .id("\(checkInRevision)-\(languages.language.rawValue)")
+            //
+            // Gated as a whole destination: it is one of the three paid surfaces, and an
+            // install past its trial must not reach it by a route the paywall does not cover.
+            if isUnlocked(.insights) {
+                if let settings {
+                    InsightsScreen(dependencies: settings,
+                                   languages: languages,
+                                   risk: risk,
+                                   isDetailPresented: $isDetailPresented)
+                        // Re-identified on `checkInRevision` so a check-in written from the sheet
+                        // reaches the tag counts and the sparkline, and on the language for the
+                        // reason History is: the seven-day trace is named by weekday out of the
+                        // calendar the model was built with.
+                        .id("\(checkInRevision)-\(languages.language.rawValue)")
+                }
+            } else {
+                PremiumLockedScreen(feature: .insights, showOffer: showOffer)
             }
+        }
+    }
+
+    /// Whether a gated surface may be drawn.
+    ///
+    /// Open when there is no controller at all. See the note on `subscription` — the failure
+    /// mode of a store that would not open must never be a paying user locked out.
+    private func isUnlocked(_ feature: PremiumFeature) -> Bool {
+        subscription?.isUnlocked(feature) ?? true
+    }
+
+    /// Opens the offer from a locked screen.
+    ///
+    /// Takes no feature: all three unlock together, so there is one offer and it is the same
+    /// one whichever stub was tapped. Not an automatic offer either, so it does **not** spend
+    /// the one end-of-trial prompt — see `SubscriptionController.recordPaywallOffered`.
+    private func showOffer() {
+        paywall = .requested
+    }
+
+    /// The single automatic offer, raised once after the free week runs out.
+    ///
+    /// Asks for the sheet and **stamps nothing**. The stamp is what spends the one automatic
+    /// offer the app is allowed to make, and it is written by the sheet itself once it is on
+    /// screen — see `PaywallSheet.isAutomatic`.
+    ///
+    /// That split is the whole point. Setting this state is a request, not a guarantee: SwiftUI
+    /// presents one sheet per view, this view has four, and a check-in raised by a notification
+    /// tap on the same frame wins. Stamping here would spend the offer on a sheet that never
+    /// appeared, and `shouldOfferPaywall` is false for ever afterwards — so the one moment the
+    /// whole feature exists for would be dropped in silence. Left unstamped, the offer stays
+    /// owed and is made again on the next activation.
+    private func offerPaywallIfTrialEnded() {
+        guard let subscription, subscription.shouldOfferPaywall else { return }
+
+        paywall = .automatic
+    }
+
+    private func refreshEntitlement() {
+        Task {
+            await subscription?.reconcile()
+            // A trial that ran out while the app was backgrounded is only noticed here, so the
+            // offer that was owed at the boundary is made on the return rather than waiting
+            // for the next cold launch. Also where an offer that was asked for but lost the
+            // frame to another sheet gets asked for again.
+            offerPaywallIfTrialEnded()
         }
     }
 
@@ -360,6 +466,9 @@ private let previewForecast = PressureForecastReader(
                                                   deliverer: NoOpNotificationDeliverer(),
                                                   preferences: InMemoryReminderPreferenceStore()),
              settings: .preview,
+             // No StoreKit in a canvas: the controller sells nothing and reports no
+             // entitlement, so a preview refresh cannot put an App Store sheet on screen.
+             subscription: SubscriptionController(store: InMemorySubscriptionStatusStore()),
              languages: LanguageController(),
              router: NotificationRouter(),
              onDataErased: {})

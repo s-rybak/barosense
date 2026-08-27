@@ -253,8 +253,8 @@ private actor StubPressureSource: PressureSource {
 
     nonisolated var isAvailable: Bool { true }
 
-    /// Answered, so the controller's launch gate is not what these tests are exercising.
-    nonisolated var isAccessRequested: Bool { true }
+    /// Granted, so the controller's launch gate is not what these tests are exercising.
+    nonisolated var access: BarometerAccessState { .granted }
 
     func setValue(_ newValue: Double) {
         hectopascals = newValue
@@ -270,7 +270,7 @@ private struct FailingPressureSource: PressureSource {
 
     var isAvailable: Bool { true }
 
-    var isAccessRequested: Bool { true }
+    var access: BarometerAccessState { .granted }
 
     func currentPressure() async throws -> Pressure {
         throw PressureSourceError.barometerUnavailable

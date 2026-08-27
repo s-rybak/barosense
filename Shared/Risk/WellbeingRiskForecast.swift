@@ -284,7 +284,8 @@ struct WellbeingRiskForecast: Hashable, Sendable {
     /// Whether any surface has something to draw from this.
     ///
     /// A forecast with no percentage and nothing marked is a forecast the model declined to
-    /// make. The row is then absent rather than empty — see `RiskSummaryRow`.
+    /// make. The card is then absent rather than empty — see `RiskOutlook.make`, which also
+    /// re-checks this against a `now` later than the one the forecast was built for.
     var isPresentable: Bool { checkInPercent != nil || !marked.isEmpty }
 }
 

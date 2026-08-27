@@ -18,6 +18,11 @@ import SwiftUI
 ///    am I looking at" stopped being answerable from the button alone, and an unlabelled
 ///    scrollable chart is a chart the user cannot locate themselves in. It costs the 18 pt
 ///    `Metrics.plotHeight` gained.
+///
+/// The card carried a risk row under its value line while the design's own risk card
+/// (`7:654`) had no model behind it. It has one now — `RiskOutlookCard`, above this card on
+/// the Now screen — and the row went with it. One forecast, drawn once: two cards printing
+/// the same percentage a scroll apart is two places for it to disagree.
 struct PressureChartCard: View {
 
     @State private var model: PressureChartModel
@@ -66,16 +71,6 @@ struct PressureChartCard: View {
             plot
 
             valueRow
-
-            // Absent entirely when the model has nothing to say, rather than a zero or a
-            // spinner. Every reason it can be absent is one the user cannot act on from here.
-            //
-            // `isPresentable` is the second half of that: a forecast can exist and still have no
-            // percentage and no marked stretch — today too thinly covered, every window under
-            // half a point — and an empty row with a title above it reads as a load that failed.
-            if let risk = model.series.risk, risk.isPresentable {
-                RiskSummaryRow(risk: risk)
-            }
 
             // Where the forward half of the line is a forecast *for*. Only drawn once there is
             // a forecast: a place name under a chart with no forward half would be answering a
@@ -724,10 +719,6 @@ private struct PressureChartPreviewHost: View {
             latestText
                 .font(Typography.pressureValue)
                 .foregroundStyle(Palette.heading)
-
-            if let risk = series.risk, risk.isPresentable {
-                RiskSummaryRow(risk: risk)
-            }
 
             PressureRangeSelector(selection: .constant(series.range))
         }

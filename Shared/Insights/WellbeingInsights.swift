@@ -11,7 +11,7 @@ import Foundation
 ///
 /// Every field is independently absent. A log with three check-ins has tags and a trace and no
 /// link and no pattern, and the screen draws exactly the cards it has — an empty card under a
-/// title reads as a load that failed, which is the rule `RiskSummaryRow` already states.
+/// title reads as a load that failed, which is the rule `RiskOutlookCard` already states.
 struct WellbeingInsights: Hashable, Sendable {
 
     /// How pressure has lined up with the scale, or `nil` while there is too little to look at.

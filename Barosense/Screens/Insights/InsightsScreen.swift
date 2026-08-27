@@ -18,7 +18,7 @@ enum InsightsRoute: Hashable {
 ///
 /// Nothing here draws an empty frame under a title. Each card is asked whether it has anything
 /// and left out when it does not, and a screen with none of them says so in one sentence. That
-/// is the same rule `PressureChartCard` applies to `RiskSummaryRow`, applied four times: an
+/// is the same rule `NowScreen` applies to `RiskOutlookCard`, applied four times: an
 /// empty card reads as a load that failed, and a user three days into an install would see four
 /// of them.
 ///
@@ -40,6 +40,10 @@ struct InsightsScreen: View {
     /// Raised while the report is pushed, so the root takes the tab bar away — the pushed
     /// screen draws its own navigation bar and, in the design, no tab bar under it.
     @Binding var isDetailPresented: Bool
+
+    /// See `EnvironmentValues.tabBarInset`. Read here rather than inside `body` because it has
+    /// to be applied on the far side of the `NavigationStack` that drops it.
+    @Environment(\.tabBarInset) private var tabBarInset
 
     @State private var model: InsightsModel
     @State private var path: [InsightsRoute] = []
@@ -76,6 +80,9 @@ struct InsightsScreen: View {
                 .padding(.bottom, InsightsMetrics.blockSpacing)
             }
             .background(Palette.surface)
+            // The tab bar's inset does not survive the `NavigationStack` above — see
+            // `EnvironmentValues.tabBarInset`.
+            .safeAreaPadding(.bottom, tabBarInset)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: InsightsRoute.self) { route in
                 destination(for: route)
@@ -142,7 +149,7 @@ struct InsightsScreen: View {
             // simply a late evening with nothing left ahead. A card of grey tiles would be
             // inventing three days.
             if let risk = model.risk, !risk.outlook.isEmpty {
-                RiskOutlookCard(risk: risk)
+                InsightsOutlookCard(risk: risk)
             }
 
             if !model.insights.tags.isEmpty {

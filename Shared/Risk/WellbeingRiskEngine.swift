@@ -16,6 +16,9 @@ import Foundation
 ///   asked for anyway) memoised for `forecastCacheSeconds`, which is the barometer's own
 ///   sampling floor. A chart reload inside that window costs nothing. It stays eight days
 ///   because the 30-day baseline is measured once per refit and carried — see `baseline`.
+///   Callers that arrive while a build is still running join it rather than starting a second
+///   one — see `inFlight`, which is what makes the memo hold for concurrent readers and not
+///   only for sequential ones.
 ///
 /// The arithmetic: the fit is a Newton solve on a 10×10 system over at most ~1 000 window rows,
 /// which is on the order of 10⁵ multiply–adds — an order of magnitude above
@@ -86,6 +89,24 @@ actor WellbeingRiskEngine {
 
     private var cached: (forecast: WellbeingRiskForecast, at: Date)?
 
+    /// The forecast being built right now, if one is.
+    ///
+    /// An actor is reentrant at every `await`, and `cached` is only written once the whole
+    /// build has finished. Two callers arriving inside that gap both miss the cache, both enter
+    /// `refitIfNeeded`, both suspend on its 120-day read — which is ahead of `lastFitAt = now`,
+    /// deliberately, so a store that could not be opened is retried — and both go on to fit.
+    ///
+    /// That is not a rare interleaving on this app: the Now screen has two callers by
+    /// construction, `NowMetersModel` and `PressureChartModel`, on concurrent `.task`s of the
+    /// same view. Uncoalesced it costs a second Newton solve and a second 120-day read of both
+    /// stores on every cold load, and on every saved check-in — `invalidate()` makes that a
+    /// cold load again.
+    ///
+    /// Held as the `Task` rather than as a flag, so the second caller gets the *same* forecast
+    /// instead of a `nil` or a wait-and-retry. Unstructured on purpose: a view scrolling away
+    /// mid-build must not cancel work another caller is waiting on.
+    private var inFlight: Task<WellbeingRiskForecast?, Never>?
+
     init(samples: any PressureSampleStore,
          checkIns: any CheckInStore,
          forecast: PressureForecastReader? = nil,
@@ -110,6 +131,19 @@ actor WellbeingRiskEngine {
             return cached.forecast
         }
 
+        if let inFlight { return await inFlight.value }
+
+        let build = Task { await self.build(asOf: now) }
+        inFlight = build
+        let forecast = await build.value
+        inFlight = nil
+
+        return forecast
+    }
+
+    /// One forecast, from the possible refit through to the scored day — everything past the
+    /// cache. Reached only through `forecast(asOf:)`, which is what keeps it to one at a time.
+    private func build(asOf now: Date) async -> WellbeingRiskForecast? {
         await refitIfNeeded(asOf: now)
 
         guard let model = training?.model
@@ -130,6 +164,12 @@ actor WellbeingRiskEngine {
 
     /// Forces the next call to refit and to rebuild, whatever the clocks say. Called when
     /// check-ins change under the model — a saved entry, or an erase.
+    ///
+    /// A build already under way is left to finish and still writes its result to the cache, so
+    /// an erase landing mid-build can be followed by one stale forecast for up to
+    /// `forecastCacheSeconds`. That is the behaviour this had before builds were coalesced, and
+    /// the call sites make it hard to reach: `invalidate()` runs from the check-in sheet's
+    /// dismissal, before the screen behind it re-runs its `.task`s.
     func invalidate() {
         lastFitAt = nil
         cached = nil

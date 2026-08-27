@@ -62,6 +62,14 @@ final class PressureCollectionController {
     /// where the chart will never fill and has to say so instead of promising data.
     let isBarometerAvailable: Bool
 
+    /// What the sensor will do for this install right now, for a control that has to say so.
+    ///
+    /// Read live off CoreMotion rather than cached, because it changes in *another app*: the
+    /// user leaves for iOS Settings, flips Motion & Fitness, and comes back. A stored copy
+    /// would still be showing the answer from before the trip — the same reason the Apple
+    /// Health row in Settings re-reads on every foreground activation.
+    var barometerAccess: BarometerAccessState { recorder.access }
+
     private let recorder: PressureSampleRecorder
     private let display: any PressureDisplayLink
 

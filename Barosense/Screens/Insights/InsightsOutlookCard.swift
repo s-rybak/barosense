@@ -21,7 +21,10 @@ import SwiftUI
 /// 3. **A note under the tiles.** The design has none. The compliance checklist requires the
 ///    plain-language "not medical advice" line to sit where the user sees the forecast, and
 ///    this card is the forecast on this screen.
-struct RiskOutlookCard: View {
+///
+/// Named apart from the Now screen's `RiskOutlookCard`: that one is the chip-row forecast
+/// (Figma `7:654`); this is the 1–3 day tile row. Same model, two surfaces, two types.
+struct InsightsOutlookCard: View {
 
     let risk: WellbeingRiskForecast
 
@@ -52,9 +55,9 @@ struct RiskOutlookCard: View {
             .frame(maxWidth: .infinity)
 
             // Cold start is stated rather than implied by a paler tile, for the reason
-            // `RiskSummaryRow` states it: through the first weeks these bands are mostly the
-            // shipped prior speaking, and a grade that does not say so reads as a measurement
-            // of this user.
+            // the Now screen's `RiskOutlookCard` states it: through the first weeks these
+            // bands are mostly the shipped prior speaking, and a grade that does not say so
+            // reads as a measurement of this user.
             if risk.isColdStart {
                 Text("Still learning your pattern — these are general estimates")
                     .font(Typography.insightCaption)
@@ -179,13 +182,13 @@ extension RiskLevel {
 }
 
 #Preview("Three days") {
-    RiskOutlookCard(risk: .previewOutlook(levels: [.moderate, .low, .high], cold: false))
+    InsightsOutlookCard(risk: .previewOutlook(levels: [.moderate, .low, .high], cold: false))
         .padding(20)
         .background(Palette.surface)
 }
 
 #Preview("Cold start") {
-    RiskOutlookCard(risk: .previewOutlook(levels: [.low, .moderate], cold: true))
+    InsightsOutlookCard(risk: .previewOutlook(levels: [.low, .moderate], cold: true))
         .padding(20)
         .background(Palette.surface)
 }
@@ -195,7 +198,7 @@ extension WellbeingRiskForecast {
     /// A forecast carrying exactly the tiles named, one day apart from the next whole hour.
     ///
     /// Built from `preview(marked:chance:cold:)` so the previews here and the ones on
-    /// `RiskSummaryRow` describe the same arrangement rather than two that drift.
+    /// `RiskOutlookCard` describe the same arrangement rather than two that drift.
     static func previewOutlook(levels: [RiskLevel], cold: Bool) -> WellbeingRiskForecast {
         let base = preview(marked: [2, 3], chance: 0.62, cold: cold)
         let width = TimeInterval(RiskWindowGeometry.windowMinutes) * 60

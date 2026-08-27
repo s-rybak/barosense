@@ -276,17 +276,27 @@ struct SettingsNavigationBar: View {
     var isActionEnabled: Bool = true
     var action: (() -> Void)?
 
+    /// Set on the one pushed screen that is drawn on `Palette.ink` rather than the app's light
+    /// surface — the subscription offer. Without it the title is near-black on near-black and
+    /// the bar reads as empty.
+    ///
+    /// A flag rather than two colour parameters: what varies is which surface the bar is on,
+    /// and letting a caller pass an arbitrary title colour is how a third variant appears.
+    var isOnDarkSurface: Bool = false
+
     var body: some View {
         ZStack {
             Text(title)
                 .font(Typography.navigationTitle)
-                .foregroundStyle(Palette.heading)
+                .foregroundStyle(isOnDarkSurface ? Palette.onInk : Palette.heading)
 
             HStack(spacing: 0) {
                 Button(action: back) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Palette.placeholder)
+                        .foregroundStyle(isOnDarkSurface
+                            ? Palette.bodyTextOnInk
+                            : Palette.placeholder)
                         .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }

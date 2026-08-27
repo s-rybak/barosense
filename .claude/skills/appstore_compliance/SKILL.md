@@ -35,7 +35,7 @@ names, commit messages, and PR bodies.
 
 Also forbidden regardless of wording: presenting model output as certainty. The UI shows
 a graded risk state (`../ml_pipeline/SKILL.md`). No percentages presented as fact, no
-countdown to an event, no "confirmed".
+"confirmed".
 
 ## Sweep
 

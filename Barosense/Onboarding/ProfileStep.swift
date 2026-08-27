@@ -49,14 +49,15 @@ struct ProfileStep: View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
-        .toolbar {
-            // The number pad has no return key, so without this the age field can only
-            // be dismissed by scrolling.
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { focusedField = nil }
-            }
-        }
+        // The number pad has no return key, and `OnboardingFlow` deliberately does not lift
+        // the layout for the keyboard — so with the pad up the pinned action is behind it and
+        // there is no key that closes it. A tap on any empty part of the step is the way out.
+        //
+        // This replaces a `ToolbarItemGroup(placement: .keyboard)` button that did the same
+        // job and drew itself over the primary action, where it also outlived the keyboard it
+        // belonged to. A gesture costs no chrome and cannot be left on screen.
+        .contentShape(.rect)
+        .onTapGesture { focusedField = nil }
     }
 
     // MARK: - Fields
