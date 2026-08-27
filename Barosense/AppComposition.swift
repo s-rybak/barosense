@@ -10,8 +10,13 @@ import SwiftUI
 @Observable
 final class AppServices {
 
-    /// The supplied GIF's exact first complete loop (97 source frames). Every launch keeps
-    /// the loading surface up for at least this long, even when every store is already warm.
+    /// The run time of the loading animation's 97 source frames. Every launch keeps the
+    /// loading surface up for at least this long, even when every store is already warm.
+    ///
+    /// Approximately one loop, not exactly one: this clock starts when `start()` begins,
+    /// which is a layout pass and one yield after the animation itself started. The loop
+    /// therefore ends a few frames either side of the transition, which is a cosmetic
+    /// margin — nothing downstream depends on the two clocks agreeing.
     static let minimumLoadingDuration: Duration = .milliseconds(4_040)
 
     enum Phase {
@@ -154,8 +159,9 @@ final class AppServices {
         phase = destination
     }
 
-    /// Always keeps the surface visible through the first complete 4.04-second loop. Work
-    /// finishing after that loop transitions immediately without waiting for another one.
+    /// How much longer the loading surface has to stay up once the opening work has taken
+    /// `elapsed`. `nil` once the animation's run time has already passed, so work that
+    /// overruns transitions immediately rather than waiting out another loop.
     static func loadingSurfaceHoldDuration(after elapsed: Duration) -> Duration? {
         guard elapsed < minimumLoadingDuration else { return nil }
         return minimumLoadingDuration - elapsed

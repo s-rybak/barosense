@@ -11,22 +11,37 @@ struct LaunchLoadingView: View {
     static let animationSize: CGFloat = 150
     private static let animationResource = LaunchLoadingAnimationResource.load()
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Overrides the system setting. `nil` — the shipping case — follows it.
+    ///
+    /// Present because `accessibilityReduceMotion` is a read-only environment value: a
+    /// preview or a test cannot reach the reduced-motion surface any other way.
+    private let reduceMotionOverride: Bool?
+
     private let onAnimationReady: @MainActor () async -> Void
 
-    init(onAnimationReady: @escaping @MainActor () async -> Void = {}) {
+    init(reduceMotionOverride: Bool? = nil,
+         onAnimationReady: @escaping @MainActor () async -> Void = {}) {
+        self.reduceMotionOverride = reduceMotionOverride
         self.onAnimationReady = onAnimationReady
+    }
+
+    private var reduceMotion: Bool {
+        reduceMotionOverride ?? systemReduceMotion
     }
 
     var body: some View {
         ZStack {
             Palette.launchBackground.ignoresSafeArea()
 
-            if let animationResource = Self.animationResource {
-                AnimatedGIFView(resource: animationResource, animates: !reduceMotion)
+            // Reduce Motion takes the same branch as a missing resource. Freezing the GIF
+            // on its first frame would leave the surface with no sign of progress at all for
+            // the whole of the opening phase, which reads as a hang rather than as a launch.
+            if let animationResource = Self.animationResource, !reduceMotion {
+                AnimatedGIFView(resource: animationResource)
                     .frame(width: Self.animationSize, height: Self.animationSize)
                     .clipped()
-                    .accessibilityHidden(true)
             } else {
                 ProgressView()
                     .tint(.white)
@@ -38,8 +53,11 @@ struct LaunchLoadingView: View {
         .accessibilityLabel(Text("Loading Barosense"))
         .accessibilityIdentifier("launch-loading-screen")
         .task {
-            // Give the decoded first frame one display cycle before store creation can occupy
-            // the main actor. The loading-duration clock therefore starts from visible motion.
+            // Yield once before store creation can occupy the main actor, so the first frame
+            // is on screen rather than queued behind it. `AppServices` starts its hold clock
+            // when the work begins, which is this yield plus a layout pass after the
+            // animation itself started — close enough that no first frame is skipped, not
+            // close enough to claim the two are in step. See `minimumLoadingDuration`.
             try? await Task.sleep(for: .milliseconds(20))
             await onAnimationReady()
         }
@@ -48,6 +66,13 @@ struct LaunchLoadingView: View {
     /// Resolved through the type's bundle so the app and its hosted tests find the same file.
     static var animationURL: URL? {
         animationResource?.url
+    }
+
+    /// The rate the loader asks `CADisplayLink` for. Exposed for the reason `animationURL`
+    /// is: it is a property of the shipped file, and a test is the only thing that reads it
+    /// back.
+    static var animationFrameRateRange: CAFrameRateRange? {
+        animationResource?.preferredFrameRateRange
     }
 
     /// Forces the compressed source, frame timing, and first frame into memory before the
@@ -103,6 +128,20 @@ private final class LaunchLoadingAnimationResource {
         )
     }
 
+    /// The animation's own rate, taken from its fastest frame.
+    ///
+    /// Left unset, `CADisplayLink` fires at the display's maximum — 120 Hz on ProMotion —
+    /// which is roughly five times the main-actor callbacks a 25 fps GIF can use, during the
+    /// one moment the SwiftData container is being opened on that same actor. The window
+    /// around the preferred rate lets the system pick something that divides evenly into the
+    /// panel's refresh rate instead of forcing a rate that does not.
+    var preferredFrameRateRange: CAFrameRateRange {
+        let preferred = max(Float(1 / (frameDurations.min() ?? 0.1)), 1)
+        return CAFrameRateRange(minimum: max(preferred - 5, 1),
+                                maximum: preferred + 5,
+                                preferred: preferred)
+    }
+
     private static func frameDuration(at index: Int,
                                       in source: CGImageSource) -> TimeInterval {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil)
@@ -128,7 +167,6 @@ private final class GIFImageView: UIImageView {
 private struct AnimatedGIFView: UIViewRepresentable {
 
     let resource: LaunchLoadingAnimationResource
-    let animates: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -136,18 +174,18 @@ private struct AnimatedGIFView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> GIFImageView {
         let imageView = GIFImageView()
-        imageView.backgroundColor = UIColor(named: "LaunchBackground")
+        imageView.backgroundColor = UIColor(named: Palette.launchBackgroundAssetName)
         imageView.contentMode = .scaleAspectFit
         imageView.clipsToBounds = true
         imageView.isOpaque = true
         imageView.isUserInteractionEnabled = false
         imageView.accessibilityIdentifier = "launch-loading-animation"
-        context.coordinator.display(resource: resource, animates: animates, in: imageView)
+        context.coordinator.display(resource: resource, in: imageView)
         return imageView
     }
 
     func updateUIView(_ imageView: GIFImageView, context: Context) {
-        context.coordinator.display(resource: resource, animates: animates, in: imageView)
+        context.coordinator.display(resource: resource, in: imageView)
     }
 
     static func dismantleUIView(_ imageView: GIFImageView, coordinator: Coordinator) {
@@ -160,30 +198,24 @@ private struct AnimatedGIFView: UIViewRepresentable {
 
         private weak var imageView: GIFImageView?
         private var resource: LaunchLoadingAnimationResource?
-        private var currentlyAnimates: Bool?
         private var frameIndex = 0
         private var elapsed: TimeInterval = 0
         private var lastTimestamp: CFTimeInterval?
         private var displayLink: CADisplayLink?
 
-        func display(resource: LaunchLoadingAnimationResource,
-                     animates: Bool,
-                     in imageView: GIFImageView) {
-            guard self.imageView !== imageView
-                    || self.resource !== resource
-                    || currentlyAnimates != animates
-            else { return }
+        func display(resource: LaunchLoadingAnimationResource, in imageView: GIFImageView) {
+            guard self.imageView !== imageView || self.resource !== resource else { return }
 
             stop()
             self.imageView = imageView
             self.resource = resource
-            currentlyAnimates = animates
             frameIndex = 0
             imageView.image = UIImage(cgImage: resource.firstFrame)
 
-            guard animates, resource.frameDurations.count > 1 else { return }
+            guard resource.frameDurations.count > 1 else { return }
 
             let displayLink = CADisplayLink(target: self, selector: #selector(advanceFrame(_:)))
+            displayLink.preferredFrameRateRange = resource.preferredFrameRateRange
             displayLink.add(to: .main, forMode: .common)
             self.displayLink = displayLink
         }
@@ -196,7 +228,6 @@ private struct AnimatedGIFView: UIViewRepresentable {
             elapsed = 0
             lastTimestamp = nil
             imageView = nil
-            currentlyAnimates = nil
         }
 
         @objc
@@ -239,4 +270,8 @@ private struct AnimatedGIFView: UIViewRepresentable {
 
 #Preview("Launch loading") {
     LaunchLoadingView()
+}
+
+#Preview("Launch loading — Reduce Motion") {
+    LaunchLoadingView(reduceMotionOverride: true)
 }
