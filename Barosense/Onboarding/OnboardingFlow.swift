@@ -13,10 +13,17 @@ struct OnboardingFlow: View {
 
     @State private var model: OnboardingModel
 
+    /// Read by the closing step for its prices, and by nothing else in the flow. Optional
+    /// because the flow has to stay constructible in a preview, where there is no store to
+    /// open and no App Store to ask.
+    private let subscription: SubscriptionController?
+
     init(profileStore: any UserProfileStore,
          tagStore: any WellbeingTagStore,
          sensorAccess: any SensorAccessRequesting,
+         subscription: SubscriptionController? = nil,
          onFinished: @escaping () -> Void) {
+        self.subscription = subscription
         _model = State(initialValue: OnboardingModel(profileStore: profileStore,
                                                      tagStore: tagStore,
                                                      sensorAccess: sensorAccess,
@@ -29,7 +36,7 @@ struct OnboardingFlow: View {
             .transition(slide)
             // The steps carry their own background edge to edge, and the keyboard on the
             // opening step must not push the pinned action off screen.
-            .background(model.step == .ready ? Palette.ink : Palette.surface)
+            .background(model.step.drawsProgressBar ? Palette.surface : Palette.ink)
             .ignoresSafeArea(.keyboard, edges: .bottom)
             // Read by `OnboardingStepScaffold`, which draws the control.
             .environment(\.onboardingBack, back)
@@ -63,6 +70,7 @@ struct OnboardingFlow: View {
         case .terms: TermsStep(model: model)
         case .health: HealthStep(model: model)
         case .ready: ReadyStep(model: model)
+        case .premium: PremiumStep(model: model, subscription: subscription)
         }
     }
 }

@@ -2,10 +2,14 @@ import SwiftUI
 
 /// O6 · The closing step (Figma `7:589`).
 ///
-/// The only step on the dark side of the palette, and the only one with no progress bar —
-/// it is the arrival, not another thing to get through. Its action is what actually
-/// commits the profile and prunes the tag vocabulary, so a failure has to be visible here
-/// rather than dropping the user into an app with none of their answers.
+/// On the dark side of the palette and with no progress bar — it is the arrival, not another
+/// thing to get through.
+///
+/// It used to be the last step, and its action used to be the commit: "Start" wrote the
+/// profile, pruned the tag vocabulary and dropped the user into the app. `PremiumStep` now
+/// sits behind it and carries all three, so this reads "Next" and does nothing but move on.
+/// The retry-on-failure copy moved with the commit rather than being left here over a write
+/// that no longer happens on this screen.
 struct ReadyStep: View {
 
     @Bindable var model: OnboardingModel
@@ -14,8 +18,7 @@ struct ReadyStep: View {
         OnboardingStepScaffold(
             completedSteps: model.step.completedSteps,
             palette: .dark,
-            actionTitle: model.failure == nil ? "Start" : "Try again",
-            isActionEnabled: !model.isSaving,
+            actionTitle: "Next",
             action: model.advance
         ) {
             VStack(spacing: 24) {
@@ -44,13 +47,6 @@ struct ReadyStep: View {
                               palette: .dark)
                 }
                 .padding(.top, 8)
-
-                if model.failure != nil {
-                    Text("Your answers could not be saved. Check that the device has free space and try again.")
-                        .font(Typography.fieldUnit)
-                        .foregroundStyle(Palette.markerWarm)
-                        .multilineTextAlignment(.center)
-                }
             }
             .frame(maxWidth: .infinity)
         }

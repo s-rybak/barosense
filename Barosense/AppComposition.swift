@@ -44,6 +44,14 @@ final class AppServices {
     /// which is also the only state in which the tab is not on screen.
     private(set) var settings: SettingsDependencies?
 
+    /// What this install is entitled to. `nil` until `start()` has opened the store, which is
+    /// the row it caches the App Store's answer into.
+    ///
+    /// Built here rather than in `BarosenseApp` for the reason the risk engine is: it needs a
+    /// durable store, and one constructed before the container is open would start every
+    /// launch by granting a fresh trial to an install that has had one for a month.
+    private(set) var subscription: SubscriptionController?
+
     /// The sensor logs. Opened by `BarosenseApp` because the ingest controllers need them
     /// at launch, and handed here so an erase reaches them too — a "delete my data" that
     /// only knew about the profile store would leave the barometer history behind.
@@ -136,6 +144,25 @@ final class AppServices {
                                                  reminderPreferences: reminderPreferences,
                                                  healthAccess: healthAccess,
                                                  locationAccess: CoreLocationAccessReporter())
+
+            // Same container again, for the reason the notification log is on it: a fourth
+            // store file is a fourth thing that can fail to open, and this one failing locks
+            // a paying user out of what they bought.
+            let subscription = SubscriptionController(
+                store: SwiftDataSubscriptionStatusStore(modelContainer: container),
+                purchasing: StoreKitSubscriptionPurchaser()
+            )
+            self.subscription = subscription
+            // Starts the free week on a fresh install and folds in whatever the App Store
+            // says. Awaited rather than fired and forgotten: the first screen after this line
+            // may be a gated one, and a gate evaluated before the row is read would draw the
+            // locked stub over a running subscription for a frame.
+            await subscription.load()
+            // Not awaited, unlike the line above: this is a loop that runs for as long as the
+            // app does, and awaiting it would never return. Started after `load` so the first
+            // thing it reconciles against is a row that has already been read.
+            subscription.observeTransactions()
+
             phase = profile?.hasCompletedOnboarding == true ? .ready : .onboarding
         } catch {
             phase = .unavailable
@@ -234,6 +261,7 @@ struct AppRootView: View {
                                    // row rather than a duplicate taken beside it.
                                    sensorAccess: DeviceSensorAccess(health: services.healthAccess,
                                                                     pressure: pressure),
+                                   subscription: services.subscription,
                                    onFinished: services.onboardingFinished)
                 }
 
@@ -252,6 +280,7 @@ struct AppRootView: View {
                              tagStore: tagStore,
                              reminders: services.reminders,
                              settings: services.settings,
+                             subscription: services.subscription,
                              languages: languages,
                              router: router,
                              onDataErased: {

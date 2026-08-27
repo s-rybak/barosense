@@ -9,16 +9,33 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     case terms
     case health
     case ready
+    case premium
 
     var id: Int { rawValue }
 
-    /// How many segments the progress bar draws. The closing step is the arrival, not a
-    /// step to get through, so it is counted in the total but shows no bar of its own.
-    static let progressStepCount = OnboardingStep.allCases.count
+    /// Whether this step draws a bar of its own.
+    ///
+    /// False for the two closing steps. Neither is something to get through — one is the
+    /// arrival and the other is what Barosense costs — and a bar over them would invite the
+    /// user to hurry past the second.
+    var drawsProgressBar: Bool {
+        switch self {
+        case .profile, .tags, .pattern, .terms, .health: true
+        case .ready, .premium: false
+        }
+    }
+
+    /// How many segments the progress bar draws.
+    ///
+    /// The bar-drawing steps plus **one**, not plus the number of closing steps. The closing
+    /// pair counts as the single arrival it reads as, which is also what keeps the last
+    /// interactive step at "5 of 6" — where it has always been — instead of dropping to "5 of
+    /// 7" the moment a second closing step was added behind it.
+    static let progressStepCount = OnboardingStep.allCases.filter(\.drawsProgressBar).count + 1
 
     /// Position in the bar, or `nil` where no bar is drawn.
     var completedSteps: Int? {
-        self == .ready ? nil : rawValue + 1
+        drawsProgressBar ? rawValue + 1 : nil
     }
 
     var next: OnboardingStep? {
@@ -29,6 +46,22 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     var previous: OnboardingStep? {
         OnboardingStep(rawValue: rawValue - 1)
     }
+}
+
+/// What the caller of a permission switch has to do next, if anything.
+///
+/// The same shape the Settings screen already uses for its own switches, and for the same
+/// reason: opening another app is a view's job, and deciding *whether* to is the model's.
+enum PermissionTapOutcome: Equatable, Sendable {
+
+    /// The model dealt with it — a sheet was raised, or there was nothing to raise.
+    case handled
+
+    /// Only the Health app can change this now.
+    case needsHealthApp
+
+    /// Only iOS Settings can change this now.
+    case needsSystemSettings
 }
 
 /// What went wrong while writing what onboarding collected.
@@ -72,6 +105,24 @@ final class OnboardingModel {
     var hasAcceptedTerms = false
 
     private(set) var wantsHealthAccess = false
+
+    // MARK: - Permission state
+
+    /// What Barosense can read from Health, as last observed. Drives the Apple Health switch
+    /// on the permissions step.
+    ///
+    /// Held rather than read in `body`, because reading it is a HealthKit round trip plus one
+    /// probe query per type: a view that asked for it on every redraw would run the probe on
+    /// every keystroke elsewhere in the flow.
+    private(set) var healthAccess: HealthAccessState = .notRequested
+
+    /// What the barometer will do for this install. Drives the pressure switch.
+    ///
+    /// This is the one the step was missing. Both permissions were asked for behind a single
+    /// "Connect" button that reported nothing back, so a user who declined Motion & Fitness —
+    /// or who never saw the prompt because the first sheet swallowed the tap — went on to a
+    /// pressure chart that would never fill, with nothing on screen having said so.
+    private(set) var barometerAccess: BarometerAccessState = .notRequested
 
     // MARK: - Loaded state
 
@@ -172,7 +223,7 @@ final class OnboardingModel {
             true
         case .terms:
             hasAcceptedTerms
-        case .health, .ready:
+        case .health, .ready, .premium:
             true
         }
     }
@@ -275,8 +326,79 @@ final class OnboardingModel {
         await sensorAccess.requestHealthAccess()
         await sensorAccess.requestBarometerAccess()
 
+        // Before `advance()`, so the switches are already showing the outcome if the user
+        // comes back to the step. Free either way — the flow is about to leave the screen —
+        // and the alternative is a step that reappears showing the state from before the two
+        // sheets it raised.
+        await refreshAccessStates()
+
         isRequestingAccess = false
         advance()
+    }
+
+    /// Re-reads both permissions.
+    ///
+    /// Called when the step appears, after either request, and on every foreground activation
+    /// while the step is up — that last one because the only way out of a refusal is a trip to
+    /// iOS Settings, and the switch has to have changed by the time the user gets back.
+    func refreshAccessStates() async {
+        healthAccess = await sensorAccess.healthAccess()
+        barometerAccess = sensorAccess.barometerAccess()
+    }
+
+    /// The Apple Health switch's tap.
+    ///
+    /// Raises the sheet if there is one left to raise, and otherwise reports that only the
+    /// Health app can settle it — iOS grants one sheet per install per type, so asking again
+    /// does nothing at all, and a control that silently did nothing would read as broken.
+    ///
+    /// Never advances the step, unlike `requestHealthAccess()`. A switch is a control the user
+    /// expects to stay and look at; moving the screen out from under it would take away the
+    /// one thing they tapped it to see.
+    @discardableResult
+    func toggleHealthAccess() async -> PermissionTapOutcome {
+        guard !isRequestingAccess else { return .handled }
+
+        guard healthAccess.canPresentSheet else {
+            await refreshAccessStates()
+            return healthAccess == .unavailable ? .handled : .needsHealthApp
+        }
+
+        isRequestingAccess = true
+        wantsHealthAccess = true
+        await sensorAccess.requestHealthAccess()
+        await refreshAccessStates()
+        isRequestingAccess = false
+
+        return .handled
+    }
+
+    /// The pressure switch's tap. Same shape as the Health one, and one meaningful difference:
+    /// this permission's refusal *is* observable, so a denied state sends the user to iOS
+    /// Settings rather than leaving them to guess.
+    @discardableResult
+    func toggleBarometerAccess() async -> PermissionTapOutcome {
+        guard !isRequestingAccess else { return .handled }
+
+        switch barometerAccess {
+        case .unavailable:
+            // No sensor on this device. Nothing to grant and nowhere to send them.
+            return .handled
+
+        case .notRequested:
+            isRequestingAccess = true
+            // The request *is* a reading — starting the sensor is what raises the prompt.
+            await sensorAccess.requestBarometerAccess()
+            await refreshAccessStates()
+            isRequestingAccess = false
+            return .handled
+
+        case .granted, .denied:
+            // The prompt is granted once per install. Both of these are settled answers, and
+            // iOS Settings is the only place either can be changed.
+            await refreshAccessStates()
+            return .needsSystemSettings
+        }
     }
 
     /// Past the step without asking for anything.

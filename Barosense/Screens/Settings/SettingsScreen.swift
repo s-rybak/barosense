@@ -6,22 +6,24 @@ enum SettingsRoute: Hashable {
     case report
     case language
     case contact
+    case subscription
 }
 
 /// M6 · Settings (Figma `7:1246`).
 ///
-/// Two rows in the design are deliberately absent rather than drawn dead:
+/// **My meds** is deliberately absent rather than drawn dead: it is deferred, and a row that
+/// leads nowhere teaches the user the list is unreliable. It comes back with the feature.
 ///
-/// - **My meds** — deferred, and a row that leads nowhere teaches the user the list is
-///   unreliable.
-/// - **Barometer Premium** — there is no purchase to make yet, and a subscription card
-///   with no subscription behind it is exactly the kind of thing App Review asks about.
-///
-/// Both come back with the feature behind them.
+/// **Barometer Premium** was absent for the same reason and is now here, because there is a
+/// purchase behind it — see `SubscriptionSettingsCard`.
 struct SettingsScreen: View {
 
     let dependencies: SettingsDependencies
     let languages: LanguageController
+
+    /// What this install is entitled to. `nil` only on a build where the store never opened —
+    /// see `RootView.subscription` — which hides the card and leaves the report row open.
+    let subscription: SubscriptionController?
 
     /// Raised while a destination is pushed, so the root can take the tab bar away —
     /// the pushed screens in the design have no tab bar under them.
@@ -39,12 +41,14 @@ struct SettingsScreen: View {
 
     init(dependencies: SettingsDependencies,
          languages: LanguageController,
+         subscription: SubscriptionController? = nil,
          isDetailPresented: Binding<Bool>,
          onDataErased: @escaping () async -> Void,
          onRemindersChanged: @escaping () async -> Void = {},
          onVocabularyChanged: @escaping () async -> Void = {}) {
         self.dependencies = dependencies
         self.languages = languages
+        self.subscription = subscription
         self.onVocabularyChanged = onVocabularyChanged
         _isDetailPresented = isDetailPresented
         // The calendar is handed over rather than read from the environment, as on History:
@@ -99,6 +103,7 @@ struct SettingsScreen: View {
                 preferencesCard
                 WeatherKitCard(model: model)
                 RemindersCard(model: model)
+                subscriptionCard
                 reportCard
                 contactCard
                 destructiveActions
@@ -225,6 +230,17 @@ struct SettingsScreen: View {
         }
     }
 
+    /// The subscription, on the dark surface. Directly above the report row it governs, so the
+    /// one paid thing in this tab and the card that explains it are read together.
+    @ViewBuilder
+    private var subscriptionCard: some View {
+        if let subscription {
+            SubscriptionSettingsCard(subscription: subscription) {
+                path.append(.subscription)
+            }
+        }
+    }
+
     /// The way to a shareable document. On its own card rather than beside Language: it is the
     /// one row here that produces a file and hands it to somebody else, and grouping it with
     /// two preferences would bury that.
@@ -342,9 +358,27 @@ struct SettingsScreen: View {
                               })
 
         case .report:
-            ReportScreen(dependencies: dependencies,
-                         languages: languages,
-                         back: { path.removeLast() })
+            // Gated at the destination rather than inside the report screen: past the trial
+            // there is nothing to show, and building a preview the user cannot share would
+            // spend a full pass over the check-in and barometer tables to draw a stub over it.
+            if let subscription, !subscription.isUnlocked(.report) {
+                VStack(spacing: 0) {
+                    SettingsNavigationBar(title: ReportScreenCopy.title,
+                                          back: { path.removeLast() })
+
+                    PremiumLockedScreen(feature: .report) { path.append(.subscription) }
+                }
+                .background(Palette.surface.ignoresSafeArea())
+            } else {
+                ReportScreen(dependencies: dependencies,
+                             languages: languages,
+                             back: { path.removeLast() })
+            }
+
+        case .subscription:
+            if let subscription {
+                SubscriptionScreen(subscription: subscription, back: { path.removeLast() })
+            }
 
         case .language:
             LanguageScreen(languages: languages, back: { path.removeLast() })
