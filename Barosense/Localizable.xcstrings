@@ -2661,6 +2661,22 @@
         }
       }
     },
+    "Loading Barosense" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading Barosense"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense завантажується"
+          }
+        }
+      }
+    },
     "Log" : {
       "localizations" : {
         "en" : {

@@ -52,6 +52,10 @@ struct BarosenseApp: App {
     private let notificationResponder: NotificationResponder
 
     init() {
+        // The system launch screen cannot animate. Decode the GIF's first frame before any
+        // stores open so the app-owned surface can animate as soon as SwiftUI takes over.
+        LaunchLoadingView.preloadAnimation()
+
         let responder = NotificationResponder(router: router)
         UNUserNotificationCenter.current().delegate = responder
         notificationResponder = responder
