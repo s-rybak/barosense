@@ -26,8 +26,8 @@ import StoreKit
 ///
 /// **No receipt validation.** `Transaction.currentEntitlements` is already verified by
 /// StoreKit — signature checked against Apple's certificate chain, on device — and this app
-/// has no server to validate against. `.unverified` is treated as no entitlement rather than
-/// trusted, which is the conservative direction: the worst case is a user briefly locked out
+/// has no server to validate against. `.unverified` counts as no entitlement rather than
+/// being trusted, which is the conservative direction: the worst case is a user briefly locked out
 /// of a feature they can restore, not a feature given away on a forged transaction.
 struct StoreKitSubscriptionPurchaser: SubscriptionPurchasing {
 
@@ -151,7 +151,7 @@ struct StoreKitSubscriptionPurchaser: SubscriptionPurchasing {
     ///
     /// A missing `expirationDate` is dated from the plan's own period rather than dropped.
     /// StoreKit gives one for every auto-renewable, so this is a sandbox and defensive path:
-    /// treating it as no entitlement would lock out a user who has just paid.
+    /// reading it as no entitlement would lock out a user who has just paid.
     private static func entitlement(from transaction: Transaction) -> PurchasedEntitlement? {
         guard transaction.revocationDate == nil,
               let plan = SubscriptionPlan(rawValue: transaction.productID)

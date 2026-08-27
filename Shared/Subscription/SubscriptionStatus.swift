@@ -38,9 +38,9 @@ struct SubscriptionStatus: Equatable, Sendable {
     /// Exists because StoreKit cannot say "I could not ask". `Transaction.currentEntitlements`
     /// yields nothing both for an account that holds no subscription and for one that could
     /// not be read — a signed-out Apple Account, a restored device before its transactions
-    /// have synced, an outage — and the two must not be treated alike. Without this, every
+    /// have synced, an outage — and the two must not be read alike. Without this, every
     /// empty answer would wipe the cached purchase and lock a paying user out, which is the
-    /// one thing the cache exists to prevent (`SubscriptionStatusStore`).
+    /// one thing the cache exists to stop (`SubscriptionStatusStore`).
     ///
     /// So the distinction is made by time rather than by an error: an empty answer holds the
     /// cached purchase for `SubscriptionGrace.duration` from this stamp and then clears it.
@@ -100,7 +100,7 @@ struct SubscriptionStatus: Equatable, Sendable {
         }
 
         // A row written before this field existed reads back with no stamp. Starting its grace
-        // now rather than treating it as never-confirmed is what stops the window from
+        // now rather than reading it as never-confirmed is what stops the window from
         // restarting on every activation and becoming unbounded — it is persisted with the
         // rest of the status.
         let confirmed = purchaseConfirmedAt ?? instant

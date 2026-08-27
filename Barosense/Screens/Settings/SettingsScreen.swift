@@ -212,10 +212,7 @@ struct SettingsScreen: View {
     /// Apple Health and Language (Figma `7:1270`).
     private var preferencesCard: some View {
         SettingsCard {
-            SettingsToggleRow(title: "Apple Health",
-                              caption: healthCaption,
-                              isOn: healthBinding,
-                              isEnabled: model.health.isInteractive)
+            HealthRow(model: model)
 
             SettingsRowDivider()
 
@@ -271,49 +268,6 @@ struct SettingsScreen: View {
             }
         }
         .padding(.horizontal, 4)
-    }
-
-    // MARK: - Apple Health row
-
-    /// The switch reflects what Barosense can actually read from Health, not what it has
-    /// asked for. Anything less than the whole read set leaves it off.
-    ///
-    /// Writing to it never sets it. The setter runs the action the current state allows
-    /// (show the sheet, re-check, or send the user to Health) and leaves the displayed
-    /// value to `model.load()`, so the switch cannot show a state HealthKit does not agree
-    /// with — including the case where the user answers the sheet with a refusal and the
-    /// switch has to fall straight back to off.
-    private var healthBinding: Binding<Bool> {
-        Binding(
-            get: { model.health.isConnected },
-            set: { _ in
-                Task {
-                    if await model.toggleHealthAccess() == .needsHealthApp {
-                        HealthAppLink.open()
-                    }
-                }
-            }
-        )
-    }
-
-    /// None of these say "denied". iOS does not reveal a read refusal, and an empty Health
-    /// store looks exactly the same from here, so each line states what was observed and
-    /// points at the one place that can actually settle it.
-    private var healthCaption: LocalizedStringKey? {
-        switch model.health.access {
-        case .unavailable:
-            "Health data isn't available on this device."
-        case .notRequested:
-            "Fills in sleep, resting heart rate and blood oxygen for you."
-        case .requested where model.health.hasNothingReadable:
-            "Barosense can't read anything from Health. Open Health to check what it may read."
-        case .requested where !model.health.isConnected:
-            "Barosense can read only part of your Health data. Open Health to check what it may read."
-        case .requested where !model.health.hasReadings:
-            "Nothing read in the last 7 days. Open Health to check what Barosense may read."
-        case .requested:
-            nil
-        }
     }
 
     // MARK: - Erase
@@ -419,6 +373,64 @@ private struct WeatherKitCard: View {
         model.isWeatherKitOn
             ? "Extends the pressure chart a few days ahead. Sends only your approximate area and the time."
             : "Barosense is building the forecast from your own readings — a few hours ahead, and roughly."
+    }
+}
+
+/// Apple Health: whether Barosense may read it, and what it can actually see.
+///
+/// A view of its own for the reason `LocationRow` below is one — the switch is written to
+/// through an interpreted tap and the caption has five wordings, and both belong next to the
+/// control they drive rather than in the screen that lists it.
+private struct HealthRow: View {
+
+    let model: SettingsModel
+
+    var body: some View {
+        SettingsToggleRow(title: "Apple Health",
+                          caption: caption,
+                          isOn: binding,
+                          isEnabled: model.health.isInteractive)
+    }
+
+    /// The switch reflects what Barosense can actually read from Health, not what it has
+    /// asked for. Anything less than the whole read set leaves it off.
+    ///
+    /// Writing to it never sets it. The setter runs the action the current state allows
+    /// (show the sheet, re-check, or send the user to Health) and leaves the displayed
+    /// value to `model.load()`, so the switch cannot show a state HealthKit does not agree
+    /// with — including the case where the user answers the sheet with a refusal and the
+    /// switch has to fall straight back to off.
+    private var binding: Binding<Bool> {
+        Binding(
+            get: { model.health.isConnected },
+            set: { _ in
+                Task {
+                    if await model.toggleHealthAccess() == .needsHealthApp {
+                        HealthAppLink.open()
+                    }
+                }
+            }
+        )
+    }
+
+    /// None of these say "denied". iOS does not reveal a read refusal, and an empty Health
+    /// store looks exactly the same from here, so each line states what was observed and
+    /// points at the one place that can actually settle it.
+    private var caption: LocalizedStringKey? {
+        switch model.health.access {
+        case .unavailable:
+            "Health data isn't available on this device."
+        case .notRequested:
+            "Fills in sleep, resting heart rate and blood oxygen for you."
+        case .requested where model.health.hasNothingReadable:
+            "Barosense can't read anything from Health. Open Health to check what it may read."
+        case .requested where !model.health.isConnected:
+            "Barosense can read only part of your Health data. Open Health to check what it may read."
+        case .requested where !model.health.hasReadings:
+            "Nothing read in the last 7 days. Open Health to check what Barosense may read."
+        case .requested:
+            nil
+        }
     }
 }
 

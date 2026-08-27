@@ -126,7 +126,7 @@ final class SubscriptionController {
     /// **Folded, not overwritten.** An empty answer from StoreKit does not distinguish "this
     /// account holds nothing" from "this account could not be read", and writing it straight
     /// over the row would lock a paying subscriber out the first time their Apple Account was
-    /// unreachable — the exact failure the cached row exists to prevent. The rule that decides
+    /// unreachable — the exact failure the cached row exists to stop. The rule that decides
     /// what an empty answer does to a live purchase is
     /// `SubscriptionStatus.reconciled(with:asOf:)`, in `Shared/`, where a test walks it with a
     /// synthetic clock.
