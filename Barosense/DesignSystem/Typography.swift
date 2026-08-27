@@ -241,4 +241,57 @@ enum Typography {
     static let avatarInitialCompact = Font
         .custom("Manrope-Bold", size: 18, relativeTo: .title3)
         .weight(.bold)
+
+    // MARK: - Insights (Figma `7:951`)
+
+    /// `Manrope/ExtraBold 36` — the coefficient on the link card. The largest figure on any
+    /// screen, and larger than the check-in sheet's numeral because it is the one thing the
+    /// card exists to print. Rendered with `.tracking(-0.72)` at the call site.
+    static let insightValue = Font
+        .custom("Manrope-ExtraBold", size: 36, relativeTo: .largeTitle)
+        .weight(.heavy)
+
+    /// `Manrope/Bold 11` — an all-caps eyebrow naming what a card is about, drawn with
+    /// `.tracking(0.44)` at the call site.
+    ///
+    /// A size below `sectionHeader` (Bold 12 / 0.48), which heads a block of settings fields.
+    /// Kept separate for the reason the 11 pt captions above are separate from each other:
+    /// this one sits inside a card, and retuning a settings list must not resize it.
+    static let cardEyebrow = Font
+        .custom("Manrope-Bold", size: 11, relativeTo: .caption2)
+        .weight(.bold)
+
+    /// `Manrope/Medium 13` — the sentence under a card's figure, set on 18 pt leading.
+    static let insightBody = Font
+        .custom("Manrope-Medium", size: 13, relativeTo: .footnote)
+        .weight(.medium)
+
+    /// `Manrope/Medium 12` — a count or a provenance line at the quiet end of a card.
+    static let insightCaption = Font
+        .custom("Manrope-Medium", size: 12, relativeTo: .caption)
+        .weight(.medium)
+
+    /// `Manrope/Medium 11` — a series name in the sparkline's legend, and the axis label
+    /// beside it. The lightest type on the screen; it annotates a picture rather than
+    /// carrying information on its own.
+    static let insightLegend = Font
+        .custom("Manrope-Medium", size: 11, relativeTo: .caption2)
+        .weight(.medium)
+
+    /// `Manrope/Bold 13` — the count at the trailing edge of a tag row.
+    ///
+    /// Bold against the row's Medium name, which is how the design separates the figure from
+    /// the word without a second colour doing the work.
+    static let insightRowValue = Font
+        .custom("Manrope-Bold", size: 13, relativeTo: .footnote)
+        .weight(.bold)
+
+    /// `Manrope/Bold 12` — the graded state printed on an outlook tile.
+    ///
+    /// Same face and size as `segmentLabelSelected`, kept separate because a selected segment
+    /// and a forecast state move for different reasons — and this one is the channel that
+    /// carries the tile's meaning when its colour does not.
+    static let riskLevelLabel = Font
+        .custom("Manrope-Bold", size: 12, relativeTo: .caption)
+        .weight(.bold)
 }

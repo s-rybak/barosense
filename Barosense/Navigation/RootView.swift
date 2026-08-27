@@ -62,9 +62,13 @@ struct RootView: View {
     /// screen's own `@State`, which threw away the range the user had picked on the chart.
     @State private var checkInRevision = 0
 
-    /// Raised while Settings has something pushed. The pushed screens draw their own
-    /// navigation bar and, in the design, no tab bar under them.
-    @State private var isSettingsDetailPresented = false
+    /// Raised while a tab has something pushed. The pushed screens draw their own navigation
+    /// bar and, in the design, no tab bar under them.
+    ///
+    /// One flag for every tab rather than one per tab: only one destination is on screen at a
+    /// time, so a second flag could only ever disagree with this one. Settings and Insights
+    /// both write it, and `onChange(of: selection)` below lowers it on any tab change.
+    @State private var isDetailPresented = false
 
     var body: some View {
         ZStack {
@@ -73,16 +77,18 @@ struct RootView: View {
             destination
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !isSettingsDetailPresented {
+            if !isDetailPresented {
                 BarosenseTabBar(selection: tabBarSelection)
                     .transition(.move(edge: .bottom))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isSettingsDetailPresented)
-        .onChange(of: selection) { _, tab in
-            // Leaving Settings while a detail is pushed would otherwise strand the tab bar
-            // hidden on a tab that has no way to bring it back.
-            if tab != .settings { isSettingsDetailPresented = false }
+        .animation(.easeInOut(duration: 0.2), value: isDetailPresented)
+        .onChange(of: selection) { _, _ in
+            // Leaving a tab while a detail is pushed would otherwise strand the tab bar hidden
+            // on a tab that has no way to bring it back. Lowered on every change rather than on
+            // a named set of tabs: the tab being left is the one that raised it, whichever it
+            // was, and its own `NavigationStack` keeps its path for the return.
+            isDetailPresented = false
         }
         // The check-in is a sheet over whatever the user was looking at, not a destination
         // of its own (Figma `7:330` — the frame is drawn with a sheet's grab handle and no
@@ -232,13 +238,26 @@ struct RootView: View {
             if let settings {
                 SettingsScreen(dependencies: settings,
                                languages: languages,
-                               isDetailPresented: $isSettingsDetailPresented,
+                               isDetailPresented: $isDetailPresented,
                                onDataErased: onDataErased,
                                onRemindersChanged: reconcileReminders,
                                onVocabularyChanged: onVocabularyChanged)
             }
         case .insights:
-            PlaceholderScreen(tab: selection)
+            // Takes the whole store bundle because the report it pushes to takes the whole
+            // store bundle — see `InsightsScreen.dependencies`. Absent while the store is still
+            // opening, which is a state this view is never shown in.
+            if let settings {
+                InsightsScreen(dependencies: settings,
+                               languages: languages,
+                               risk: risk,
+                               isDetailPresented: $isDetailPresented)
+                    // Re-identified on `checkInRevision` so a check-in written from the sheet
+                    // reaches the tag counts and the sparkline, and on the language for the
+                    // reason History is: the seven-day trace is named by weekday out of the
+                    // calendar the model was built with.
+                    .id("\(checkInRevision)-\(languages.language.rawValue)")
+            }
         }
     }
 

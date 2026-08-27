@@ -44,6 +44,79 @@ struct ScoredRiskWindow: Hashable, Sendable, Identifiable {
     }
 }
 
+/// The graded state one day of the outlook is drawn in.
+///
+/// Three bands and no number, which is the rule in `CLAUDE.md`: the UI surfaces a graded risk
+/// state, never a yes-or-no answer about a day. The cut points are **the model's own decision
+/// points** rather than round figures picked to spread the tiles out — see
+/// `RiskOutlookDay.level`.
+enum RiskLevel: String, Hashable, Sendable, CaseIterable {
+
+    /// The day stage does not expect an entry at all. The window stage is not asked, because a
+    /// conditional answer to "if an entry happens, when" is confidently wrong on a day nobody
+    /// asked the question about.
+    case low
+
+    /// The day stage expects an entry, and the window stage has a best stretch that does not
+    /// reach the threshold the app is allowed to interrupt on.
+    case moderate
+
+    /// Both stages agree: the day is not quiet and the window stage clears `gateThreshold` on
+    /// the day's best remaining stretch. The same bar `mayNotify` uses for today.
+    case high
+}
+
+/// One day of the forecast as the outlook card draws it.
+///
+/// ## Why this is a day and not a window
+///
+/// The chart draws windows because it has an axis to hang them on. A card three tiles wide does
+/// not, and a tile that named a two-hour stretch three days out would be claiming a resolution
+/// the forward curve does not have that far ahead. So the tile carries the day, and the stretch
+/// it was read off is available for the accessibility label and for nothing else.
+///
+/// ## It is about what is still ahead
+///
+/// Built from the day's best window **still to come**, so an outlook is an outlook: a tile that
+/// graded today off a stretch that ended at breakfast would be reporting this morning as a
+/// forecast. A day with nothing left in it contributes no tile — which is why "Today" leaves
+/// the card late in the evening rather than freezing on its last value.
+///
+/// This is deliberately a different question from `WellbeingRiskForecast.checkInProbability`,
+/// which is taken over **all** of today's windows because the chart it sits under draws the day
+/// either side of now. Two questions, two figures; the one that names the whole day belongs
+/// with the picture of the whole day.
+struct RiskOutlookDay: Hashable, Sendable, Identifiable {
+
+    /// Start of the waking day this grades.
+    let dayStart: Date
+
+    let level: RiskLevel
+
+    /// The window stage's ranking score on the day's best remaining window.
+    ///
+    /// **Not a frequency and never rendered as a percentage** — the rule
+    /// `ScoredRiskWindow.confidence` states. It is here because it is what `level` is read off,
+    /// so a reader of this type can check the grade rather than take it on trust.
+    let confidence: Double
+
+    /// `P(entry that day) × confidence` for that same window — the joint figure, and the only
+    /// quantity here a surface may print.
+    let combined: Double
+
+    /// The stretch `confidence` and `combined` were read off.
+    let window: Range<Date>
+
+    var id: Date { dayStart }
+
+    /// The joint figure as whole percentage points, or `nil` when it rounds away to nothing.
+    /// Same rule, and the same reason, as `ScoredRiskWindow.percent`.
+    var percent: Int? {
+        let rounded = Int((combined * 100).rounded())
+        return rounded >= 1 ? rounded : nil
+    }
+}
+
 /// What the app can say about the days the forward curve reaches, from the barometer log and
 /// that curve.
 ///
@@ -138,6 +211,42 @@ struct WellbeingRiskForecast: Hashable, Sendable {
     /// is standing on.
     let forecastShare: Double
 
+    /// One tile per scoreable day that still has a window ahead of `now`, ascending.
+    ///
+    /// The Insights screen's outlook card, and nothing else reads it. Built by the model rather
+    /// than derived here because the two facts a grade needs — whether the day stage called the
+    /// day quiet, and where the window stage's gate sits — are known inside the scoring loop and
+    /// are not recoverable from `windows` afterwards.
+    ///
+    /// Empty is ordinary: no model, a log too thin to score any day, or simply a late evening
+    /// with nothing left today and no forward curve past it.
+    let outlook: [RiskOutlookDay]
+
+    /// Defaulted `outlook` so the call sites that predate the outlook card — the previews and
+    /// the chart's rendering tests, which are about marked stretches and not about tiles —
+    /// stay one construction rather than acquiring an empty argument each.
+    init(dayStart: Date,
+         checkInProbability: Double?,
+         windows: [ScoredRiskWindow],
+         marked: [ScoredRiskWindow],
+         isDayQuiet: Bool,
+         mayNotify: Bool,
+         isColdStart: Bool,
+         dayCoverage: Double,
+         forecastShare: Double,
+         outlook: [RiskOutlookDay] = []) {
+        self.dayStart = dayStart
+        self.checkInProbability = checkInProbability
+        self.windows = windows
+        self.marked = marked
+        self.isDayQuiet = isDayQuiet
+        self.mayNotify = mayNotify
+        self.isColdStart = isColdStart
+        self.dayCoverage = dayCoverage
+        self.forecastShare = forecastShare
+        self.outlook = outlook
+    }
+
     /// Today's windows, which is what every figure naming "today" is taken over.
     var todayWindows: [ScoredRiskWindow] { windows.filter { $0.dayStart == dayStart } }
 
@@ -213,6 +322,7 @@ extension WellbeingRiskModel {
         let byDay = Dictionary(grouping: rows, by: \.dayStart)
 
         var scored: [ScoredRiskWindow] = []
+        var outlook: [RiskOutlookDay] = []
         var todayChance: Double?
         var todayQuiet = true
         var todayCoverage: Double = 0
@@ -249,6 +359,22 @@ extension WellbeingRiskModel {
                     .prefix(Self.markedWindowCount)
                     .map(\.row.start)
             )
+
+            // The outlook tile for this day, read off the best stretch **still to come**. A day
+            // whose windows have all finished gets none — see `RiskOutlookDay`. Ranked on
+            // `confidence` rather than on `combined`, because the band is the two stages'
+            // agreement and the day stage's contribution is already in `isQuiet`; picking the
+            // best joint figure instead would let a day the model ranks flat outrank one it
+            // ranks sharply, purely because the day stage liked it.
+            if let best = ahead.max(by: { $0.confidence < $1.confidence }) {
+                outlook.append(RiskOutlookDay(dayStart: day,
+                                              level: Self.level(isDayQuiet: isQuiet,
+                                                                confidence: best.confidence,
+                                                                gateThreshold: gateThreshold),
+                                              confidence: best.confidence,
+                                              combined: best.combined,
+                                              window: best.row.start..<best.row.end))
+            }
 
             let dayWindows = entries.map { entry in
                 ScoredRiskWindow(start: entry.row.start,
@@ -289,8 +415,30 @@ extension WellbeingRiskModel {
             mayNotify: !todayQuiet && todayBestAhead >= gateThreshold,
             isColdStart: isColdStart,
             dayCoverage: todayCoverage,
-            forecastShare: todayForecastShare
+            forecastShare: todayForecastShare,
+            // Already ascending: `byDay.keys.sorted()` is what the loop walks.
+            outlook: outlook
         )
+    }
+
+    /// Which band a day falls in, from the two stages' own decision points.
+    ///
+    /// No third constant is introduced. `isDayQuiet` is `dayDisplayThreshold`, the filter that
+    /// decides whether the day stage will hand the question on at all, and `gateThreshold` is
+    /// the bar the window stage has to clear before the app is allowed to interrupt — the same
+    /// bar `mayNotify` reads. Grading on anything else would put a fourth number on screen that
+    /// nobody tuned and that no other surface agrees with.
+    ///
+    /// The consequence is worth stating: `.high` means "if this were today, the app would be
+    /// entitled to send a message about it", which by design happens on roughly one day in
+    /// three. A card whose tiles were mostly red would not be reporting a worse life, it would
+    /// be reporting a threshold set too low.
+    static func level(isDayQuiet: Bool,
+                      confidence: Double,
+                      gateThreshold: Double) -> RiskLevel {
+        guard !isDayQuiet else { return .low }
+
+        return confidence >= gateThreshold ? .high : .moderate
     }
 
     /// Whether a joint probability survives rounding to whole percentage points.

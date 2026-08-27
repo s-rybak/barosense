@@ -23,7 +23,8 @@ the code change.
 | Forecast skill | **shipped** — `Shared/Features/ForecastSkillReport.swift`, run by `WeatherForecastController` after every request that lands and logged through `BarosenseLog.pressure` (never shown: nothing on screen may present model output as a claim). Scores past forecasts against what the barometer went on to record, per horizon (1/3/6 h), against **persistence**. This is the first §7 baseline comparison the app can actually run: the ground truth arrives by itself a few hours later, so no dataset is needed. Derived from the 90-day raw archive — there is deliberately no second table of realised forecasts |
 | Feature pipeline | Health features at `t` computed by `HealthFeatureExtractor` (`Shared/Features/`). **Forecast features computed on device, not yet consumed** — `ForecastFeatureExtractor` (§2.2) via `PressureForecastReader.features(asOf:)`, run by `WeatherForecastController` after every request that lands, under `issuedAt <= t`, past the ≤12 h staleness gate, calibrated into barometer coordinates. No model reads them: there is none. Pressure (§2.1) / check-in (§2.4) features still planned |
 | Model | **The two-stage risk model is shipped and on screen** — see the row below. The wellbeing model of §1 (`intensity >= 7`) is still not trained: the two labels are different questions and only the second has been answered. The Now screen's two meter cards remain `WeatherTriggerIndex` (§7 baseline #2, made visible) and `TrainingDataProgress` (rows on disk against §4's blend point) — both display-only, both explained under §2.1. The ⓘ on the second opens `TrainingProgressSheet`, which states in words that the bar counts check-ins and not accuracy |
-| Risk model | **shipped, iPhone only** — `Shared/Risk/`, drawn by `PressureChartCard` + `RiskSummaryRow`. Two stages over the §1.1 label (§2.5 features): a **day** stage (4 day-level columns, one row per day, Platt-calibrated — the only number on screen expressed as a percentage) and a **window** stage (9 columns, trained only on days that held an entry, ranking only). Both are logistic regressions fitted on device by penalised Newton, `C = 0.3`, `class_weight='balanced'`, verified against scikit-learn to 1e-3 on the coefficients and 1e-6 on the calibration (`RiskNumericsTests`). A **shipped prior** (`WellbeingRiskPrior`, the research notebook's own coefficients) is blended with the personal fit by §4's `w(n)`. The **gate** — the app's right to stay silent — sits on the window stage, not the day stage, and is a quantile tuned to `messagesPerWeekTarget = 2.5`. Scored over **every waking day the forward curve reaches** (96 h, the widest the chart draws), each day gated and ranked on its own — see §2.6. Refit at most daily on a foreground activation — **no new wake source**. Kill switches: `WellbeingRiskEngine.isEnabled`, `WellbeingRiskPrior.isEnabled` |
+| Risk model | **shipped, iPhone only** — `Shared/Risk/`, drawn by `PressureChartCard` + `RiskSummaryRow`. Two stages over the §1.1 label (§2.5 features): a **day** stage (4 day-level columns, one row per day, Platt-calibrated — the only number on screen expressed as a percentage) and a **window** stage (9 columns, trained only on days that held an entry, ranking only). Both are logistic regressions fitted on device by penalised Newton, `C = 0.3`, `class_weight='balanced'`, verified against scikit-learn to 1e-3 on the coefficients and 1e-6 on the calibration (`RiskNumericsTests`). A **shipped prior** (`WellbeingRiskPrior`, the research notebook's own coefficients) is blended with the personal fit by §4's `w(n)`. The **gate** — the app's right to stay silent — sits on the window stage, not the day stage, and is a quantile tuned to `messagesPerWeekTarget = 2.5`. Scored over **every waking day the forward curve reaches** (96 h, the widest the chart draws), each day gated and ranked on its own — see §2.6. Refit at most daily on a foreground activation — **no new wake source**. Kill switches: `WellbeingRiskEngine.isEnabled`, `WellbeingRiskPrior.isEnabled`. Also drawn as the Insights screen's 1–3 day outlook (`WellbeingRiskForecast.outlook`, `RiskOutlookDay`, `RiskLevel`): one tile per scored day with a window still ahead, banded on the two stages' own thresholds and printing a state rather than a percentage — see §2.6 |
+| Insights | **shipped, iPhone only** — `Shared/Insights/` + `Barosense/Screens/Insights/`. Four cards over 120 d (`WellbeingInsights.analysisWindowDays`, deliberately `WellbeingRiskTrainer.trainingWindowDays`): the `PressureWellbeingLink` correlation with a seven-day sparkline, the risk outlook above, most-used tags, and `WellbeingPatternNote`. The trace and the tag counts are `ReportBuilder.trace` / `.tagCounts` reused rather than respelled. **Display only in the ML sense — nothing here feeds a feature**, and the two new types are explained under §2.1. Every card is independently absent when its gate fails; the heading pushes to the existing `ReportScreen`. Cost: one foreground read per appearance of the tab, no new wake source, and the forecast rides the engine's existing 15-minute cache |
 | Barometer ingest | **shipped** — `Shared/Pressure/`. **Phone-only sensor** via `CoreMotionPressureSource` (`CMAltimeter`, single-shot, kPa→hPa at the boundary) → `PressureSampleRecorder` → durable local log on the phone. **The watch never samples**: it receives one `PressureDisplaySnapshot` over `WatchConnectivityPressureLink.updateApplicationContext` and displays it (see below). Cadence: `BGAppRefreshTask` requested every 15 min + foreground activation, floored at one reading / 15 min by `PressureSamplingPolicy`. Kill-switch: `PressureSamplingPolicy.isBackgroundRefreshEnabled`. Cost: provisional, unmeasured — see battery note below |
 | HealthKit read set | **4 types read, 0 written** — `.restingHeartRate`, `.oxygenSaturation`, `.sleepAnalysis` and `.heartRate`, via `Shared/Health/HealthKitDataReader.swift`. `.heartRate` is display-only: read on every refresh for the Now card, dropped before the log, no feature consumes it. `com.apple.developer.healthkit.access` stays `[]` in `project.yml`: that key lists health-record types, which this app does not read |
 | Health ingest | `HealthSampleRecorder` via `HealthIngestController`. **Foreground:** 7 d lookback on scene activation + Now pull-to-refresh. **Background:** `HealthKitChangeObserver` — one `HKObserverQuery` per **logged** type (3 of the 4 read; `.heartRate` is display-only and deliberately gets none, or a worn watch would wake the app for readings nothing keeps) + `enableBackgroundDelivery(..., frequency: .hourly)`; signals coalesce (750 ms) into one 48 h lookback pull. **Every write is subject to `HealthIngestGate`**, held by `HealthSampleRecorder` and opened only once onboarding is behind the user — so after "delete my data" the log stays empty instead of refilling from the next observer firing. Kill-switch: `HealthBackgroundDelivery.isEnabled`. Requires entitlement `com.apple.developer.healthkit.background-delivery` (iOS). watchOS does not register observers. Cost: provisional, unmeasured — see battery note below |
@@ -361,6 +362,38 @@ holds no feature either: check-ins on the device counted against
 half. Both constants are *provisional* and move together — a change to `k` that leaves the
 target at 40 makes the card's explainer wrong.
 
+`PressureWellbeingLink` (`Shared/Insights/PressureWellbeingLink.swift`) is **display only**,
+for the fourth time and the same reason: the Insights screen's link card, and nothing in
+`Shared/Features/` or `Shared/Risk/` may read it. Pearson *r* between a six-hour **fall**
+(`p(t−6h) − p(t)`, the §2.1 quantity, sign kept) and the intensity reported `lagHours` later,
+over `lagHoursSearched = [0, 3, 6, 9, 12, 18, 24]`; the largest |*r*| wins and the coefficient
+is reported signed, so a user whose log lines up with *rising* pressure is told that rather
+than shown a flipped number. Gates: `minimumPairs = 10`, and `nil` — never `0.00` — when
+either column is flat, because "measured, no relationship" and "there was nothing to measure"
+are different facts.
+
+**The lag is chosen by search, so the surviving magnitude is inflated.** Seven candidates and
+a single reported *r* with no correction is a screening number, not a tested hypothesis. The
+three conservatisms that follow from that are deliberate and stated on the type: the pair
+count is printed beside the coefficient, the bands are Cohen's 0.3 / 0.5 rather than something
+flattering, and the lag is only ever drawn with a `~`. It carries §3's altitude exposure like
+every other pressure surface — `HourlyPressureGrid` removes lift rides, a one-way climb
+survives — which is also why it is built on a *change* and never on a level.
+
+`WellbeingPatternNote` (`Shared/Insights/WellbeingInsights.swift`) is the same finding as a
+hit rate, and is **gated on that link existing** so the two cards on the screen cannot disagree
+about direction or lag. An episode is the first hour of a maximal run whose trailing six-hour
+change clears `PressureTrend.significantChangeHPa` in the link's own direction — one onset per
+weather system, not one per hour. A match is a §1.1-labelled entry within
+`matchToleranceHours = 3` of `onset + lagHours`. `minimumEpisodes = 5`,
+`maximumEpisodes = 10`, and no note at all when nothing matched — "0 of 10" tells the reader
+their history was watched and found wanting. **Never an absolute hectopascal threshold**: the
+log holds station pressure, so "below 1005 hPa" would be a claim about the user's altitude as
+much as about the weather (§3).
+
+Neither type feeds anything. The screen's forecast comes from `WellbeingRiskEngine` and is
+passed in beside them — one risk model, one place it is fitted.
+
 ### 2.2 Forecast — forward-looking, and the reason an *advance* warning reaches days rather than hours
 
 | name                             | source                       | unit | sampling / min coverage           | on missing | status  |
@@ -649,6 +682,24 @@ on the plot, while this is the strongest thing the model will point at on it. Be
 probability it is always at or below the day stage's figure, and it is the only number in this
 subsystem a surface may render as a percentage — the window stage's `confidence` is a rank and
 stays one (§2.5).
+
+**The 1–3 day outlook is a fourth rule, and it introduces no fourth constant.**
+`WellbeingRiskForecast.outlook` carries one `RiskOutlookDay` per scored day that still has a
+window **ahead of `now`** — an outlook about a stretch that ended at breakfast is not an
+outlook — built from that day's highest-`confidence` remaining window. The band is
+`WellbeingRiskModel.level`: `.low` when the day stage called the day quiet
+(`dayDisplayThreshold`), otherwise `.high` when the window stage clears `gateThreshold` on that
+window and `.moderate` when it does not. Both cut points already exist and are already tuned —
+the first is the filter that decides whether the day stage hands the question on at all, the
+second is the bar `mayNotify` reads. The consequence is worth stating: `.high` means "if this
+were today the app would be entitled to send a message", which by design happens on roughly one
+day in three, so a card whose tiles were mostly red would be reporting a threshold set too low
+rather than a worse life.
+
+The tile prints a **state and never a number**. `RiskOutlookDay.percent` exists, follows
+`isPrintable` exactly as `ScoredRiskWindow.percent` does, and is deliberately not drawn: the
+one percentage this subsystem shows sits on the chart, where the windows under it are visible.
+`confidence` is on the tile so a reader of the type can check the band, and stays a rank.
 
 ## 3. Altitude contamination
 

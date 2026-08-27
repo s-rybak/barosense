@@ -4821,6 +4821,486 @@
           }
         }
       }
+    },
+    "%@: %@, usually around %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %@, usually around %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %@, зазвичай близько %@"
+          }
+        }
+      }
+    },
+    "%lld×" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld×"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld×"
+          }
+        }
+      }
+    },
+    "1–3 day risk outlook" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–3 day risk outlook"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прогноз ризику на 1–3 дні"
+          }
+        }
+      }
+    },
+    "A graded state from your own history, not medical advice." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A graded state from your own history, not medical advice."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Це градуйований стан із вашої власної історії, а не медична порада."
+          }
+        }
+      }
+    },
+    "Correlation %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correlation %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кореляція %@"
+          }
+        }
+      }
+    },
+    "From %lld check-ins with pressure behind them" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From %lld check-ins with pressure behind them"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "З %lld чек-інів, за якими є дані тиску"
+          }
+        }
+      }
+    },
+    "High" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Високий"
+          }
+        }
+      }
+    },
+    "Keep checking in — the pattern needs about %lld entries with pressure behind them before there is anything to report." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep checking in — the pattern needs about %lld entries with pressure behind them before there is anything to report."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Продовжуйте робити чек-іни — щоб було про що говорити, потрібно приблизно %lld записів, за якими є дані тиску."
+          }
+        }
+      }
+    },
+    "Low" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Низький"
+          }
+        }
+      }
+    },
+    "Matched %lld of the last %lld pressure falls · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matched %lld of the last %lld pressure falls · %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Збіглося %lld із %lld останніх падінь тиску · %@"
+          }
+        }
+      }
+    },
+    "Matched %lld of the last %lld pressure rises · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matched %lld of the last %lld pressure rises · %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Збіглося %lld із %lld останніх зростань тиску · %@"
+          }
+        }
+      }
+    },
+    "Moderate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moderate"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Помірний"
+          }
+        }
+      }
+    },
+    "Nothing to show yet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to show yet"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поки що нема чого показати"
+          }
+        }
+      }
+    },
+    "Pattern in your history" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pattern in your history"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Знайдено закономірність"
+          }
+        }
+      }
+    },
+    "Patterns build up as you check in and the barometer keeps a record. Come back after a few days." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patterns build up as you check in and the barometer keeps a record. Come back after a few days."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закономірності накопичуються, поки ви робите чек-іни, а барометр веде запис. Зазирніть сюди за кілька днів."
+          }
+        }
+      }
+    },
+    "Pressure and check-in intensity over the last %lld days" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressure and check-in intensity over the last %lld days"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тиск та інтенсивність чек-інів за останні %lld днів"
+          }
+        }
+      }
+    },
+    "Pressure × how you felt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressure × how you felt"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тиск × Самопочуття"
+          }
+        }
+      }
+    },
+    "Report" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звіт"
+          }
+        }
+      }
+    },
+    "Some link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some link"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Помітний зв'язок"
+          }
+        }
+      }
+    },
+    "Still learning your pattern — these are general estimates" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still learning your pattern — these are general estimates"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ще вивчаю ваші закономірності — це загальні оцінки"
+          }
+        }
+      }
+    },
+    "Strong link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Strong link"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сильний зв'язок"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сьогодні"
+          }
+        }
+      }
+    },
+    "Tomorrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Завтра"
+          }
+        }
+      }
+    },
+    "Weak link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weak link"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слабкий зв'язок"
+          }
+        }
+      }
+    },
+    "When pressure falls, your history suggests a higher entry about ~%lld h later." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When pressure falls, your history suggests a higher entry about ~%lld h later."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Коли тиск падає, ваша історія вказує на вищу оцінку приблизно через ~%lld год."
+          }
+        }
+      }
+    },
+    "When pressure rises, your history suggests a higher entry about ~%lld h later." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When pressure rises, your history suggests a higher entry about ~%lld h later."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Коли тиск зростає, ваша історія вказує на вищу оцінку приблизно через ~%lld год."
+          }
+        }
+      }
+    },
+    "Your history suggests %@ usually turns up about ~%lld h after the barometer starts falling." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your history suggests %@ usually turns up about ~%lld h after the barometer starts falling."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша історія вказує, що %@ зазвичай з'являється приблизно через ~%lld год після того, як барометр починає падати."
+          }
+        }
+      }
+    },
+    "Your history suggests %@ usually turns up about ~%lld h after the barometer starts rising." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your history suggests %@ usually turns up about ~%lld h after the barometer starts rising."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша історія вказує, що %@ зазвичай з'являється приблизно через ~%lld год після того, як барометр починає зростати."
+          }
+        }
+      }
+    },
+    "Your history suggests a harder stretch usually follows a falling barometer by about ~%lld h." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your history suggests a harder stretch usually follows a falling barometer by about ~%lld h."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша історія вказує, що складніший період зазвичай настає приблизно через ~%lld год після падіння барометра."
+          }
+        }
+      }
+    },
+    "Your history suggests a harder stretch usually follows a rising barometer by about ~%lld h." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your history suggests a harder stretch usually follows a rising barometer by about ~%lld h."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша історія вказує, що складніший період зазвичай настає приблизно через ~%lld год після зростання барометра."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

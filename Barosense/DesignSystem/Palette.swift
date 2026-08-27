@@ -136,6 +136,48 @@ enum Palette {
     /// white pill barely visible against its own track.
     static let segmentedTrack = Color(hex: 0xF0EEE8)
 
+    // MARK: - Insights (Figma `7:951`)
+
+    /// `color/grey/91-2` — fill of the quiet pill action beside a screen heading.
+    ///
+    /// A step warmer and darker than `rowSeparator`, which is a hairline rather than a
+    /// surface. The two are close enough to look like a rounding of each other and are not:
+    /// using the hairline here leaves the pill invisible against the card stack below it.
+    static let quietActionFill = Color(hex: 0xEDEAE2)
+
+    /// `color/red/40` (Paarl) — the label of the strength badge on the link card.
+    ///
+    /// Its fill is `markerWarm` at 15%, mixed at the call site rather than flattened to a
+    /// hex here: the design gives it as an alpha over the card, and a pre-mixed opaque value
+    /// would stop tracking `cardSurface` the day a second surface colour exists.
+    static let strengthBadgeText = Color(hex: 0xA0472B)
+
+    /// `color/spring-green/89` (Apple Green) and `color/spring-green/34` (Sea Green) — the
+    /// tile of a day the model calls quiet.
+    ///
+    /// Fill and label are declared as a pair, and every pair below is drawn with its own dot
+    /// colour from an existing token (`positive`, `markerWarm`, `health`). Colour is never
+    /// the only channel: each tile also prints its state in words, which is what a reader who
+    /// cannot separate the three hues is actually reading.
+    static let riskLowFill = Color(hex: 0xD9EFE1)
+    static let riskLowText = Color(hex: 0x2E7D4F)
+
+    /// `color/orange/89` (Albescent White) and `color/red/37` — a day the day stage expects an
+    /// entry on, where the window stage has not named a stretch confidently enough to speak.
+    static let riskModerateFill = Color(hex: 0xF6D9CF)
+    static let riskModerateText = Color(hex: 0x93402A)
+
+    /// `color/red/88` (Beauty Bush) and `color/red/39` (Burnt Umber) — a day both stages agree
+    /// on. Deliberately close to the moderate pair: the two states are one step apart, and a
+    /// jump to a saturated red would read as an alarm the model is not entitled to raise.
+    static let riskHighFill = Color(hex: 0xF4D3CC)
+    static let riskHighText = Color(hex: 0x9C3D2A)
+
+    /// `color/azure/71` (Portage) — the mark inside the badge on the dark pattern card.
+    /// Its surround is `markerCool` at 25%, mixed at the call site for the reason the
+    /// strength badge's fill is.
+    static let markOnInk = Color(hex: 0x7C9CF0)
+
     // MARK: - Check-in intensity (Figma `7:330`)
 
     /// The ramp the intensity scale runs along, low to high: green at 1, red at 10.
