@@ -91,11 +91,11 @@ struct PremiumLockedScreen: View {
 
 /// The lock.
 ///
-/// An SF Symbol rather than a drawn shape, which is the opposite of the call `TabBarIcons`,
-/// `HealthTile` and `ConfirmationRing` make — and for the reason those three exist: each of
-/// them is a *specific* mark the design file draws, which no symbol matches. A padlock is not;
-/// it is the system's own idiom for exactly this, it scales with Dynamic Type on its own, and
-/// it stays optically centred at every size.
+/// An SF Symbol rather than a drawn shape, which is the opposite of the call `TabBarIcons` and
+/// `ConfirmationRing` make — and for the reason those two exist: each is a *specific* mark the
+/// design file draws, which no symbol matches. A padlock is not; it is the system's own idiom
+/// for exactly this, it scales with Dynamic Type on its own, and it stays optically centred at
+/// every size.
 private struct LockMark: View {
 
     var body: some View {

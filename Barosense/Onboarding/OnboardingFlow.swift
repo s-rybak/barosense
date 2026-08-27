@@ -35,8 +35,10 @@ struct OnboardingFlow: View {
             .id(model.step)
             .transition(slide)
             // The steps carry their own background edge to edge, and the keyboard on the
-            // opening step must not push the pinned action off screen.
-            .background(model.step.drawsProgressBar ? Palette.surface : Palette.ink)
+            // opening step must not push the pinned action off screen. This layer is what
+            // shows through while one step slides over the next, so it has to be the same
+            // side of the palette the incoming step draws on.
+            .background(model.step.palette.background)
             .ignoresSafeArea(.keyboard, edges: .bottom)
             // Read by `OnboardingStepScaffold`, which draws the control.
             .environment(\.onboardingBack, back)

@@ -46,6 +46,10 @@ struct MedicationsScreen: View {
     @State private var order: MedicationOrder = .recent
     @State private var hasLoaded = false
 
+    /// See `EnvironmentValues.tabBarInset`. Pushed destinations of the History stack keep the
+    /// tab bar under them, so this list has to clear it the same way its root does.
+    @Environment(\.tabBarInset) private var tabBarInset
+
     private static let horizontalMargin: CGFloat = 20
 
     /// Below this there is one row, and one row has no order.
@@ -91,6 +95,7 @@ struct MedicationsScreen: View {
             .padding(.bottom, 14)
         }
         .background(Palette.surface)
+        .safeAreaPadding(.bottom, tabBarInset)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: window) { await load() }
     }

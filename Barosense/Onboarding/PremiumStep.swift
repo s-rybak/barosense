@@ -37,7 +37,9 @@ struct PremiumStep: View {
     var body: some View {
         OnboardingStepScaffold(
             completedSteps: model.step.completedSteps,
-            palette: .dark,
+            // The one inverted step, stated on `OnboardingStep` so the surface behind the
+            // slide transition cannot disagree with the step drawn on top of it.
+            palette: model.step.palette,
             actionTitle: model.failure == nil ? SubscriptionCopy.trialAction : "Try again",
             isActionEnabled: !model.isSaving,
             action: model.advance

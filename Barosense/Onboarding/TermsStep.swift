@@ -20,7 +20,7 @@ struct TermsStep: View {
             action: model.advance
         ) {
             VStack(alignment: .leading, spacing: 24) {
-                ringTile
+                logoTile
 
                 OnboardingHeader(
                     title: "Before you start",
@@ -36,17 +36,22 @@ struct TermsStep: View {
         }
     }
 
-    /// The 56 pt mark that opens the step. A ring rather than a glyph — it carries no
-    /// meaning the text below does not, so it is hidden from VoiceOver.
-    private var ringTile: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Palette.ink)
+    /// The 56 pt mark that opens the step: the app's own logo, at the size and corner radius
+    /// the design gives this tile.
+    ///
+    /// The one place in the flow that draws a bitmap. It replaced a ring built from two
+    /// primitives — the ring said nothing, and this is the step where the user is told what
+    /// Barosense is, so the mark above that sentence may as well be the app's. The artwork is
+    /// the same file as the icon (`Logo` in `Assets.xcassets`, cut down from the 1024 pt
+    /// original to the three scales this 56 pt tile actually renders at).
+    ///
+    /// Carries no meaning the text below does not, so it stays hidden from VoiceOver.
+    private var logoTile: some View {
+        Image(.logo)
+            .resizable()
+            .scaledToFit()
             .frame(width: 56, height: 56)
-            .overlay {
-                Circle()
-                    .strokeBorder(Palette.onInk, lineWidth: 3)
-                    .frame(width: 28, height: 28)
-            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .accessibilityHidden(true)
     }
 

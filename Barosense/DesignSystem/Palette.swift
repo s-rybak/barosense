@@ -80,7 +80,11 @@ enum Palette {
     /// a row describing something already in place.
     static let positive = Color(hex: 0x3FA66B)
 
-    /// `color/red/56` (Red Damask) — the Apple Health tile.
+    /// `color/red/56` (Red Damask) — the warning under an out-of-range field.
+    ///
+    /// Named for the Apple Health tile it was added for. That tile is gone from the onboarding
+    /// step, and the token is kept under the Figma name rather than renamed to its remaining
+    /// consumer, because `destructive` below aliases it and the two roles move separately.
     static let health = Color(hex: 0xD65B4A)
 
     /// An action that removes something: the fill behind a swipe, and bare destructive text

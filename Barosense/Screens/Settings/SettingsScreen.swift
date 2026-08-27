@@ -31,6 +31,10 @@ struct SettingsScreen: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// See `EnvironmentValues.tabBarInset`. Read here rather than inside `list` because it has
+    /// to be applied on the far side of the `NavigationStack` that drops it.
+    @Environment(\.tabBarInset) private var tabBarInset
+
     @State private var model: SettingsModel
     @State private var path: [SettingsRoute] = []
 
@@ -63,6 +67,10 @@ struct SettingsScreen: View {
     var body: some View {
         NavigationStack(path: $path) {
             list
+                // Without this the list ends underneath the tab bar and "Delete my data",
+                // the last row on the screen, cannot be scrolled out from behind it. Only
+                // the root needs it: a pushed destination takes the bar away.
+                .safeAreaPadding(.bottom, tabBarInset)
                 .navigationDestination(for: SettingsRoute.self) { route in
                     destination(for: route)
                         .toolbar(.hidden, for: .navigationBar)

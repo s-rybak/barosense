@@ -89,6 +89,10 @@ struct RootView: View {
     /// (`SubscriptionController.hasTrialExpired`).
     @State private var paywall: PaywallOrigin?
 
+    /// How tall the tab bar currently is, measured and published for the screens that have to
+    /// re-apply it themselves. See `EnvironmentValues.tabBarInset`.
+    @State private var tabBarInset: CGFloat = 0
+
     var body: some View {
         ZStack {
             Palette.surface.ignoresSafeArea()
@@ -98,9 +102,18 @@ struct RootView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !isSettingsDetailPresented {
                 BarosenseTabBar(selection: tabBarSelection)
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        tabBarInset = height
+                    }
                     .transition(.move(edge: .bottom))
             }
         }
+        // The inset above does not reach a screen that puts a `NavigationStack` between itself
+        // and its content, so the two that do read this and put it back. See
+        // `EnvironmentValues.tabBarInset`.
+        .environment(\.tabBarInset, tabBarInset)
         .animation(.easeInOut(duration: 0.2), value: isSettingsDetailPresented)
         .onChange(of: selection) { _, tab in
             // Leaving Settings while a detail is pushed would otherwise strand the tab bar

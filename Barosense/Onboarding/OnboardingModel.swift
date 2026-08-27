@@ -25,6 +25,21 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
         }
     }
 
+    /// Which side of the palette the step draws on.
+    ///
+    /// Read by `OnboardingFlow` for the surface behind the step, and by the one step that
+    /// inverts, so the two cannot disagree about which that is.
+    ///
+    /// Deliberately **not** derived from `drawsProgressBar`, which it used to be: the two
+    /// answered together only for as long as exactly one step was both barless and dark.
+    /// The arrival step drops the bar and stays light; only the price screen inverts.
+    var palette: OnboardingPalette {
+        switch self {
+        case .profile, .tags, .pattern, .terms, .health, .ready: .light
+        case .premium: .dark
+        }
+    }
+
     /// How many segments the progress bar draws.
     ///
     /// The bar-drawing steps plus **one**, not plus the number of closing steps. The closing

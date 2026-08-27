@@ -5062,22 +5062,6 @@
         }
       }
     },
-    "Free, whatever you choose" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Free, whatever you choose"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Безкоштовно, хай там що"
-          }
-        }
-      }
-    },
     "Insights gathers the patterns building up in your check-ins. It's part of Premium." : {
       "localizations" : {
         "en" : {
@@ -5586,6 +5570,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "на рік"
+          }
+        }
+      }
+    },
+    "Free" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Безкоштовно"
           }
         }
       }

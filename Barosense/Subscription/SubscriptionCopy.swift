@@ -46,7 +46,7 @@ enum SubscriptionCopy {
 
     static var includedHeader: LocalizedStringKey { "Premium adds" }
 
-    static var freeHeader: LocalizedStringKey { "Free, whatever you choose" }
+    static var freeHeader: LocalizedStringKey { "Free" }
 
     /// The three gated surfaces, in the order they appear in the app.
     static func included(_ feature: PremiumFeature) -> LocalizedStringKey {
