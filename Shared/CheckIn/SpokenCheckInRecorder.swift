@@ -18,7 +18,7 @@ struct SpokenCheckInRecorder: Sendable {
 
         /// Appended to a check-in the user had already logged. Carries that check-in's
         /// timestamp so the caller can say which one it went on.
-        case appended(to: Date)
+        case appended(checkInAt: Date)
 
         /// Nothing recent enough to carry it. The caller has to ask for an intensity — a
         /// `CheckIn` cannot exist without one, and the one number this app must never
@@ -86,6 +86,6 @@ struct SpokenCheckInRecorder: Sendable {
                               note: previous.note)
 
         try await store.save(updated)
-        return .appended(to: previous.timestamp)
+        return .appended(checkInAt: previous.timestamp)
     }
 }

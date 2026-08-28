@@ -52,7 +52,7 @@ final class SpokenCheckInRecorderTests: XCTestCase {
 
         let outcome = try await recorder(store).record(entry)
 
-        XCTAssertEqual(outcome, .appended(to: earlier))
+        XCTAssertEqual(outcome, .appended(checkInAt: earlier))
 
         // Appended to the same row, not written as a second one: the id decides, and a
         // second row here would be a second training label for one moment.
@@ -103,7 +103,7 @@ final class SpokenCheckInRecorderTests: XCTestCase {
 
         let outcome = try await recorder(store, window: window).record(entry)
 
-        XCTAssertEqual(outcome, .appended(to: now.addingTimeInterval(-window)))
+        XCTAssertEqual(outcome, .appended(checkInAt: now.addingTimeInterval(-window)))
     }
 
     func testAMedicationAsksForACheckInWhenThereIsNoHistoryAtAll() async throws {

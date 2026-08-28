@@ -38,7 +38,10 @@ struct LogMedicationIntent: AppIntent {
     /// a value set there is silently unused whenever a recent check-in exists — which looks
     /// like a dropped input rather than the design.
     @Parameter(title: "Intensity",
-               description: "Only used when there is no recent check-in to add this to. 1 is barely there, 10 is as bad as it gets.")
+               description: """
+                   Only used when there is no recent check-in to add this to. \
+                   1 is barely there, 10 is as bad as it gets.
+                   """)
     var intensity: Int?
 
     static var parameterSummary: some ParameterSummary {
