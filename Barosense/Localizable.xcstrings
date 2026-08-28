@@ -419,6 +419,22 @@
         }
       }
     },
+    "1 is barely there, 10 is as bad as it gets." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 is barely there, 10 is as bad as it gets."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 — майже непомітно, 10 — гірше нікуди."
+          }
+        }
+      }
+    },
     "1 month" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -635,6 +651,22 @@
         }
       }
     },
+    "A short check-in: how you feel right now." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A short check-in: how you feel right now."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Короткий чек-ін: як ти почуваєшся зараз."
+          }
+        }
+      }
+    },
     "A summary of your pressure, your check-ins and what you took, as a PDF you can hand to a doctor." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -745,6 +777,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Додати до запису"
+          }
+        }
+      }
+    },
+    "Added %@ to your last check-in." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added %@ to your last check-in."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додано %@ до твого останнього чек-іну."
           }
         }
       }
@@ -1287,6 +1335,22 @@
         }
       }
     },
+    "Check in" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check in"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чек-ін"
+          }
+        }
+      }
+    },
     "Check-in likely today" : {
       "localizations" : {
         "en" : {
@@ -1552,6 +1616,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Створити PDF"
+          }
+        }
+      }
+    },
+    "Current barometric pressure and how it has moved today." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current barometric pressure and how it has moved today."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поточний атмосферний тиск і як він змінювався сьогодні."
           }
         }
       }
@@ -2291,6 +2371,22 @@
         }
       }
     },
+    "How would you rate it, from 1 to 10?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How would you rate it, from 1 to 10?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Як оціниш від 1 до 10?"
+          }
+        }
+      }
+    },
     "I understand and accept the Terms of Use and Privacy Policy" : {
       "localizations" : {
         "en" : {
@@ -2303,6 +2399,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Я розумію та приймаю Умови використання і Політику конфіденційності"
+          }
+        }
+      }
+    },
+    "In your own words — \"400 mg\", \"two\"." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In your own words — \"400 mg\", \"two\"."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Своїми словами — «400 мг», «дві»."
           }
         }
       }
@@ -2534,6 +2646,22 @@
         }
       }
     },
+    "Loading Barosense" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading Barosense"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barosense завантажується"
+          }
+        }
+      }
+    },
     "Log" : {
       "localizations" : {
         "en" : {
@@ -2546,6 +2674,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Чек-ін"
+          }
+        }
+      }
+    },
+    "Log a check-in" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log a check-in"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записати чек-ін"
+          }
+        }
+      }
+    },
+    "Log a check-in at ${intensity}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log a check-in at ${intensity}"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записати чек-ін на ${intensity}"
           }
         }
       }
@@ -2579,6 +2739,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Записати стан"
+          }
+        }
+      }
+    },
+    "Logged %lld out of 10, with %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logged %lld out of 10, with %@."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записано %lld з 10, разом із %@."
+          }
+        }
+      }
+    },
+    "Logged %lld out of 10." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logged %lld out of 10."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записано %lld з 10."
           }
         }
       }
@@ -3052,6 +3244,22 @@
         }
       }
     },
+    "Notifications, stored data, and what Barosense may read." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications, stored data, and what Barosense may read."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сповіщення, збережені дані та доступ Barosense."
+          }
+        }
+      }
+    },
     "now" : {
       "localizations" : {
         "en" : {
@@ -3177,6 +3385,22 @@
         }
       }
     },
+    "Only used when there is no recent check-in to add this to. 1 is barely there, 10 is as bad as it gets." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only used when there is no recent check-in to add this to. 1 is barely there, 10 is as bad as it gets."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Використовується, лише коли немає свіжого чек-іну, до якого це додати. 1 — майже непомітно, 10 — гірше нікуди."
+          }
+        }
+      }
+    },
     "Opens the weather data attribution page" : {
       "comment" : "A hint for a link that opens a web page.",
       "isCommentAutoGenerated" : true
@@ -3264,6 +3488,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Особисті дані"
+          }
+        }
+      }
+    },
+    "Personal patterns that build up as you keep checking in." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personal patterns that build up as you keep checking in."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Особисті закономірності, що накопичуються з твоїми чек-інами."
           }
         }
       }
@@ -3499,6 +3739,38 @@
         }
       }
     },
+    "Record ${name}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record ${name}"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записати ${name}"
+          }
+        }
+      }
+    },
+    "Record a medication" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record a medication"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записати ліки"
+          }
+        }
+      }
+    },
     "Recorded medications" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3529,6 +3801,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Записані ліки (продовження)"
+          }
+        }
+      }
+    },
+    "Records how you feel right now on the same 1–10 scale as the check-in form, where 1 is barely there and 10 is as bad as it gets." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records how you feel right now on the same 1–10 scale as the check-in form, where 1 is barely there and 10 is as bad as it gets."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записує, як ти почуваєшся зараз, за тією самою шкалою 1–10, що й у формі чек-іну: 1 — майже непомітно, 10 — гірше нікуди."
           }
         }
       }
@@ -4151,6 +4439,38 @@
         }
       }
     },
+    "The scale runs from 1 to 10. Which is it?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The scale runs from 1 to 10. Which is it?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шкала від 1 до 10. Яке значення?"
+          }
+        }
+      }
+    },
+    "There's no recent check-in to add that to. How would you rate it, from 1 to 10?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There's no recent check-in to add that to. How would you rate it, from 1 to 10?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Немає свіжого чек-іну, щоб додати до нього. Як оціниш від 1 до 10?"
+          }
+        }
+      }
+    },
     "This device has no barometer" : {
       "localizations" : {
         "en" : {
@@ -4447,6 +4767,22 @@
         }
       }
     },
+    "What did you take?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What did you take?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Які ліки записати?"
+          }
+        }
+      }
+    },
     "What do you want to be able to note on a check-in?" : {
       "localizations" : {
         "en" : {
@@ -4493,6 +4829,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Що це показує"
+          }
+        }
+      }
+    },
+    "What you call it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you call it."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Як ти це називаєш."
           }
         }
       }
@@ -4585,6 +4937,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Жінка"
+          }
+        }
+      }
+    },
+    "Writes down something you took, in your own words, alongside your check-ins. Barosense records it and nothing more." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Writes down something you took, in your own words, alongside your check-ins. Barosense records it and nothing more."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Занотовує твоїми словами те, що ти приймаєш, поряд із чек-інами. Barosense це лише записує — і нічого більше."
           }
         }
       }
@@ -4693,6 +5061,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Твої засоби"
+          }
+        }
+      }
+    },
+    "Your past check-ins next to the pressure around them." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your past check-ins next to the pressure around them."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твої минулі чек-іни поруч із тиском навколо них."
           }
         }
       }
