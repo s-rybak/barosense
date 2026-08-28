@@ -49,7 +49,32 @@ enum BarosenseModelContainer {
     /// every existing install's history.
     private static let storeFileName = "Barosense.store"
 
+    /// The one on-disk container this process opens, built on first use and kept.
+    ///
+    /// Exists because the app is no longer the only thing that opens the store: an App
+    /// Intent (`Barosense/Intents/`) runs a spoken check-in inside the app's own process,
+    /// launching it in the background when it is not already up. Two `ModelContainer`s on
+    /// one file is legal — it is SQLite underneath — but it is two write paths that learn
+    /// about each other only on the next fetch, which is a class of "my check-in vanished"
+    /// bug that is far cheaper to rule out here than to chase later.
+    ///
+    /// `@MainActor` rather than a lock: both callers are already there or can hop, and it
+    /// makes "built once" a property of the isolation rather than of a double-checked read.
+    @MainActor private static var openDurable: ModelContainer?
+
+    @MainActor
+    static func sharedDurable() throws -> ModelContainer {
+        if let openDurable { return openDurable }
+
+        let container = try makeDurable()
+        openDurable = container
+        return container
+    }
+
     /// The on-disk container backing a running app.
+    ///
+    /// Prefer `sharedDurable()`. This stays the way the container is actually built, and is
+    /// called directly only by tests that want one nobody else is holding.
     static func makeDurable() throws -> ModelContainer {
         do {
             let configuration = ModelConfiguration(

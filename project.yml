@@ -90,6 +90,12 @@ targets:
     dependencies:
       - target: BarosenseWatch
         embed: true
+      # A system framework, not a third-party dependency. Linked explicitly rather than left
+      # to Swift's implicit import because `appintentsmetadataprocessor` keys off the link:
+      # without it the build still compiles the intents and then reports "Metadata extraction
+      # skipped. No AppIntents.framework dependency found." — the app ships with no shortcuts
+      # and Siri knows nothing about them, with no error to say why.
+      - sdk: AppIntents.framework
 
   BarosenseWatch:
     type: application

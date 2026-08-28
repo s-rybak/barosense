@@ -46,10 +46,18 @@ struct PlusGlyph: View {
     }
 }
 
-/// `Now` — solid 22 pt dot.
+/// `Now` — 2 pt ring around a 7 pt dot.
+///
+/// This drawing used to be the Settings glyph. It moved here rather than being copied: an
+/// aperture reads as "what is true at this moment", which is what the destination shows,
+/// and Settings took the cog every platform already uses for it.
 private struct NowGlyph: View {
     var body: some View {
         Circle()
+            .strokeBorder(lineWidth: 2)
+            .overlay {
+                Circle().frame(width: 7, height: 7)
+            }
     }
 }
 
@@ -91,14 +99,74 @@ private struct InsightsGlyph: View {
     }
 }
 
-/// `Settings` — 2 pt ring around a 7 pt dot.
+/// `Settings` — an eight-tooth cog with an open hub.
+///
+/// Drawn rather than taken from SF Symbols, for the reason every other glyph in this file
+/// is: a symbol carries Apple's own optical sizing and stroke weight, and one symbol in a
+/// row of four hand-built shapes reads a weight heavier than its neighbours at 22 pt.
 private struct SettingsGlyph: View {
     var body: some View {
-        Circle()
-            .strokeBorder(lineWidth: 2)
-            .overlay {
-                Circle().frame(width: 7, height: 7)
-            }
+        // Even-odd, so the hub subpath is a hole rather than a second filled disc.
+        GearShape().fill(style: FillStyle(eoFill: true))
+    }
+}
+
+/// The cog behind `SettingsGlyph`, as one path: the toothed outline, then the hub as a
+/// second subpath for an even-odd fill to cut out.
+///
+/// Proportions are set against the 22 pt box every glyph is drawn in — a 22 pt tip
+/// diameter to fill the box the way `NowGlyph` does, and a hub a shade under a third of
+/// it, which is what keeps the ring of teeth reading as teeth at tab-bar size rather than
+/// as a serrated blob.
+private struct GearShape: Shape {
+
+    var teeth = 8
+    /// Radius at a tooth tip — the widest point of the glyph.
+    var tipRadius: CGFloat = 11
+    /// Radius of the body the teeth stand on.
+    var rootRadius: CGFloat = 8.2
+    var hubRadius: CGFloat = 3.4
+    /// How much of one tooth-to-tooth pitch the tooth itself takes, 0 to 1. At 0.5 tooth
+    /// and gap are equal, which is the reference drawing.
+    var toothWidth = 0.5
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        let centre = CGPoint(x: rect.midX, y: rect.midY)
+        let pitch = 2 * Double.pi / Double(teeth)
+        let halfTooth = pitch * toothWidth / 2
+
+        for index in 0..<teeth {
+            // Tooth centres start at twelve o'clock, so the glyph is symmetric about the
+            // vertical the label under it is centred on.
+            let axis = Double(index) * pitch - Double.pi / 2
+
+            // The arc across the tip. `addArc` draws a line from the current point to the
+            // arc's start, which is what forms the radial flank between root and tip — so
+            // the four calls per tooth below need no explicit `addLine`.
+            path.addArc(center: centre,
+                        radius: tipRadius,
+                        startAngle: .radians(axis - halfTooth),
+                        endAngle: .radians(axis + halfTooth),
+                        clockwise: false)
+
+            // Down the far flank and along the gap to where the next tooth begins.
+            path.addArc(center: centre,
+                        radius: rootRadius,
+                        startAngle: .radians(axis + halfTooth),
+                        endAngle: .radians(axis + pitch - halfTooth),
+                        clockwise: false)
+        }
+
+        path.closeSubpath()
+
+        path.addEllipse(in: CGRect(x: centre.x - hubRadius,
+                                   y: centre.y - hubRadius,
+                                   width: hubRadius * 2,
+                                   height: hubRadius * 2))
+
+        return path
     }
 }
 

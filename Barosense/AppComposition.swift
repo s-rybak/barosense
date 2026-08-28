@@ -98,7 +98,10 @@ final class AppServices {
         phase = .opening
 
         do {
-            let container = try BarosenseModelContainer.makeDurable()
+            // Shared rather than built here: a spoken check-in opens the same store from
+            // an App Intent, and one container per process is what keeps the two from
+            // writing past each other. See `BarosenseModelContainer.sharedDurable`.
+            let container = try BarosenseModelContainer.sharedDurable()
             let profileStore = SwiftDataUserProfileStore(modelContainer: container)
             let tagStore = SwiftDataWellbeingTagStore(modelContainer: container)
             // Same container as the tag vocabulary a check-in points at, so the two cannot
