@@ -123,7 +123,13 @@ struct RootView: View {
             // Leaving a tab while a detail is pushed would otherwise strand the tab bar hidden
             // on a tab that has no way to bring it back. Lowered on every change rather than on
             // a named set of tabs: the tab being left is the one that raised it, whichever it
-            // was, and its own `NavigationStack` keeps its path for the return.
+            // was.
+            //
+            // The push does not survive the switch either. `destination` is a `switch` inside a
+            // `@ViewBuilder`, so each tab is a different branch and leaving one tears that
+            // branch down along with its `NavigationStack` and the `@State path` driving it —
+            // the tab is re-entered at its root. The flag has to come down with the stack that
+            // raised it, or it would describe a screen that no longer exists.
             isDetailPresented = false
         }
         // The check-in is a sheet over whatever the user was looking at, not a destination

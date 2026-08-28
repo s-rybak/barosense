@@ -58,11 +58,21 @@ final class InsightsModel {
 
     /// Whether there is anything on this screen at all.
     ///
-    /// The link card survives an empty log — it has a "keep checking in" state — so it is not
-    /// on this list. What is: a forecast, a tag, or a week with something in it. None of the
-    /// three and the screen says so in one sentence instead of stacking four empty cards.
+    /// A coefficient, a forecast, a tag, or a week with something in it. None of the four and
+    /// the screen says so in one sentence instead of stacking four empty cards.
+    ///
+    /// `link` is on this list even though the link card also has a "keep checking in" state:
+    /// the *absence* of a link is not a finding, but a link is. Left off, a user whose
+    /// barometer had been quiet for a week — empty trace, no scoreable day, nothing tagged —
+    /// was told there was nothing to show while the screen was holding a correlation over four
+    /// months of their own history. `pattern` needs no entry of its own; it cannot outlive the
+    /// link, because `WellbeingPatternNote.make` returns `nil` without one.
+    ///
+    /// This makes the list a superset of `isLinkPresentable`, which is the right way round: a
+    /// card worth drawing implies a screen worth drawing.
     var hasAnything: Bool {
-        risk?.outlook.isEmpty == false
+        insights.link != nil
+            || risk?.outlook.isEmpty == false
             || !insights.tags.isEmpty
             || insights.trace.contains { !$0.isEmpty }
     }

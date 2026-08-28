@@ -51,6 +51,15 @@ struct WellbeingInsights: Hashable, Sendable {
 /// takes. Both halves are the user's history read back: `episodeCount` is a count of weather,
 /// `matchedEpisodes` is a count of their own entries.
 ///
+/// ## Why zero is reported
+///
+/// `matchedEpisodes == 0` produces a note like any other, and the card words it as a miss.
+/// Suppressing it — which this type used to do — left the reader seeing only the favourable
+/// tail of their own history: the lag being counted against is already the best of
+/// `PressureWellbeingLink.lagHoursSearched` on this same log, so the rate is optimistic by
+/// construction, and hiding the low end on top of that turns a screening figure into a
+/// guaranteed finding. A card that can only ever agree with itself is not evidence.
+///
 /// ## What it is not allowed to say
 ///
 /// Not a forecast, not a mechanism, and never a threshold in absolute hectopascals. The log
@@ -75,7 +84,7 @@ struct WellbeingPatternNote: Hashable, Sendable {
     let isFallLeading: Bool
 
     /// Episodes with a check-in at or above `WellbeingLabel.poorWellbeingThreshold` inside the
-    /// match window.
+    /// match window. May be zero — see the note above.
     let matchedEpisodes: Int
 
     /// Episodes examined — the most recent `maximumEpisodes` at most.
@@ -86,11 +95,22 @@ struct WellbeingPatternNote: Hashable, Sendable {
     /// A fraction rather than whole points, so the drawing side formats it in the reader's own
     /// locale instead of this type deciding what a percent sign looks like. Never a percentage
     /// of nothing: `episodeCount` is gated at `minimumEpisodes` before this type exists.
+    ///
+    /// **Optimistic.** The lag it is counted at was picked as the largest |*r*| over seven
+    /// candidates on this same log (`ml-spec.md` §2.1), so this figure is a screening number
+    /// like the coefficient beside it, not an out-of-sample rate.
     var matchRate: Double {
         guard episodeCount > 0 else { return 0 }
 
         return Double(matchedEpisodes) / Double(episodeCount)
     }
+
+    /// Whether the sentence is allowed the word "usually".
+    ///
+    /// Zero matches is a different claim from a weak one, and the card has separate copy for
+    /// it: "a harder stretch usually follows" over a footnote reading 0 % would be the two
+    /// halves of one card contradicting each other.
+    var isMatched: Bool { matchedEpisodes > 0 }
 }
 
 extension WellbeingInsights {
@@ -132,7 +152,11 @@ extension WellbeingInsights {
                      tagsByID: [WellbeingTag.ID: WellbeingTag],
                      calendar: Calendar,
                      asOf now: Date) -> WellbeingInsights {
-        let link = PressureWellbeingLink.make(checkIns: checkIns, samples: samples, asOf: now)
+        // Gridded once and used twice. The link searches it for a coefficient and the note walks
+        // it for episodes; building it per consumer meant hashing four months of samples twice
+        // on the main actor for two identical answers.
+        let cells = PressureWellbeingLink.hourlyCells(from: samples, asOf: now)
+        let link = PressureWellbeingLink.make(checkIns: checkIns, cells: cells)
         let window = traceWindow(endingAt: now, calendar: calendar)
 
         return WellbeingInsights(
@@ -145,9 +169,8 @@ extension WellbeingInsights {
             checkInCount: checkIns.count,
             pattern: WellbeingPatternNote.make(link: link,
                                                checkIns: checkIns,
-                                               samples: samples,
-                                               tagsByID: tagsByID,
-                                               asOf: now)
+                                               cells: cells,
+                                               tagsByID: tagsByID)
         )
     }
 }
@@ -178,14 +201,18 @@ extension WellbeingPatternNote {
     /// Gated on `link` on purpose: the lag and the direction both come from it, and a note
     /// invented without one would be a second, unreconciled answer to the question the card
     /// above it already asked.
+    ///
+    /// `cells` is the Insights window already gridded — `PressureWellbeingLink.hourlyCells`.
+    /// Taken rather than built so the screen grids its samples once.
+    ///
+    /// A note with `matchedEpisodes == 0` is a note, not a `nil`. See the type's own comment.
     static func make(link: PressureWellbeingLink?,
                      checkIns: [CheckIn],
-                     samples: [PressureSample],
-                     tagsByID: [WellbeingTag.ID: WellbeingTag],
-                     asOf now: Date) -> WellbeingPatternNote? {
+                     cells: [HourlyPressureGrid.Cell],
+                     tagsByID: [WellbeingTag.ID: WellbeingTag]) -> WellbeingPatternNote? {
         guard let link else { return nil }
 
-        let onsets = episodeOnsets(in: samples, isFall: link.isFallLeading, asOf: now)
+        let onsets = episodeOnsets(in: cells, isFall: link.isFallLeading)
             .suffix(maximumEpisodes)
         guard onsets.count >= minimumEpisodes else { return nil }
 
@@ -194,6 +221,10 @@ extension WellbeingPatternNote {
 
         var matched = 0
         var matching: [CheckIn] = []
+        // One entry counts once however many onsets it sits near. Two fronts three hours apart
+        // put the same evening inside both match windows, and letting it be counted twice would
+        // weight whatever it was tagged with by an accident of the weather.
+        var counted: Set<CheckIn.ID> = []
 
         for onset in onsets {
             let expected = onset.addingTimeInterval(Double(link.lagHours) * 3600)
@@ -203,13 +234,8 @@ extension WellbeingPatternNote {
 
             guard !hits.isEmpty else { continue }
             matched += 1
-            matching += hits
+            matching += hits.filter { counted.insert($0.id).inserted }
         }
-
-        // Nothing matched at all is a real answer about this user's log and a card with no
-        // sentence in it. The screen leaves it out rather than printing "0 of 10", which tells
-        // the reader their history is being watched and found wanting.
-        guard matched > 0 else { return nil }
 
         return WellbeingPatternNote(tag: ReportBuilder.tagCounts(in: matching, tagsByID: tagsByID).first?.tag,
                                     lagHours: link.lagHours,
@@ -224,13 +250,8 @@ extension WellbeingPatternNote {
     /// One onset per weather system rather than one per hour: a front takes most of a day to go
     /// through, and counting each of its hours as an episode would put ten "episodes" inside
     /// one afternoon and report a hit rate over a single event.
-    private static func episodeOnsets(in samples: [PressureSample],
-                                      isFall: Bool,
-                                      asOf now: Date) -> [Date] {
-        guard let earliest = samples.map(\.timestamp).min() else { return [] }
-
-        let cells = HourlyPressureGrid.cells(from: samples,
-                                             in: earliest..<max(now, earliest.addingTimeInterval(1)))
+    private static func episodeOnsets(in cells: [HourlyPressureGrid.Cell],
+                                      isFall: Bool) -> [Date] {
         let byHour = Dictionary(cells.map { ($0.hour, $0.hectopascals) },
                                 uniquingKeysWith: { first, _ in first })
         let span = Double(PressureWellbeingLink.changeWindowHours) * 3600

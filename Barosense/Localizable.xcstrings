@@ -635,22 +635,6 @@
         }
       }
     },
-    "A short check-in: how you feel right now." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A short check-in: how you feel right now."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Короткий чек-ін: як ти почуваєшся зараз."
-          }
-        }
-      }
-    },
     "A summary of your pressure, your check-ins and what you took, as a PDF you can hand to a doctor." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1255,6 +1239,7 @@
       }
     },
     "Blood oxygen" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1567,22 +1552,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Створити PDF"
-          }
-        }
-      }
-    },
-    "Current barometric pressure and how it has moved today." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current barometric pressure and how it has moved today."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поточний атмосферний тиск і як він змінювався сьогодні."
           }
         }
       }
@@ -3083,22 +3052,6 @@
         }
       }
     },
-    "Notifications, stored data, and what Barosense may read." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notifications, stored data, and what Barosense may read."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сповіщення, збережені дані та доступ Barosense."
-          }
-        }
-      }
-    },
     "now" : {
       "localizations" : {
         "en" : {
@@ -3311,22 +3264,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Особисті дані"
-          }
-        }
-      }
-    },
-    "Personal patterns that build up as you keep checking in." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personal patterns that build up as you keep checking in."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Особисті закономірності, що накопичуються з твоїми чек-інами."
           }
         }
       }
@@ -3867,6 +3804,7 @@
       }
     },
     "Sleep and heart rate" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3948,6 +3886,7 @@
       }
     },
     "Start" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3990,7 +3929,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ще вивчаю твій ритм — це загальна оцінка"
+            "value" : "Вашої історії ще замало — це загальна оцінка"
           }
         }
       }
@@ -4758,22 +4697,6 @@
         }
       }
     },
-    "Your past check-ins next to the pressure around them." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your past check-ins next to the pressure around them."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Твої минулі чек-іни поруч із тиском навколо них."
-          }
-        }
-      }
-    },
     "Your personal model has started learning from your data" : {
       "localizations" : {
         "en" : {
@@ -4905,15 +4828,51 @@
     "From %lld check-ins with pressure behind them" : {
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "From %lld check-ins with pressure behind them"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "From %lld check-in with pressure behind it"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "From %lld check-ins with pressure behind them"
+                }
+              }
+            }
           }
         },
         "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "З %lld чек-інів, за якими є дані тиску"
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "З %lld записів, за якими є дані тиску"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "З %lld записів, за якими є дані тиску"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "З %lld запису, за яким є дані тиску"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "З %lld записів, за якими є дані тиску"
+                }
+              }
+            }
           }
         }
       }
@@ -5041,7 +5000,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Знайдено закономірність"
+            "value" : "Закономірність у вашій історії"
           }
         }
       }
@@ -5137,7 +5096,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ще вивчаю ваші закономірності — це загальні оцінки"
+            "value" : "Вашої історії ще замало — це загальні оцінки"
           }
         }
       }
@@ -6098,6 +6057,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "до %@"
+          }
+        }
+      }
+    },
+    "The last %lld falls in pressure did not line up with how you were feeling." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last %lld falls in pressure did not line up with how you were feeling."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Останні %lld падінь тиску не збіглися з тим, як ви почувалися."
+          }
+        }
+      }
+    },
+    "The last %lld rises in pressure did not line up with how you were feeling." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last %lld rises in pressure did not line up with how you were feeling."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Останні %lld зростань тиску не збіглися з тим, як ви почувалися."
+          }
+        }
+      }
+    },
+    "Your recent history" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your recent history"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша нещодавня історія"
           }
         }
       }

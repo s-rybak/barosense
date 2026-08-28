@@ -84,11 +84,9 @@ final class WellbeingInsightsTests: XCTestCase {
     /// No link, no note. The lag and the direction both come from the link, and a note invented
     /// without one would be a second answer to the question the card above it already asked.
     func testNoNoteWithoutALink() {
-        XCTAssertNil(WellbeingPatternNote.make(link: nil,
-                                               checkIns: entriesOnEveryFall(),
-                                               samples: sawtooth(days: 10),
-                                               tagsByID: [:],
-                                               asOf: now))
+        XCTAssertNil(patternNote(link: nil,
+                                 checkIns: entriesOnEveryFall(),
+                                 samples: sawtooth(days: 10)))
     }
 
     /// Fewer episodes than `minimumEpisodes` and there is no note either — a hit rate over
@@ -96,11 +94,9 @@ final class WellbeingInsightsTests: XCTestCase {
     func testTooFewEpisodesProduceNoNote() {
         let days = WellbeingPatternNote.minimumEpisodes - 2
 
-        XCTAssertNil(WellbeingPatternNote.make(link: link(lagHours: 6),
-                                               checkIns: entriesOnEveryFall(days: days),
-                                               samples: sawtooth(days: days),
-                                               tagsByID: [:],
-                                               asOf: now))
+        XCTAssertNil(patternNote(link: link(lagHours: 6),
+                                 checkIns: entriesOnEveryFall(days: days),
+                                 samples: sawtooth(days: days)))
     }
 
     /// A log where every fall is followed six hours later by a heavy entry: every episode
@@ -110,11 +106,10 @@ final class WellbeingInsightsTests: XCTestCase {
         let vocabulary = [headache: WellbeingTag(id: headache, name: "Headache")]
 
         let note = try XCTUnwrap(
-            WellbeingPatternNote.make(link: link(lagHours: 6),
-                                      checkIns: entriesOnEveryFall(tagID: headache),
-                                      samples: sawtooth(days: 14),
-                                      tagsByID: vocabulary,
-                                      asOf: now)
+            patternNote(link: link(lagHours: 6),
+                        checkIns: entriesOnEveryFall(tagID: headache),
+                        samples: sawtooth(days: 14),
+                        tagsByID: vocabulary)
         )
 
         XCTAssertEqual(note.episodeCount, WellbeingPatternNote.maximumEpisodes)
@@ -125,29 +120,36 @@ final class WellbeingInsightsTests: XCTestCase {
         XCTAssertEqual(note.tag?.id, headache)
     }
 
-    /// Entries that never land near the expected moment produce no note at all, rather than
-    /// "0 of 10" — a card that tells the reader their history was watched and found wanting.
-    func testNothingMatchingProducesNoNote() {
+    /// Entries that never land near the expected moment are reported as a miss, not hidden.
+    ///
+    /// The lag being counted against is already the best of seven searched on this same log, so
+    /// a note that could only ever come back positive would be showing the reader one tail of
+    /// their own history and calling it a finding.
+    func testNothingMatchingIsReportedAsZero() throws {
         // The link says six hours after the fall; these sit half a day away from that.
         let strays = entriesOnEveryFall(offsetHours: 18)
 
-        XCTAssertNil(WellbeingPatternNote.make(link: link(lagHours: 6),
-                                               checkIns: strays,
-                                               samples: sawtooth(days: 14),
-                                               tagsByID: [:],
-                                               asOf: now))
+        let miss = try XCTUnwrap(patternNote(link: link(lagHours: 6),
+                                             checkIns: strays,
+                                             samples: sawtooth(days: 14)))
+
+        XCTAssertEqual(miss.matchedEpisodes, 0)
+        XCTAssertEqual(miss.episodeCount, WellbeingPatternNote.maximumEpisodes)
+        XCTAssertEqual(miss.matchRate, 0, accuracy: 1e-12)
+        XCTAssertFalse(miss.isMatched, "the card words a miss as a miss, never as `usually`")
+        XCTAssertNil(miss.tag, "nothing matched, so there is nothing to have been tagged")
     }
 
     /// Entries below `WellbeingLabel.poorWellbeingThreshold` are not events, so they cannot
     /// match. The note counts the same label the model is trained against and no other.
-    func testOnlyPoorWellbeingEntriesMatch() {
+    func testOnlyPoorWellbeingEntriesMatch() throws {
         let mild = entriesOnEveryFall(intensity: 3)
 
-        XCTAssertNil(WellbeingPatternNote.make(link: link(lagHours: 6),
-                                               checkIns: mild,
-                                               samples: sawtooth(days: 14),
-                                               tagsByID: [:],
-                                               asOf: now))
+        let miss = try XCTUnwrap(patternNote(link: link(lagHours: 6),
+                                             checkIns: mild,
+                                             samples: sawtooth(days: 14)))
+
+        XCTAssertEqual(miss.matchedEpisodes, 0)
     }
 
     // MARK: - Outlook grading
@@ -208,6 +210,32 @@ final class WellbeingInsightsTests: XCTestCase {
         }
     }
 
+    /// The tile is read off the best window **still ahead**, and nothing else.
+    ///
+    /// The one assertion the structural test above cannot make: today's row has finished
+    /// windows in it by construction, and a tile that ranked over all of them would be grading
+    /// the day on a stretch the user has already lived through. Ranking is on `confidence`
+    /// because that is the figure `WellbeingRiskModel.level` compares against the gate — see
+    /// the note in `WellbeingRiskForecast` on why it cannot reorder anything within a day.
+    func testTodaysTileIgnoresWindowsThatHaveFinished() throws {
+        // Partway into the last waking day of the trace, so some of it is behind the model.
+        let instant = SyntheticTraceFixture.now.addingTimeInterval(-10 * 3600)
+        let forecast = try notebookForecast(asOf: instant)
+        let today = try XCTUnwrap(forecast.outlook.first)
+        let rows = forecast.windows.filter { $0.dayStart == today.dayStart }
+        let ahead = rows.filter { $0.end > instant }
+
+        XCTAssertFalse(ahead.isEmpty)
+        XCTAssertLessThan(ahead.count, rows.count,
+                          "the fixture has to contain finished windows for this to prove anything")
+
+        let best = try XCTUnwrap(ahead.max { $0.confidence < $1.confidence })
+        XCTAssertEqual(today.confidence, best.confidence, accuracy: 1e-12)
+        XCTAssertEqual(today.combined, best.combined, accuracy: 1e-12)
+        XCTAssertEqual(today.window.lowerBound, best.start)
+        XCTAssertEqual(today.window.upperBound, best.end)
+    }
+
     /// The first tile is today's, and it agrees with the flag the chart's row reads.
     func testTodaysTileAgreesWithTheQuietFlag() throws {
         let forecast = try notebookForecast()
@@ -218,6 +246,18 @@ final class WellbeingInsightsTests: XCTestCase {
     }
 
     // MARK: - Fixtures
+
+    /// `WellbeingPatternNote.make` with the grid built for it, as `WellbeingInsights.make` does.
+    private func patternNote(link: PressureWellbeingLink?,
+                             checkIns: [CheckIn],
+                             samples: [PressureSample],
+                             tagsByID: [WellbeingTag.ID: WellbeingTag] = [:]) -> WellbeingPatternNote? {
+        WellbeingPatternNote.make(link: link,
+                                         checkIns: checkIns,
+                                         cells: PressureWellbeingLink.hourlyCells(from: samples,
+                                                                                  asOf: now),
+                                         tagsByID: tagsByID)
+    }
 
     private func link(lagHours: Int) -> PressureWellbeingLink {
         PressureWellbeingLink(coefficient: 0.6, lagHours: lagHours, pairCount: 20)
@@ -237,11 +277,15 @@ final class WellbeingInsightsTests: XCTestCase {
     /// — because that is what `WellbeingRiskEngine.forwardRows` builds and what the outlook is a
     /// view onto. Scoring the whole log instead would make the *first* day of the trace "today"
     /// and every window in it long finished, which is a forecast of nothing.
-    private func notebookForecast() throws -> WellbeingRiskForecast {
+    ///
+    /// `asOf` defaults to the fixture's own instant, which sits before that day's waking start
+    /// — so every window of it is still ahead. A test that needs finished windows to look at
+    /// passes an instant partway into the day instead, and the observed rows are cut at it so
+    /// the model is never handed a reading from after the moment it is scoring.
+    private func notebookForecast(asOf instant: Date = SyntheticTraceFixture.now) throws -> WellbeingRiskForecast {
         let checkIns = SyntheticTraceFixture.checkIns()
         let geometry = RiskWindowGeometry.measured(from: checkIns, calendar: calendar)
-        let instant = SyntheticTraceFixture.now
-        let samples = SyntheticTraceFixture.samples()
+        let samples = SyntheticTraceFixture.samples().filter { $0.timestamp < instant }
 
         let dayStart = geometry.wakingDayStart(of: instant)
         let horizon = instant.addingTimeInterval(Self.horizonHours * 3600)

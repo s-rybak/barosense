@@ -15,12 +15,13 @@ enum Typography {
         .custom("Manrope-SemiBold", size: 11, relativeTo: .caption2)
         .weight(.semibold)
 
-    /// Screen heading on a placeholder destination.
+    /// Screen heading on a pushed destination — History's month, Medications.
     static let screenTitle = Font
         .custom("Manrope-SemiBold", size: 28, relativeTo: .title)
         .weight(.semibold)
 
-    /// Supporting line under a screen heading.
+    /// Supporting line under a screen heading. Part of the Figma ramp; no call site today —
+    /// the placeholder destinations it was drawn for have all been replaced.
     static let screenSummary = Font
         .custom("Manrope-Regular", size: 15, relativeTo: .subheadline)
 

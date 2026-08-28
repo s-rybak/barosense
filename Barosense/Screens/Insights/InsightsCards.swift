@@ -303,10 +303,11 @@ struct InsightsSparkline: View {
 
 /// What the user has written down most (Figma `7:1017`).
 ///
-/// **Titled "Most-used tags", not "Top symptoms" as the design does.** `symptom` is on the
+/// **Titled "Most-used tags", not the label the design puts on it.** That word is on the
 /// forbidden list in `.claude/skills/appstore_compliance/SKILL.md` and is caught by
-/// `scripts/ci/check-copy-vocabulary.sh`; the tag vocabulary is user-owned free text and
-/// calling it a list of symptoms is the app asserting what those words mean.
+/// `scripts/ci/check-copy-vocabulary.sh` — the Figma node above still carries it if you need
+/// to see which one. The tag vocabulary is user-owned free text, and a title that names what
+/// those words *are* is the app asserting a meaning it has no standing to assert.
 ///
 /// Counting and nothing else. No tag is related to the pressure here — that claim, where the
 /// app makes it at all, is made once, on the link card, with the pair count beside it.
@@ -386,7 +387,11 @@ struct PatternNoteCard: View {
                         .frame(width: 8, height: 8)
                 }
 
-                InsightsEyebrow(title: "Pattern in your history", tint: Palette.bodyTextOnInk)
+                // The design's own label, but only when there is a pattern under it. A card
+                // headed "pattern in your history" over a sentence saying nothing lined up
+                // would be promising in the eyebrow what the next line takes away.
+                InsightsEyebrow(title: note.isMatched ? "Pattern in your history" : "Your recent history",
+                                tint: Palette.bodyTextOnInk)
             }
 
             headline
@@ -409,12 +414,30 @@ struct PatternNoteCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Four wordings: a fall or a rise, with or without a tag to name.
+    /// Six wordings: a fall or a rise, matched with or without a tag to name, or not matched
+    /// at all.
     ///
     /// Written out rather than assembled from fragments. A sentence built by concatenation
     /// cannot be translated — Ukrainian declines the tag name after "після", and a translator
     /// handed three separate pieces has no way to make the joins agree.
+    ///
+    /// The unmatched pair is not a softer version of the others: it makes no claim. A card that
+    /// said "usually follows" over a footnote reading 0 % would be arguing with itself, and the
+    /// note is allowed to report a miss precisely so the reader sees that end of their own
+    /// history too — `WellbeingPatternNote` holds the reasoning.
     private var headline: Text {
+        guard note.isMatched else {
+            return note.isFallLeading
+                ? Text("""
+                    The last \(note.episodeCount) falls in pressure did not line up with how \
+                    you were feeling.
+                    """)
+                : Text("""
+                    The last \(note.episodeCount) rises in pressure did not line up with how \
+                    you were feeling.
+                    """)
+        }
+
         guard let tag = note.tag, let named = tagsByID[tag.id]?.label else {
             return note.isFallLeading
                 ? Text("""

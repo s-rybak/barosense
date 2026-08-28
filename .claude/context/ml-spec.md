@@ -385,11 +385,16 @@ hit rate, and is **gated on that link existing** so the two cards on the screen 
 about direction or lag. An episode is the first hour of a maximal run whose trailing six-hour
 change clears `PressureTrend.significantChangeHPa` in the link's own direction — one onset per
 weather system, not one per hour. A match is a §1.1-labelled entry within
-`matchToleranceHours = 3` of `onset + lagHours`. `minimumEpisodes = 5`,
-`maximumEpisodes = 10`, and no note at all when nothing matched — "0 of 10" tells the reader
-their history was watched and found wanting. **Never an absolute hectopascal threshold**: the
-log holds station pressure, so "below 1005 hPa" would be a claim about the user's altitude as
-much as about the weather (§3).
+`matchToleranceHours = 3` of `onset + lagHours`, counted once however many onsets it sits near.
+`minimumEpisodes = 5`, `maximumEpisodes = 10`.
+
+**Zero is reported.** A note with `matchedEpisodes == 0` is built like any other and the card
+words it as a miss. The earlier behaviour — no note at all — was a second selection on top of
+the lag search above: the rate is already counted at the best of seven lags fitted on this same
+log, and suppressing the low end as well left a card that could only ever agree with itself.
+The hit rate is a screening figure, in-sample, and the type says so. **Never an absolute
+hectopascal threshold**: the log holds station pressure, so "below 1005 hPa" would be a claim
+about the user's altitude as much as about the weather (§3).
 
 Neither type feeds anything. The screen's forecast comes from `WellbeingRiskEngine` and is
 passed in beside them — one risk model, one place it is fitted.

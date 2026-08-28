@@ -362,11 +362,15 @@ extension WellbeingRiskModel {
             )
 
             // The outlook tile for this day, read off the best stretch **still to come**. A day
-            // whose windows have all finished gets none — see `RiskOutlookDay`. Ranked on
-            // `confidence` rather than on `combined`, because the band is the two stages'
-            // agreement and the day stage's contribution is already in `isQuiet`; picking the
-            // best joint figure instead would let a day the model ranks flat outrank one it
-            // ranks sharply, purely because the day stage liked it.
+            // whose windows have all finished gets none — see `RiskOutlookDay`.
+            //
+            // Ranked on `confidence` because that is the figure the band is made of: `level`
+            // compares it against `gateThreshold`, the same number `mayNotify` reads. Inside one
+            // day the choice cannot reorder anything — `combined` is this same value times
+            // `dayChance`, which is fixed for the day — so this says which quantity the tile is
+            // *about*, it is not a tie-break. It would begin to matter the moment the day
+            // stage's contribution became per-window, and a tile ranked on the joint figure
+            // would then be grading two things at once without saying so.
             if let best = ahead.max(by: { $0.confidence < $1.confidence }) {
                 outlook.append(RiskOutlookDay(dayStart: day,
                                               level: Self.level(isDayQuiet: isQuiet,

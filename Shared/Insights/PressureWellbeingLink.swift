@@ -23,7 +23,7 @@ import Foundation
 /// three deliberate conservatisms — `minimumPairs` is high enough that a handful of check-ins
 /// cannot produce a figure at all, the bands are Cohen's rather than something flattering, and
 /// the lag is only ever drawn with a `~` in front of it. A single reported *r* here is a
-/// **screening** number, not a tested hypothesis, and a card that treats it as the latter would
+/// **screening** number, not a tested hypothesis, and a card that reads it as the latter would
 /// be over-claiming by construction.
 ///
 /// ## Station pressure
@@ -117,10 +117,20 @@ extension PressureWellbeingLink {
     /// `samples` and `checkIns` may be unsorted; both are taken as the whole window the caller
     /// wants examined. `nil` covers every thin case and they are all drawn the same way — the
     /// card says the pattern is still building rather than printing a number off four points.
+    ///
+    /// Builds its own grid. A caller that needs the same cells for something else should build
+    /// them once with `hourlyCells(from:asOf:)` and use the overload below — gridding four
+    /// months of samples is the expensive half of this screen and it is on the main actor.
     static func make(checkIns: [CheckIn],
                      samples: [PressureSample],
                      asOf now: Date) -> PressureWellbeingLink? {
-        let grid = hourlyPressure(from: samples, asOf: now)
+        make(checkIns: checkIns, cells: hourlyCells(from: samples, asOf: now))
+    }
+
+    /// The same search over a grid the caller already has.
+    static func make(checkIns: [CheckIn],
+                     cells: [HourlyPressureGrid.Cell]) -> PressureWellbeingLink? {
+        let grid = hourlyPressure(from: cells)
         guard !grid.isEmpty else { return nil }
 
         var best: PressureWellbeingLink?
@@ -138,18 +148,27 @@ extension PressureWellbeingLink {
         return best
     }
 
-    /// The hourly grid as a lookup, excursions already rejected.
+    /// The hourly grid over everything `samples` reaches, excursions already rejected.
+    ///
+    /// The one place the Insights window is gridded. `WellbeingInsights.make` calls it once and
+    /// hands the cells to both this type and `WellbeingPatternNote`, which used to grid the same
+    /// four months a second time — the same rows, the same answer, twice the work on the main
+    /// actor while the tab is coming up.
     ///
     /// Bridged cells are kept: a two-hour hole spanned linearly is the same value the fit is
     /// allowed to use, and dropping it here would make this card stricter than the model it
     /// sits beside for no stated reason.
-    private static func hourlyPressure(from samples: [PressureSample],
-                                       asOf now: Date) -> [Date: Double] {
-        guard let earliest = samples.map(\.timestamp).min() else { return [:] }
+    static func hourlyCells(from samples: [PressureSample],
+                            asOf now: Date) -> [HourlyPressureGrid.Cell] {
+        guard let earliest = samples.map(\.timestamp).min() else { return [] }
 
-        let cells = HourlyPressureGrid.cells(from: samples,
-                                             in: earliest..<max(now, earliest.addingTimeInterval(1)))
-        return Dictionary(cells.map { ($0.hour, $0.hectopascals) }, uniquingKeysWith: { first, _ in first })
+        return HourlyPressureGrid.cells(from: samples,
+                                        in: earliest..<max(now, earliest.addingTimeInterval(1)))
+    }
+
+    /// The grid as an hour lookup.
+    private static func hourlyPressure(from cells: [HourlyPressureGrid.Cell]) -> [Date: Double] {
+        Dictionary(cells.map { ($0.hour, $0.hectopascals) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// One lag's worth of correlation, or `nil` when the pairs will not support one.
