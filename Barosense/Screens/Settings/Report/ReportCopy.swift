@@ -23,6 +23,12 @@ enum ReportScreenCopy {
     /// The row in Settings.
     static var settingsRow: LocalizedStringKey { "Generate PDF report" }
 
+    /// The pill in the Insights heading (Figma `7:967`), which leads to the same screen.
+    ///
+    /// One word rather than `settingsRow`'s sentence: it sits beside a heading with an inch of
+    /// room, and a settings row and a heading action can afford very different amounts of text.
+    static var insightsAction: LocalizedStringKey { "Report" }
+
     static var title: LocalizedStringKey { "Doctor report" }
 
     static var intro: LocalizedStringKey {

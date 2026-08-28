@@ -24,25 +24,6 @@ enum AppTab: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Heading shown on the destination itself.
-    var screenTitle: LocalizedStringKey { label }
-
-    /// One line describing what the destination will hold once it is built.
-    var screenSummary: LocalizedStringKey {
-        switch self {
-        case .now:
-            "Current barometric pressure and how it has moved today."
-        case .history:
-            "Your past check-ins next to the pressure around them."
-        case .log:
-            "A short check-in: how you feel right now."
-        case .insights:
-            "Personal patterns that build up as you keep checking in."
-        case .settings:
-            "Notifications, stored data, and what Barosense may read."
-        }
-    }
-
     /// The centre destination is drawn as a raised accent button, not a flat icon.
     var isAccent: Bool { self == .log }
 }
