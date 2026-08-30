@@ -92,6 +92,30 @@ Rule: anything that can live in `Shared/` should. Platform targets hold views an
 platform-specific plumbing only. The ML pipeline in particular must be runnable from a
 plain unit test with synthetic input — no `HKHealthStore` or `CMAltimeter` at test time.
 
+## Documentation
+
+The `docs/` site is Material for MkDocs. Two halves, and the split is the rule:
+
+- **Hand-written and committed** — `docs/index.md`, `overview/`, `subsystems/`,
+  `database/`, `ml/`, `privacy/`, `dev/`, `adr/`.
+- **Generated and gitignored** — `docs/reference/` (a page per `.swift` file, with every
+  call site of every symbol) and `docs/generated/` (SwiftData schema + ER diagram, repo
+  tree, module graph, stats).
+
+```sh
+python3 -m venv .venv-docs
+.venv-docs/bin/pip install -r docs/requirements.txt
+.venv-docs/bin/mkdocs serve                                  # regenerates on startup
+.venv-docs/bin/python scripts/docs/generate_reference.py     # generator alone
+```
+
+If a fact can be read out of the source, **do not write it into a hand-written page** —
+teach `scripts/docs/swiftdoc/` to extract it. The reference pages are built from the
+`///` comments, so the way to improve them is to document the Swift, not the Markdown.
+
+CI builds the site with `--strict` on a Linux runner; the generator therefore must never
+grow a dependency on Xcode or on any third-party Python package.
+
 ## Agent assets
 
 `AGENTS.md` at the repo root is the tool-agnostic entry point; the operational assets
