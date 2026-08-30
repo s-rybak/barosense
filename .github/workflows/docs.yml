@@ -51,7 +51,7 @@ jobs:
         run: mkdocs build --strict
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
 
@@ -70,5 +70,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Use "Re-run all jobs" on a failed run and this step fails with "Multiple
+      # artifacts named github-pages": a re-run keeps the run id, so the artifact from
+      # the previous attempt survives and Build uploads a second one. Start a fresh run
+      # (Run workflow / a new push) instead, or delete the stale artifact and re-run
+      # only this job.
       - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
