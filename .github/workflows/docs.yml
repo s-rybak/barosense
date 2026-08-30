@@ -50,9 +50,14 @@ jobs:
       - name: Build
         run: mkdocs build --strict
 
+      # Artifacts live at run scope, not attempt scope: a "Re-run all jobs" keeps the
+      # run id, so an artifact called `github-pages` from the previous attempt survives
+      # and Deploy then finds two and refuses. Scoping the name to the attempt keeps
+      # each one distinct, so re-running a failed run works instead of poisoning it.
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: site
 
   deploy:
@@ -70,10 +75,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # Use "Re-run all jobs" on a failed run and this step fails with "Multiple
-      # artifacts named github-pages": a re-run keeps the run id, so the artifact from
-      # the previous attempt survives and Build uploads a second one. Start a fresh run
-      # (Run workflow / a new push) instead, or delete the stale artifact and re-run
-      # only this job.
+      # Must match the name Build uploaded under, attempt suffix included.
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
