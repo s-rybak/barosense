@@ -1,0 +1,207 @@
+# Material for MkDocs configuration for the Barosense documentation site.
+#
+# Build:   .venv-docs/bin/mkdocs build --strict
+# Serve:   .venv-docs/bin/mkdocs serve
+#
+# `docs/reference/` and `docs/generated/` are produced by the hook below on every build
+# and are not committed. Everything else under `docs/` is written by hand.
+
+site_name: Barosense
+site_description: >-
+  Технічна документація персонального трекера метеочутливості для iPhone та Apple Watch.
+site_author: s-rybak
+site_url: https://s-rybak.github.io/barosense/
+repo_url: https://github.com/s-rybak/barosense
+repo_name: s-rybak/barosense
+edit_uri: edit/main/docs/
+copyright: Barosense — застосунок для відстеження особистих патернів самопочуття. Не медичний пристрій.
+
+docs_dir: docs
+site_dir: site
+
+# The generated reference contains thousands of cross-links. `--strict` turns a broken one
+# into a build failure, which is the only way a generator bug gets noticed at all.
+strict: false
+not_in_nav: |
+  generated/stats.md
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: info
+    absolute_links: info
+    unrecognized_links: info
+
+theme:
+  name: material
+  language: uk
+  favicon: assets/favicon.png
+  logo: assets/logo.png
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: За системною темою
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Світла тема
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Темна тема
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - navigation.tracking
+    - navigation.prune          # 300+ reference pages; without this every build renders
+                                # the whole nav into every page and the site triples in size
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - content.action.edit
+
+extra_css:
+  - assets/barosense.css
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list          # required: every generated heading carries an explicit `{ #anchor }`
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: "¶"
+      permalink_title: Посилання на цей розділ
+      toc_depth: 3
+      # Python-Markdown's default slugifier strips every non-ASCII character, which turns
+      # a Ukrainian heading into an empty anchor and breaks every in-page link on the site.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      # Generated fragments live under `docs/`, and the default base path is the working
+      # directory. Without this the home page's stats strip fails the build.
+      base_path:
+        - docs
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search:
+      lang:
+        - uk
+        - en
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - glightbox:
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 100%
+      auto_caption: false
+  - minify:
+      minify_html: true
+      htmlmin_opts:
+        remove_comments: true
+
+hooks:
+  - docs/hooks/reference.py
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/s-rybak/barosense
+      name: Репозиторій на GitHub
+  generator: false
+
+nav:
+  - Головна: index.md
+  - Огляд:
+      - overview/index.md
+      - Архітектура: overview/architecture.md
+      - Потік даних: overview/data-flow.md
+      - Структура проєкту: overview/structure.md
+      - Дерево репозиторію: generated/project-tree.md
+      - Граф модулів: generated/module-graph.md
+  - Підсистеми:
+      - subsystems/index.md
+      - Тиск: subsystems/pressure.md
+      - Погода: subsystems/weather.md
+      - Здоров'я: subsystems/health.md
+      - Ризик і прогноз: subsystems/risk.md
+      - Сповіщення: subsystems/notifications.md
+      - Годинник: subsystems/watch.md
+      - Підписка: subsystems/subscription.md
+      - Звіти: subsystems/reports.md
+  - База даних:
+      - database/index.md
+      - Схема таблиць: generated/database-schema.md
+      - Життєвий цикл даних: database/lifecycle.md
+  - ML:
+      - ml/index.md
+      - Мітки: ml/labels.md
+      - Ознаки: ml/features.md
+      - Валідація і метрики: ml/validation.md
+  - Приватність:
+      - privacy/index.md
+      - HealthKit: privacy/healthkit.md
+  - Розробка:
+      - dev/index.md
+      - Збірка й тести: dev/build.md
+      - Конвенції коду: dev/conventions.md
+      - CI та guards: dev/ci.md
+      - Як влаштована ця документація: dev/documentation.md
+  - Рішення: adr/index.md
+  - Довідник API: reference/

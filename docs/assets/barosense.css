@@ -1,0 +1,140 @@
+/* Barosense documentation — theme tweaks on top of Material.
+ *
+ * Kept small on purpose. Everything here exists because a generated page needs it:
+ * the reference has thousands of tables of call sites, and Material's defaults are tuned
+ * for prose. */
+
+:root {
+  --bs-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Reference tables are dense and wide. Shrinking the type and tightening the padding is
+   what keeps a 40-row call-site list on one screen instead of three. */
+.md-typeset table:not([class]) {
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 0.4em 0.7em;
+}
+
+.md-typeset table:not([class]) code {
+  font-size: 0.95em;
+  word-break: break-word;
+}
+
+/* The `<small>` chip after a declaration heading — `func`, `struct`, `@Model`. */
+.md-typeset h2 small,
+.md-typeset h3 small,
+.md-typeset h4 small,
+.md-typeset h5 small,
+.md-typeset h6 small {
+  font-family: var(--bs-mono);
+  font-size: 0.62em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  vertical-align: middle;
+  padding: 0.15em 0.5em;
+  margin-left: 0.35em;
+  border-radius: 0.6em;
+  color: var(--md-primary-fg-color);
+  background: var(--md-accent-fg-color--transparent);
+  border: 1px solid var(--md-primary-fg-color--light);
+}
+
+/* Declaration headings sit close together on a file page; a rule above each one gives the
+   eye a boundary that the heading size alone does not. */
+.md-typeset .md-content h3 {
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Mermaid diagrams are the whole point of several pages — let them use the width.
+ *
+ * `text-align: center` rather than `display: flex; justify-content: center`: a flex
+ * container that centres content wider than itself clips the *left* overflow and makes it
+ * unreachable by scrolling. The ER diagrams are wide enough for that to matter. */
+.mermaid {
+  display: block;
+  overflow-x: auto;
+  text-align: center;
+}
+
+/* Mermaid writes an inline `max-width` in px; on a narrow screen that is still wider than
+ * the column, so the container scrolls rather than the page. */
+.mermaid svg {
+  height: auto;
+}
+
+/* The site is Ukrainian; Material's default `Inter` covers Cyrillic, but the code font
+   falls back per glyph and the mixed result is unreadable in a table cell. Pinning the
+   stack keeps identifiers Latin-only and legible. */
+.md-typeset code,
+.md-typeset pre > code {
+  font-family: var(--bs-mono);
+  font-variant-ligatures: none;
+}
+
+/* Home page feature grid. */
+.bs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.8rem;
+  margin: 1.2rem 0;
+}
+
+.bs-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  padding: 0.9rem 1rem;
+  background: var(--md-default-bg-color);
+  transition: border-color 120ms, box-shadow 120ms;
+}
+
+.bs-card:hover {
+  border-color: var(--md-primary-fg-color--light);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.bs-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  border-top: none;
+  padding-top: 0;
+}
+
+.bs-card p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Number strip under the home-page hero. */
+.bs-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.6rem;
+  margin: 1.2rem 0 1.6rem;
+}
+
+.bs-stat {
+  text-align: center;
+  padding: 0.7rem 0.4rem;
+  border-radius: 0.4rem;
+  background: var(--md-code-bg-color);
+}
+
+.bs-stat strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: var(--md-primary-fg-color);
+}
+
+.bs-stat span {
+  font-size: 0.65rem;
+  color: var(--md-default-fg-color--light);
+}

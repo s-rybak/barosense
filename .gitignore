@@ -71,3 +71,16 @@ fastlane/test_output
 .DS_Store
 
 .claude/.pr-body.md
+# Documentation site (Material for MkDocs).
+#
+# `docs/reference/` and `docs/generated/` are rebuilt from the Swift sources on every
+# docs build — see scripts/docs/generate_reference.py. Committing 320+ generated pages
+# would bury every PR's diff, and a committed copy that drifts from the generator is a
+# new class of bug. Regenerate instead:
+#     .venv-docs/bin/python scripts/docs/generate_reference.py
+docs/reference/
+docs/generated/
+site/
+.venv-docs/
+__pycache__/
+*.py[cod]
