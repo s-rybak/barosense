@@ -44,7 +44,7 @@ Read these before writing any code. They override convenience.
 | Barometer      | `CoreMotion.CMAltimeter`                                                   |
 | Health signals | HealthKit (`HKHealthStore`, observer queries)                              |
 | Weather        | WeatherKit                                                                 |
-| ML             | Core ML on-device; local training via `MLUpdateTask`                       |
+| ML             | local training                                                             |
 | Persistence    | SwiftData (CoreData only if fine-grained control is needed), CloudKit sync |
 | Widgets        | WidgetKit + `TimelineProvider`, ~1 h refresh cadence                       |
 | Tests          | XCTest; separate unit tests for the ML pipeline                            |
