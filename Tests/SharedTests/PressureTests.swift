@@ -27,4 +27,29 @@ final class PressureTests: XCTestCase {
         let later = Pressure(hectopascals: 1006)
         XCTAssertEqual(later.delta(from: earlier), -9, accuracy: 0.001)
     }
+
+    // MARK: - Non-finite input
+
+    func testNonFiniteReadingsAreNotPlausible() {
+        // NaN and the infinities are what a divide-by-zero or a corrupt sensor word arrives
+        // as. `isPlausible` is the only thing between them and the hourly grid, where one
+        // NaN turns every mean, SD and delta over the window into NaN without an error.
+        for value in [Double.nan, .signalingNaN, .infinity, -.infinity] {
+            XCTAssertFalse(Pressure(hectopascals: value).isPlausible, "hPa \(value)")
+            XCTAssertFalse(Pressure(kilopascals: value).isPlausible, "kPa \(value)")
+        }
+    }
+
+    func testPhysicallyImpossibleReadingsAreNotPlausible() {
+        for value in [-1.0, 0, 799.9, 1100.1, 1e9] {
+            XCTAssertFalse(Pressure(hectopascals: value).isPlausible, "hPa \(value)")
+        }
+    }
+
+    func testTheRangeBoundsThemselvesAreAccepted() {
+        // Pins the gate as closed, not half-open: a reading exactly on either bound is a
+        // reading, and narrowing this silently drops rows at the extremes of real weather.
+        XCTAssertTrue(Pressure(hectopascals: 800).isPlausible)
+        XCTAssertTrue(Pressure(hectopascals: 1100).isPlausible)
+    }
 }

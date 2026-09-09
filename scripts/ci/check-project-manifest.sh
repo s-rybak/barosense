@@ -35,6 +35,7 @@ fi
 declare -a invariants=(
     'SWIFT_STRICT_CONCURRENCY: complete|strict concurrency must stay complete'
     'ENABLE_USER_SCRIPT_SANDBOXING: YES|user script sandboxing must stay on'
+    'ENABLE_TESTABILITY: NO|@testable must stay out of Release builds'
 )
 for entry in "${invariants[@]}"; do
     setting=${entry%%|*}
@@ -44,6 +45,20 @@ for entry in "${invariants[@]}"; do
         status=1
     fi
 done
+
+# --- App Transport Security must not be weakened ---------------------------------------
+# ATS is on by default and nothing here needs an exception: the one outbound client is
+# WeatherKit over HTTPS. The failure mode is somebody adding NSAllowsArbitraryLoads to get
+# past a local server or a debugging proxy and never taking it back out.
+ats=$(git grep -EnH 'NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads' \
+    -- '*.plist' '*.entitlements' '*.yml' '*.xcprivacy' \
+    | grep -v 'check-project-manifest' || true)
+if [ -n "$ats" ]; then
+    echo "FAIL: App Transport Security exception declared" >&2
+    printf '%s\n' "$ats" >&2
+    echo "      The only outbound client is WeatherKit over HTTPS. Remove the exception." >&2
+    status=1
+fi
 
 # --- a source directory that no target builds is dead weight ---------------------------
 for dir in Barosense BarosenseWatch Shared Tests; do

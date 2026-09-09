@@ -110,7 +110,7 @@ Deviating from these requires an ADR in `.claude/context/decisions/`.
 | Health        | HealthKit — `HKHealthStore`, observer queries for background updates   |
 | Weather       | WeatherKit                                                             |
 | ML            | local training                                                         |
-| Persistence   | SwiftData + CloudKit sync (CoreData only if fine control is required)  |
+| Persistence   | SwiftData, **no CloudKit sync** — `cloudKitDatabase: .none`; enabling it needs an ADR (CoreData only if fine control is required) |
 | Widgets       | WidgetKit + ClockKit, `TimelineProvider`, ~1 h refresh                 |
 | Backend       | None. Avoid for as long as possible.                                   |
 | Tests         | XCTest; snapshot tests for UI; separate unit tests for the ML pipeline |

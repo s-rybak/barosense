@@ -14,6 +14,18 @@
 -->
 <plist version="1.0">
 <dict>
+	<!-- Export compliance. The app ships no encryption of its own: what it uses is HTTPS via
+	     URLSession/WeatherKit and Apple's own at-rest file protection, both of which are
+	     exempt. Declared here so App Store Connect stops asking the question on every upload
+	     and cannot be answered wrongly under time pressure on a submission day.
+
+	     A real Boolean, in this file, for the same reason NSLocationDefaultAccuracyReduced is:
+	     how INFOPLIST_KEY_* injection types a key it does not recognise is undocumented, and a
+	     <string>NO</string> here is not the same value. Flip to <true/> only alongside an
+	     actual custom-cryptography change, which is a CCATS/self-classification decision and
+	     not a build tweak. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Barometer sampling wakes. Must match PressureSamplingPolicy.backgroundRefreshIdentifier;
 	     a submission for an identifier missing here throws BGTaskSchedulerErrorCodeNotPermitted
 	     and the refresh chain silently never starts. -->

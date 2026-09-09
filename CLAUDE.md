@@ -45,7 +45,7 @@ Read these before writing any code. They override convenience.
 | Health signals | HealthKit (`HKHealthStore`, observer queries)                              |
 | Weather        | WeatherKit                                                                 |
 | ML             | local training                                                             |
-| Persistence    | SwiftData (CoreData only if fine-grained control is needed), CloudKit sync |
+| Persistence    | SwiftData (CoreData only if fine-grained control is needed). **No CloudKit sync** — `cloudKitDatabase: .none` in `BarosenseModelContainer`; enabling it needs an ADR |
 | Widgets        | WidgetKit + `TimelineProvider`, ~1 h refresh cadence                       |
 | Tests          | XCTest; separate unit tests for the ML pipeline                            |
 | Project file   | XcodeGen (`project.yml`)                                                   |
