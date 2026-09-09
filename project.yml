@@ -1,5 +1,12 @@
 name: Barosense
 
+# Spelled out rather than left to XcodeGen's default, which produces exactly this pair.
+# Naming them is what gives `settings.configs` below something to attach to, and it makes a
+# third configuration an explicit decision instead of a side effect.
+configs:
+  Debug: debug
+  Release: release
+
 options:
   bundleIdPrefix: com.barosense
   createIntermediateGroups: true
@@ -24,6 +31,23 @@ settings:
     CODE_SIGN_STYLE: Automatic
     # Fill in before building on device / enabling WeatherKit + HealthKit.
     DEVELOPMENT_TEAM: ""
+  # Per-configuration settings. Every value below is already Xcode's default for that
+  # configuration — they are pinned here, and guarded in scripts/ci/check-project-manifest.sh,
+  # for the same reason SWIFT_STRICT_CONCURRENCY is: the failure mode is somebody flipping one
+  # in the Xcode UI to make a build succeed, and a generated .xcodeproj means that edit would
+  # otherwise vanish on the next `xcodegen generate` with nothing recording that it happened.
+  configs:
+    Debug:
+      ENABLE_TESTABILITY: YES
+    Release:
+      # `@testable import` links against a module built with this on and re-exports every
+      # `internal` symbol. Shipping a Release binary with it set would put the whole
+      # persistence and risk surface — stores, erasers, model internals — into the public
+      # symbol table of an app whose entire threat model is on-device.
+      ENABLE_TESTABILITY: NO
+      SWIFT_COMPILATION_MODE: wholemodule
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      VALIDATE_PRODUCT: YES
 
 targets:
 
@@ -32,6 +56,17 @@ targets:
     platform: iOS
     sources:
       - path: Barosense
+        excludes:
+          - PrivacyInfo.xcprivacy
+      # Redundant, and kept anyway. XcodeGen 2.46.0 — the version pinned in
+      # .github/workflows/tests.yml — already routes an unrecognised extension to Resources
+      # through the `default` branch of SourceGenerator.getDefaultBuildPhase, so the glob
+      # above picks this file up on its own. Naming the phase costs six lines and drops a
+      # dependency on that fall-through staying put; what it guards against is a privacy
+      # manifest missing from the bundle, which builds clean and is only caught at upload.
+      # `excludes` above is what stops the glob adding the same file a second time.
+      - path: Barosense/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: Shared
     settings:
       base:
@@ -84,8 +119,6 @@ targets:
         com.apple.developer.healthkit.access: []
         com.apple.developer.healthkit.background-delivery: true
         com.apple.developer.weatherkit: true
-        com.apple.security.application-groups:
-          - group.com.barosense.shared
     dependencies:
       - target: BarosenseWatch
         embed: true
@@ -101,6 +134,13 @@ targets:
     platform: watchOS
     sources:
       - path: BarosenseWatch
+        excludes:
+          - PrivacyInfo.xcprivacy
+      # Its own copy, for the reason in Barosense/PrivacyInfo.xcprivacy: the watch app is a
+      # separate bundle and is scanned separately. Named explicitly, and excluded from the
+      # glob, for the reason the iOS target's is.
+      - path: BarosenseWatch/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: Shared
     settings:
       base:
@@ -122,8 +162,6 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
-        com.apple.security.application-groups:
-          - group.com.barosense.shared
 
   SharedTests:
     type: bundle.unit-test

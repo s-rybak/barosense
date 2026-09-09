@@ -90,20 +90,22 @@ enum BarosenseModelContainer {
 
     /// Where a durable store file lives: the app's own Application Support directory.
     ///
-    /// Spelled out rather than left to SwiftData's default. Both targets declare
-    /// `com.apple.security.application-groups`, and `ModelConfiguration`'s default
-    /// `groupContainer: .automatic` follows that entitlement into a shared-group container
-    /// whose `Library/Application Support` directory nothing has created — so the default
-    /// silently fails to open on a clean install. Naming the URL also means the file does
-    /// not move if the entitlement changes.
+    /// Spelled out rather than left to SwiftData's default, which resolves
+    /// `groupContainer: .automatic` against whatever app-group entitlement the target
+    /// carries. Both targets used to declare `com.apple.security.application-groups`, and
+    /// the default then followed it into a shared-group container whose
+    /// `Library/Application Support` directory nothing had created — so it silently failed
+    /// to open on a clean install. The entitlement is gone now (nothing read the shared
+    /// container), and naming the URL is what makes that removal a no-op for existing
+    /// installs instead of a store that moves out from under them.
     ///
     /// Shared by every durable store rather than reimplemented per store: the sensor logs
     /// hit this exact failure by taking the name-based initialiser, and a workaround that
     /// only one of three stores knows about is a workaround that gets forgotten again.
     ///
-    /// The group container is where these belong once something outside the app —
-    /// a widget, a complication — has to read the same rows. That is a migration, not a
-    /// configuration flip, so it waits until there is such a reader.
+    /// A group container is where these belong once something outside the app — a widget,
+    /// a complication — has to read the same rows. That is a migration plus the entitlement
+    /// back, not a configuration flip, so it waits until there is such a reader.
     static func storeURL(fileName: String) throws -> URL {
         let directory = try FileManager.default.url(
             for: .applicationSupportDirectory,
@@ -111,7 +113,56 @@ enum BarosenseModelContainer {
             appropriateFor: nil,
             create: true
         )
+        excludeFromBackup(directory)
         return directory.appending(path: fileName, directoryHint: .notDirectory)
+    }
+
+    /// Marks the directory holding every durable store as excluded from iCloud and iTunes
+    /// backups.
+    ///
+    /// `CLAUDE.md` constraint 2 says health data does not leave the device. A backup is an
+    /// egress path, and the default for anything under Application Support is *included*:
+    /// without this line the check-in history, the notes attached to it, the tag vocabulary
+    /// and every sensor row are copied into the user's iCloud account by the OS, with no
+    /// prompt, no consent step, and nothing in this codebase saying so. That is the same
+    /// data `cloudKitDatabase: .none` exists to keep out of iCloud, arriving by a different
+    /// door.
+    ///
+    /// **The cost is real and is the point of the trade:** a user restoring onto a new
+    /// iPhone starts with an empty history. Migration has to be an explicit, consented
+    /// export rather than something the OS does silently — and until that export exists,
+    /// this is the choice that matches what the app's own README promises. Reversing it is
+    /// one line, and needs an ADR, not a preference.
+    ///
+    /// The whole directory rather than each store file, so it also covers the SQLite
+    /// sidecars: `-wal` holds the most recent writes and `-shm` its index, and excluding
+    /// only `Barosense.store` would back up the very rows the user last entered.
+    ///
+    /// Applied on every open rather than once. The flag is a file attribute, so a directory
+    /// recreated after a failed migration, or restored from a backup taken before this
+    /// shipped, arrives without it.
+    ///
+    /// **Does not throw, deliberately.** This is the one call in `storeURL` whose failure
+    /// must not stop the store from opening. `setResourceValues` fails for reasons that have
+    /// nothing to do with the data — an odd sandbox state, a directory mid-restore — and
+    /// letting that propagate would fail every durable store at once, which `BarosenseApp`
+    /// answers by falling back to memory: the barometer history then goes unwritten for the
+    /// whole session, and its own comment there calls that the costliest failure it has.
+    /// Against it, one launch whose files stay eligible for backup is the smaller loss, and
+    /// the next launch re-applies the flag. Logged rather than swallowed, because a store
+    /// that opens normally is exactly the case where nothing else would ever show this.
+    private static func excludeFromBackup(_ directory: URL) {
+        var url = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+
+        do {
+            try url.setResourceValues(values)
+        } catch {
+            BarosenseLog.persistence.error(
+                "backup exclusion failed, store opened anyway: \(String(describing: error), privacy: .public)"
+            )
+        }
     }
 
     /// A container that never touches disk, for tests and previews. Same schema, so a

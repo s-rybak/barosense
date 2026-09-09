@@ -161,6 +161,61 @@ final class CheckInTests: XCTestCase {
         XCTAssertFalse(annotated.isPoorWellbeing)
         XCTAssertEqual(annotated.isPoorWellbeing, bare.isPoorWellbeing)
     }
+
+    // MARK: - Note bounds
+
+    func testNoteIsTrimmedAtBothEnds() {
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 4),
+                              note: "  Woke up early \n")
+
+        XCTAssertEqual(checkIn.note, "Woke up early")
+    }
+
+    func testWhitespaceOnlyNoteIsStoredAsNothing() {
+        // "typed only spaces" and "wrote nothing" have to reach storage as one state, or
+        // every reader downstream has to know to tell them apart.
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 4),
+                              note: " \n\t ")
+
+        XCTAssertNil(checkIn.note)
+    }
+
+    func testNoteIsCutToTheStoredMaximum() {
+        // The bound exists for a paste, not for typing: the history view fetches ranges of
+        // check-ins and carries the note on every row it reads.
+        let pasted = String(repeating: "a", count: CheckIn.maximumNoteLength + 500)
+
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 4),
+                              note: pasted)
+
+        XCTAssertEqual(checkIn.note?.count, CheckIn.maximumNoteLength)
+    }
+
+    func testANoteAtTheLimitIsKeptWhole() {
+        let exact = String(repeating: "a", count: CheckIn.maximumNoteLength)
+
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 4),
+                              note: exact)
+
+        XCTAssertEqual(checkIn.note, exact)
+    }
+
+    func testTheCutCountsGraphemeClustersNotBytes() {
+        // A Cyrillic note is two UTF-8 bytes per character and an emoji with a modifier is
+        // several scalars: cutting by either would land inside a character the reader sees
+        // as one, and the bound would mean a different length per language.
+        let cyrillic = String(repeating: "я", count: CheckIn.maximumNoteLength + 10)
+
+        let checkIn = CheckIn(timestamp: referenceDate,
+                              intensity: CheckInIntensity(clamping: 4),
+                              note: cyrillic)
+
+        XCTAssertEqual(checkIn.note?.count, CheckIn.maximumNoteLength)
+    }
 }
 
 /// `MedicationEntry` lives only inside a check-in, so its tests sit beside the check-in's.

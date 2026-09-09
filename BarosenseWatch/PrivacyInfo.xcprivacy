@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy manifest for the watchOS target. Required at submission: without it the upload is
+  rejected, and the required-reason API declarations below are what App Review checks the
+  binary against.
+
+  The iOS target carries its own copy at Barosense/PrivacyInfo.xcprivacy. The two
+  are separate bundles and each is scanned on its own — they are kept identical because
+  Shared/ compiles into both, and every required-reason API this app touches is in Shared/.
+-->
+<plist version="1.0">
+<dict>
+	<!-- No tracking. There is no advertising identifier, no attribution SDK and no third
+	     party to correlate this user with — the network egress guard (scripts/ci/check-
+	     network-egress.sh) fails the build if one appears. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- Empty because "collect" in Apple's sense means transmitting off the device where
+	     the developer can reach it, and nothing here is. There is no backend, no account
+	     and no analytics; CloudKit sync is off in code, not merely unconfigured.
+
+	     UNVERIFIED, and the one entry to re-check before submission: WeatherKit requests
+	     carry a coordinate (rounded to 0.1°, ~11 km) and a time. Apple operates that
+	     service and the developer never receives the request, which is why "Coarse
+	     Location" is not declared here — but whether Apple expects a first-party service
+	     call to be declared anyway is not something this file should assert from memory.
+	     Confirm against the current App Store Connect guidance, and add a
+	     NSPrivacyCollectedDataTypeCoarseLocation entry if it turns out to be required. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- UserDefaults, used by the preference stores in Shared/ (language, reminder
+		     schedule, WeatherKit consent, medication chips) and by the settings screens.
+
+		     CA92.1 is the "accessible only to the app itself" reason, and it is accurate
+		     *because* the app-group entitlement was removed: with no shared container,
+		     these defaults cannot be read by anything else. Re-adding an app group means
+		     revisiting this code, not just the entitlement. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

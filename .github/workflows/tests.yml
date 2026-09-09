@@ -32,13 +32,31 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # XcodeGen was the one unpinned link in an otherwise pinned pipeline: `brew install`
+      # resolved whatever version happened to be current at run time and ran its install
+      # scripts, which is exactly what SHA-pinning the actions above exists to prevent.
+      #
+      # Pinned by version *and* by the SHA-256 of the release archive, because a GitHub
+      # release asset can be replaced under an unchanged tag. A re-tagged or tampered
+      # archive now fails the checksum instead of executing. Bump both together; the digest
+      # is `shasum -a 256 xcodegen.zip` on the downloaded file.
       - name: Install XcodeGen
         env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_INSTALL_CLEANUP: "1"
-        run: brew install xcodegen
+          XCODEGEN_VERSION: "2.46.0"
+          XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 --check --strict -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          # The binary locates its SettingPresets relative to its own path, so the extracted
+          # tree has to stay intact — only bin/ goes on PATH, not the binary on its own.
+          chmod +x "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
 
       # Cheap, and it is the first thing you want in the log when the next runner-image
       # update moves the toolchain out from under the build.
@@ -46,6 +64,7 @@ jobs:
         run: |
           ls -d /Applications/Xcode*.app || true
           xcodebuild -version
+          xcodegen --version
           xcrun simctl list runtimes
 
       - name: Build and test

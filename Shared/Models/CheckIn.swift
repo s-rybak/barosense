@@ -141,6 +141,53 @@ struct CheckIn: Identifiable, Hashable, Codable, Sendable {
         self.tagIDs = tagIDs
         self.medications = medications
         self.health = health
-        self.note = note
+        self.note = note.flatMap(CheckIn.storedNote(from:))
+    }
+}
+
+// MARK: - Note
+
+extension CheckIn {
+
+    /// Longest note this app stores, in characters.
+    ///
+    /// A bound at all because `note` is the one field that accepts anything: a free-text
+    /// area with no formatter behind it, where a paste is a single gesture. Unbounded, one
+    /// check-in can be as large as the pasteboard allows — and it is not a single large row,
+    /// because the history view fetches ranges of check-ins and the note rides along on
+    /// every one of those reads.
+    ///
+    /// 2000 is measured against what the field is for rather than picked round: a reflection
+    /// written at the end of a hard day runs to a few hundred characters, so the cut sits
+    /// several times past anything reachable by typing and is only met by a paste.
+    ///
+    /// Counted in `Character`s for the reason `WellbeingTag.maximumNameLength` is — a Swift
+    /// `Character` is a grapheme cluster, so the cut lands where a reader would say it does
+    /// and never between a letter and a combining mark.
+    static let maximumNoteLength = 2000
+
+    /// `raw` as this app will store it — trimmed at both ends, then cut to
+    /// `maximumNoteLength`. `nil` when nothing survives the trim, so "typed only spaces" and
+    /// "wrote nothing" reach storage as the same state rather than as two that every reader
+    /// downstream has to tell apart.
+    ///
+    /// Applied by `init` rather than by the sheet that types into it. `WellbeingTag` already
+    /// learned that a bound enforced by one of several writers is not a bound, and a check-in
+    /// now arrives from three places: the log sheet, an App Intent, and a watch transfer.
+    ///
+    /// This is the write path only. `Codable` synthesis assigns the stored properties
+    /// directly, so a row decoded straight from JSON is not re-bounded here — which is fine
+    /// for the two decoders that exist (the SwiftData mapping, which rebuilds through this
+    /// initialiser, and `CheckInTransfer`, which never carries a note at all) and worth
+    /// knowing before a third one is added.
+    static func storedNote(from raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard trimmed.count > maximumNoteLength else { return trimmed }
+
+        // Trimmed again: a cut that lands mid-sentence can leave a trailing space, and a
+        // stored note ending in one would not round-trip equal to itself.
+        return String(trimmed.prefix(maximumNoteLength))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
