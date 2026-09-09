@@ -23,7 +23,7 @@ These three are non-negotiable and apply to every task, every agent, every commi
 ### Project-specific hard rules
 
 4. **Privacy-first** — Health data does not leave the device without explicit consent.
-   ML training and inference are on-device (Core ML + `MLUpdateTask`). No analytics SDK
+   ML training and inference are on-device. No analytics SDK
    that touches HealthKit-derived values.
 5. **No medical claims** — Never write copy, code comments, or PR descriptions that state or
    imply diagnosis, treatment, or disease prevention. Approved vocabulary: _tracking_,
@@ -109,7 +109,7 @@ Deviating from these requires an ADR in `.claude/context/decisions/`.
 | Barometer     | `CoreMotion.CMAltimeter` (`relativeAltitudeUpdates`, pressure in kPa)  |
 | Health        | HealthKit — `HKHealthStore`, observer queries for background updates   |
 | Weather       | WeatherKit                                                             |
-| ML            | Core ML on-device, local training via `MLUpdateTask`                   |
+| ML            | local training                                                         |
 | Persistence   | SwiftData + CloudKit sync (CoreData only if fine control is required)  |
 | Widgets       | WidgetKit + ClockKit, `TimelineProvider`, ~1 h refresh                 |
 | Backend       | None. Avoid for as long as possible.                                   |
